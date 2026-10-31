@@ -17,7 +17,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: { httpOnly: true, maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
 app.get('/api/status', (req, res) => {
   db.get("SELECT value FROM settings WHERE key='stopped'", (err, row) => {
@@ -129,3 +129,6 @@ app.post('/api/admin/toggle-stop', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Сервер запущен: http://localhost:${PORT}`));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
