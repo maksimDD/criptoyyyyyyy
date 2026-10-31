@@ -1,5 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { SocksProxyAgent } = require('socks-proxy-agent');
+//const { SocksProxyAgent } = require('socks-proxy-agent');
 
 const TOKEN = '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
 const ADMIN_CHAT = '7270019395'; 
