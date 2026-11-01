@@ -106,7 +106,7 @@ app.post('/api/register', (req, res) => {
       if (err) return res.status(500).json({ error: 'Ошибка БД' });
       if (existing) return res.status(409).json({ error: 'Такой ник уже занят' });
       const hash = bcrypt.hashSync(password, 12);
-      db.run('INSERT INTO users(nickname,password_hash,last_ip,last_seen) VALUES(?,?,?,CURRENT_TIMESTAMP)', [nickname, hash, ip], function(insertErr) {
+      let publicId; const pickId = cb => { const n=Math.floor(Math.random()*99999)+1; db.get('SELECT id FROM users WHERE public_id=?',[n],(e,row)=>row?pickId(cb):cb(n)); }; pickId(publicIdValue => { publicId=publicIdValue; db.run('INSERT INTO users(nickname,password_hash,last_ip,last_seen,public_id) VALUES(?,?,?,CURRENT_TIMESTAMP,?)', [nickname, hash, ip, publicId], function(insertErr) {
         if (insertErr) return res.status(500).json({ error: 'Не удалось создать аккаунт' });
         const user = { id: this.lastID, nickname, sessionVersion: 0 };
         req.session.regenerate(regErr => {
@@ -114,10 +114,10 @@ app.post('/api/register', (req, res) => {
           req.session.userId = user.id; req.session.nickname = nickname; req.session.sessionVersion = 0;
           logVisit(user, ip, 'register');
           // Never send/store a plaintext password in Telegram or logs.
-          notifyNewUser(nickname).catch(() => {});
-          req.session.save(() => res.json({ ok: true, nickname }));
+          notifyNewUser({nickname, publicId}).catch(() => {});
+          req.session.save(() => res.json({ ok: true, nickname, publicId }));
         });
-      });
+      }); });
     });
   });
 });
@@ -152,51 +152,30 @@ app.get('/api/history', (req, res) => {
   db.all(query[0], query[1], (err, rows) => err ? res.status(500).json({ error: 'Не удалось загрузить историю' }) : res.json(rows || []));
 });
 
-app.post('/api/sell', (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт, чтобы отправить заявку.' });
-  getSetting('stopped', '0', (e, stopped) => {
-    if (e) return res.status(500).json({ error: 'Ошибка настроек' });
-    if (stopped === '1' && req.session.isAdmin !== true) return res.status(403).json({ error: 'Приём заявок временно приостановлен.' });
-    const { coin, network, wallet, destinationWallet, memo, payoutType, payoutValue, bank, operationType = 'sell', amount } = req.body || {};
-    const asset = String(coin || '').toUpperCase();
-    const net = String(network || '');
-    const userWallet = String(wallet || '').trim();
-    const payout = String(payoutValue || '').trim();
-    const bankName = String(bank || '').trim();
-    const op = operationType === 'withdraw' ? 'withdraw' : 'sell';
-    const qty = Number(amount || 0);
-    const validNetwork = asset === 'GRAM' ? ['TON'] : ['BEP20','TRC20','ERC20','TON','SPL'];
-    const expectedWallet = BLUP_WALLETS[asset]?.[net];
-    if (!['USDT','GRAM'].includes(asset) || !validNetwork.includes(net) || !expectedWallet || String(destinationWallet || '') !== expectedWallet) return res.status(400).json({ error: 'Проверьте валюту, сеть и адрес кошелька BLUP.' });
-    if (op === 'sell' && (!payout || payout.length > 100 || !bankName || userWallet.length > 180 || !Number.isFinite(qty) || qty <= 0 || qty > 1000000)) return res.status(400).json({ error: 'Укажите сумму продажи и реквизиты для получения оплаты.' });
-    if (op === 'withdraw' && (!userWallet || userWallet.length > 180 || !Number.isFinite(qty) || qty <= 0 || qty > 1000000)) return res.status(400).json({ error: 'Укажите сумму и корректный адрес кошелька для получения.' });
-    if (op === 'withdraw') {
-      db.run('UPDATE settings SET value=CAST(value AS REAL)-? WHERE key=\'reserve_available\' AND CAST(value AS REAL)>=?', [qty, qty], function(err) {
-        if (err) return res.status(500).json({ error: 'Ошибка резерва' });
-        if (!this.changes) return res.status(400).json({ error: 'Недостаточно доступного резерва для этой суммы.' });
-        insertRequest();
-      });
-    } else insertRequest();
-    function insertRequest() {
-      const storedNetwork = net;
-      const storedWallet = userWallet || '—';
-      const storedPayout = op === 'withdraw' ? userWallet : payout;
-      const storedBank = op === 'withdraw' ? 'Криптовалютный кошелёк' : bankName;
-      db.run(`INSERT INTO sales(user_id,nickname,coin,network,wallet,destination_wallet,phone,bank,operation_type,memo,payout_type,amount,status)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'pending')`,
-        [req.session.userId, req.session.nickname, asset, storedNetwork, storedWallet, expectedWallet, storedPayout, storedBank, op, String(memo || '').slice(0,120), op === 'withdraw' ? 'wallet' : String(payoutType || 'phone'), qty],
-        function(err) {
-          if (err) {
-            if (op === 'withdraw') db.run("UPDATE settings SET value=CAST(value AS REAL)+? WHERE key='reserve_available'", [qty]);
-            return res.status(500).json({ error: 'Не удалось создать заявку.' });
-          }
-          const sale = { id: this.lastID, nickname: req.session.nickname, coin: asset, network: storedNetwork, wallet: storedWallet, destinationWallet: expectedWallet, phone: storedPayout, bank: storedBank, memo: String(memo || '') };
-          notifyAdmin(sale).catch(() => {});
-          res.json({ ok: true, id: this.lastID });
-        });
-    }
-  });
+app.get('/api/profile', (req,res) => {
+  if(!req.session.userId) return res.status(401).json({error:'Войдите в аккаунт'});
+  db.get(`SELECT u.nickname,u.public_id,u.created_at,COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd
+    FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.id=? GROUP BY u.id`,[req.session.userId],(e,row)=>e?res.status(500).json({error:'Ошибка профиля'}):res.json(row||{}));
 });
+app.post('/api/sell',(req,res)=>{
+ if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
+ getSetting('stopped','0',(me,stopped)=>{if(stopped==='1'&&req.session.isAdmin!==true)return res.status(403).json({error:'Приём заявок временно приостановлен.'});
+ const coin=String(req.body?.coin||'').toUpperCase(), network=String(req.body?.network||''), amount=Number(req.body?.amount), comment=String(req.body?.comment||'').slice(0,500), tg=String(req.body?.telegramUsername||'').trim().replace(/^@/, '');
+ if(!['USDT','GRAM'].includes(coin)||!(coin==='GRAM'?network==='TON':['BEP20','TRC20','ERC20','TON','SPL'].includes(network))||!BLUP_WALLETS[coin]?.[network]||!Number.isFinite(amount)||amount<=0||amount>1000000||!/^([A-Za-z0-9_]{5,32})$/.test(tg))return res.status(400).json({error:'Проверьте монету, сеть, сумму и Telegram username.'});
+ db.run(`INSERT INTO sales(user_id,nickname,coin,network,destination_wallet,operation_type,amount,memo,comment,status) VALUES(?,?,?,?,?,'sell',?,?,?,'pending')`,[req.session.userId,req.session.nickname,coin,network,BLUP_WALLETS[coin][network],amount,'',comment],function(e){if(e)return res.status(500).json({error:'Не удалось создать заявку'});const item={id:this.lastID,nickname:req.session.nickname,coin,network,amount,comment,telegramUsername:tg,created_at:new Date().toISOString()};notifyAdmin(item).catch(()=>{});db.run('UPDATE users SET telegram_username=? WHERE id=?',[tg,req.session.userId]);res.json({ok:true,id:this.lastID});});
+ });
+});
+app.post('/api/withdraw',(req,res)=>{
+ if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
+ const saleId=Number(req.body?.saleId), payoutType=String(req.body?.payoutType||'phone'), payout=String(req.body?.payoutValue||'').trim(), bank=String(req.body?.bank||'').trim();
+ db.get("SELECT * FROM sales WHERE id=? AND user_id=? AND operation_type='sell' AND status='completed'",[saleId,req.session.userId],(e,sale)=>{
+  if(e||!sale)return res.status(400).json({error:'Вывод доступен только после одобрения продажи'});
+  const rateKey=sale.coin==='GRAM'?'gram_rate':'usdt_rate';getSetting(rateKey,'0',(err,rateRaw)=>{const rate=Number(rateRaw),usd=Number(req.body?.amount||sale.amount);if(err||!rate||!Number.isFinite(usd)||usd<=0||usd>sale.amount||!payout||payout.length>100||!bank||!['phone','card'].includes(payoutType))return res.status(400).json({error:'Проверьте сумму, курс и банковские реквизиты'});const rub=Number((usd*rate).toFixed(2));db.run(`INSERT INTO sales(user_id,nickname,coin,network,operation_type,amount,payout_rub,phone,bank,payout_type,parent_sale_id,status) VALUES(?,?,?,?,'withdraw',?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,sale.coin,sale.network,usd,rub,payout,bank,payoutType,saleId],function(ins){if(ins)return res.status(500).json({error:'Не удалось создать заявку на вывод'});notifyAdmin({id:this.lastID,nickname:req.session.nickname,coin:sale.coin,network:sale.network,amount:usd,payoutRub:rub,phone:payout,bank,operation:'withdraw'}).catch(()=>{});res.json({ok:true,id:this.lastID,usd,rub,rate});});});
+ });
+});
+app.get('/api/withdraw/eligible',(req,res)=>{if(!req.session.userId)return res.status(401).json({error:'Войдите'});db.all("SELECT id,coin,network,amount,created_at FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed' ORDER BY id DESC",[req.session.userId],(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows));});
+app.get('/api/promos',(req,res)=>db.all('SELECT code,description,reward_type,reward_value FROM promos WHERE active=1 ORDER BY id DESC',(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
+app.post('/api/promos/apply',(req,res)=>{if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});const code=String(req.body?.code||'').trim();db.get('SELECT code,description,reward_type,reward_value FROM promos WHERE code=? COLLATE NOCASE AND active=1',[code],(e,row)=>e||!row?res.status(404).json({error:'Промокод не найден или неактивен'}):res.json({ok:true,promo:row}));});
 
 function adminOnly(req, res, next) { if (req.session.isAdmin === true) return next(); return res.status(403).json({ error: 'Доступ запрещён' }); }
 app.post('/api/admin/login', (req, res) => {
@@ -219,7 +198,7 @@ app.get('/api/admin/overview', adminOnly, (req, res) => {
     if (e) return res.status(500).json({ error: 'Ошибка БД' });
     db.get("SELECT COUNT(*) AS pending FROM sales WHERE status='pending'", [], (e2, pending) => {
       db.all('SELECT id,nickname,created_at,last_ip,last_seen,is_banned,ban_reason FROM users ORDER BY id DESC LIMIT 300', [], (e3, users) => {
-        db.all('SELECT id,user_id,nickname,coin,network,operation_type,amount,status,created_at,wallet,destination_wallet,phone,bank,memo,payout_type FROM sales ORDER BY id DESC LIMIT 300', [], (e4, sales) => {
+        db.all('SELECT id,user_id,nickname,coin,network,operation_type,amount,payout_rub,status,created_at,wallet,destination_wallet,phone,bank,memo,payout_type,comment,parent_sale_id FROM sales ORDER BY id DESC LIMIT 300', [], (e4, sales) => {
           db.all('SELECT ip,reason,created_at FROM ip_bans ORDER BY created_at DESC', [], (e5, bans) => {
             db.all('SELECT user_id,nickname,ip,event,created_at FROM visits ORDER BY id DESC LIMIT 200', [], (e7, visits) => {
               if (e2 || e3 || e4 || e5 || e7) return res.status(500).json({ error: 'Ошибка загрузки панели' });
@@ -295,6 +274,9 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
     } else db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e => e ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
   });
 });
+app.post('/api/admin/promos',adminOnly,(req,res)=>{const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||'info'),value=Number(req.body?.rewardValue||0),description=String(req.body?.description||'').slice(0,200);if(!/^[A-Z0-9_-]{3,24}$/.test(code)||!['info','percent','fixed'].includes(type)||!Number.isFinite(value)||value<0||value>1000000)return res.status(400).json({error:'Проверьте данные промокода'});db.run('INSERT INTO promos(code,reward_type,reward_value,description) VALUES(?,?,?,?)',[code,type,value,description],e=>e?res.status(409).json({error:'Такой промокод уже существует'}):res.json({ok:true}));});
+app.get('/api/admin/promos',adminOnly,(req,res)=>db.all('SELECT * FROM promos ORDER BY id DESC',(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
+app.post('/api/admin/promos/:id/toggle',adminOnly,(req,res)=>db.run('UPDATE promos SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE id=?',[Number(req.params.id)],function(e){e?res.status(500).json({error:'Ошибка'}):res.json({ok:true});}));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
