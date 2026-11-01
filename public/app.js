@@ -1,408 +1,59 @@
-// ---------- утилиты ----------
-const $ = s => document.querySelector(s);
-const show = el => el.classList.remove('hidden');
-const hide = el => el.classList.add('hidden');
-
-const state = {
-  coin: null,
-  network: null,
-  user: null
-};
-
-// Настройки текста и курсов, сохранённые администратором.
-async function applySiteConfig() {
-  try {
-    const response = await fetch('/api/site-config', { credentials: 'include' });
-    if (!response.ok) return;
-    const config = await response.json();
-    const prices = config.prices || {};
-    const priceText = (coin, price) => `1 ${coin} = ${price} ₽`;
-    const rateMap = [
-      ['#page-coins [data-coin="USDT"] .coin-rate', priceText('USDT', prices.sellUsdt ?? 73)],
-      ['#page-coins [data-coin="GRAM"] .coin-rate', priceText('GRAM', prices.sellGram ?? 90)],
-      ['#page-withdraw-coins [data-coin="WITHDRAW_USDT"] .coin-rate', priceText('USDT', prices.withdrawUsdt ?? 73)],
-      ['#page-withdraw-coins [data-coin="WITHDRAW_GRAM"] .coin-rate', priceText('GRAM', prices.withdrawGram ?? 90)]
-    ];
-    for (const [selector, value] of rateMap) {
-      const el = document.querySelector(selector);
-      if (el) el.textContent = value;
-    }
-    const usdtNotice = document.querySelector('#page-usdt-pay .important');
-    if (usdtNotice) {
-      usdtNotice.textContent = `ВАЖНО! КИДАЙТЕ ЛЮБУЮ СУММУ ДО 200$ НА УКАЗАННЫЙ АДРЕС, КОМИССИЯ СЕТИ НА ВАС, ДЕНЬГИ ПРИДУТ ПО КУРСУ 1 USDT = ${prices.sellUsdt ?? 73} ₽. ОЖИДАНИЕ ДО 1 ЧАСА. ПОСЛЕ ОТПРАВКИ КРИПТЫ НАЖМИТЕ КНОПКУ.`;
-    }
-    const gramNotice = document.querySelector('#page-gram-pay .important');
-    if (gramNotice) {
-      gramNotice.textContent = `ВАЖНО! КИДАЙТЕ ЛЮБУЮ СУММУ ДО 200$ НА УКАЗАННЫЙ АДРЕС, КОМИССИЯ СЕТИ НА ВАС, ДЕНЬГИ ПРИДУТ ПО КУРСУ 1 GRAM = ${prices.sellGram ?? 90} ₽. ОЖИДАНИЕ ДО 1 ЧАСА. ПОСЛЕ ОТПРАВКИ КРИПТЫ НАЖМИТЕ КНОПКУ.`;
-    }
-    const withdrawGramNotice = document.querySelector('#page-withdraw-gram-pay .important');
-    if (withdrawGramNotice) {
-      withdrawGramNotice.textContent = `ВАЖНО! КИДАЙТЕ ЛЮБУЮ СУММУ ДО 200$ НА УКАЗАННЫЙ АДРЕС, КОМИССИЯ СЕТИ НА ВАС, ДЕНЬГИ ПРИДУТ ПО КУРСУ 1 GRAM = ${prices.withdrawGram ?? 90} ₽. ОЖИДАНИЕ ДО 1 ЧАСА.`;
-    }
-  } catch (_) { /* Сайт продолжает работать с базовыми значениями. */ }
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const toast = msg => { const el=$('#toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>el.classList.remove('show'),3200); };
+const openModal = id => { const el=$('#'+id); el.classList.add('open'); el.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; };
+const closeModal = id => { const el=$('#'+id); el.classList.remove('open'); el.setAttribute('aria-hidden','true'); if (!$('.modal-backdrop.open')) document.body.style.overflow=''; };
+$('#year').textContent = new Date().getFullYear();
+$('#menuToggle').addEventListener('click',()=>$('#nav').classList.toggle('open'));
+$$('.nav-link').forEach(a=>a.addEventListener('click',()=>{$$('.nav-link').forEach(x=>x.classList.remove('active'));a.classList.add('active');$('#nav').classList.remove('open')}));
+const userChip=$('#userChip'), loginBtn=$('#loginBtn');
+let blockedNotified=false;
+async function api(url, options={}) { const r=await fetch(url,{...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Ошибка запроса'); return d; }
+async function refreshUser(){try{const d=await api('/api/me');if(d.nickname){userChip.classList.remove('hidden');$('#userName').textContent=d.nickname;loginBtn.classList.add('hidden')}else{userChip.classList.add('hidden');loginBtn.classList.remove('hidden')}}catch(e){userChip.classList.add('hidden');loginBtn.classList.remove('hidden');if((e.message||'').includes('заблокирован')&&!blockedNotified){blockedNotified=true;toast(e.message)}}}
+async function refreshConfig(){try{const c=await api('/api/config');const money=n=>Number(n||0).toLocaleString('ru-RU',{maximumFractionDigits:2});$('#reserveAvailable').textContent='$'+money(c.reserveAvailable);$('#reserveTotal').textContent='$'+money(c.reserveTotal);$('#reserveMeter').style.width=(c.reserveTotal>0?Math.min(100,c.reserveAvailable/c.reserveTotal*100):0)+'%';$('#usdtRate').textContent=c.usdtRate>0?money(c.usdtRate)+' ₽':'не задан';$('#gramRate').textContent=c.gramRate>0?money(c.gramRate)+' ₽':'не задан';window.blupBanks=c.banks||[];}catch{}}
+refreshUser();refreshConfig();
+async function refreshMaintenance(){
+ try{
+  const d=await api('/api/status');
+  const screen=$('#maintenanceScreen');
+  if(screen) screen.classList.toggle('hidden',!d.stopped);
+ }catch{}
 }
-applySiteConfig();
+refreshMaintenance();
+setInterval(refreshMaintenance,10000);
 
-// ---------- принудительно убираем загрузчик через 1.5 сек ----------
-setTimeout(() => {
-  const loader = document.getElementById('loader');
-  if (loader) loader.classList.add('hidden');
-  show($('#header'));
-  show($('#main'));
-  checkStatus();
-  checkMe();
-  navigate('home');
-}, 1500);
+// Re-check the account periodically so an administrator's ban closes an active UI session promptly.
+setInterval(refreshUser,15000);
 
-// ---------- навигация с защитой ----------
-function navigate(page) {
-  // Если пытаемся зайти на страницы продажи и не авторизованы
-  const protectedPages = ['coins', 'withdraw-coins', 'usdt-network', 'usdt-pay', 'gram-pay', 'withdraw-usdt-network', 'withdraw-usdt-pay', 'withdraw-gram-pay'];
-  
-  if (protectedPages.includes(page) && !state.user) {
-    openAuth('login');
-    return;
-  }
-
-  document.querySelectorAll('.page').forEach(p => hide(p));
-  const target = $('#page-' + page);
-  if (target) show(target);
-  if (page === 'history') loadHistory();
+let operationType='sell';
+const operationFields=$('#operationFields');
+function labelInput(label,name,placeholder,type='text',full=false,required=true){return `<label class="${full?'full':''}">${label}<input name="${name}" type="${type}" placeholder="${placeholder}" ${required?'required':''} ${type==='number'?'min="0.01" step="0.01"':''}></label>`;}
+function labelSelect(label,name,options,full=false){return `<label class="${full?'full':''}">${label}<select name="${name}" required>${options.map((x,i)=>`<option value="${escapeHtml(x.value)}" ${i===0?'selected':''}>${escapeHtml(x.label)}</option>`).join('')}</select></label>`;}
+function bankOptions(){const banks=window.blupBanks?.length?window.blupBanks:['Сбербанк','Т-Банк','ВТБ','Альфа-Банк','Газпромбанк'];return banks.map(b=>({value:b,label:`${bankIcon(b)}  ${b}`}));}
+function bankIcon(name){const n=name.toLowerCase();if(n.includes('сбер'))return '🟢';if(n.includes('т-')||n.includes('тинь'))return '🟡';if(n.includes('втб'))return '🔵';if(n.includes('альфа'))return '🔴';if(n.includes('газпром'))return '💠';if(n.includes('озон'))return '🟣';return '🏦';}
+function renderOperationFields(){
+ const withdraw=operationType==='withdraw';
+ if(withdraw){
+  operationFields.innerHTML=`${labelInput('Сумма вывода','amount','Например, 50','number',true)}${labelSelect('Способ получения','payoutType',[{value:'phone',label:'По номеру телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text',true)}${labelSelect('Банк получателя','bank',bankOptions(),true)}<p class="field-note full">BLUP никогда не запрашивает CVV/CVC, PIN-код или SMS-коды. Заявка уменьшает доступный резерв до решения администратора.</p>`;
+ } else {
+  operationFields.innerHTML=`${labelSelect('Криптовалюта','coin',[{value:'USDT',label:'USDT — Tether'},{value:'GRAM',label:'GRAM'}])}<div id="networkField">${labelSelect('Сеть USDT','network',['BEP20','TRC20','ERC20','TON','SPL'].map(x=>({value:x,label:x})))}</div>${labelInput('Адрес кошелька','wallet','Вставь адрес кошелька', 'text',true)}<div id="memoField" class="hidden">${labelInput('MEMO / комментарий (если нужен)','memo','Введи MEMO','text',true,false)}</div>${labelSelect('Способ получения','payoutType',[{value:'phone',label:'По номеру телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text')}${labelSelect('Банк получателя','bank',bankOptions(),true)}<p class="field-note full">Не отправляй средства до подтверждения условий заявки. Для карты не указывай CVV/CVC, PIN-код или SMS-коды.</p>`;
+  const coin=operationFields.querySelector('[name="coin"]');
+  coin.addEventListener('change',()=>{const gram=coin.value==='GRAM';$('#networkField').innerHTML=gram?'<div class="static-field"><span>Сеть</span><b>TON</b></div>':labelSelect('Сеть USDT','network',['BEP20','TRC20','ERC20','TON','SPL'].map(x=>({value:x,label:x})));$('#memoField').classList.toggle('hidden',!gram);});
+ }
 }
+function showOperation(type){operationType=type;$('#operationMessage').textContent='';const withdraw=type==='withdraw';$('#modalEyebrow').textContent=withdraw?'BLUP / ЗАПРОС НА ВЫВОД':'BLUP / ПРОДАЖА';$('#modalTitle').textContent=withdraw?'Запрос на вывод':'Продажа криптовалюты';$('#modalDesc').textContent=withdraw?'Укажи сумму и реквизиты для получения выплаты.':'Выбери актив, сеть и способ получения средств.';renderOperationFields();openModal('modalBackdrop');}
+$$('[data-open]').forEach(b=>b.addEventListener('click',()=>showOperation(b.dataset.open)));
+$('#operationForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;if(!$('#userName').textContent){closeModal('modalBackdrop');setAuthMode('login');openModal('authBackdrop');toast('Сначала войди или зарегистрируйся');return;}const f=new FormData(form);const payload=Object.fromEntries(f.entries());payload.operationType=operationType;if(operationType==='withdraw'){payload.coin='USD';payload.network='Вывод с сайта';payload.wallet='—';}else if(payload.coin==='GRAM'){payload.network='TON';}$('#operationMessage').textContent='Отправляем заявку…';try{const d=await api('/api/sell',{method:'POST',body:JSON.stringify(payload)});$('#operationMessage').textContent='';form.reset();closeModal('modalBackdrop');toast(`Заявка №${d.id} отправлена`);refreshConfig();}catch(err){$('#operationMessage').textContent=err.message;}});
 
-['#bubbleLogo', '#bubbleLogo2', '#bubbleLogoStopped', '.site-name'].forEach(selector => {
-  document.querySelectorAll(selector).forEach(el => {
-    el.style.cursor = 'pointer';
-    el.addEventListener('click', () => navigate('home'));
-  });
-});
-
-document.querySelectorAll('[data-nav]').forEach(btn => {
-  btn.addEventListener('click', () => navigate(btn.dataset.nav));
-});
-
-async function checkStatus() {
-  try {
-    const r = await fetch('/api/status');
-    const d = await r.json();
-    const overlay = document.getElementById('stoppedOverlay');
-    
-    if (d.stopped) {
-      overlay.classList.remove('hidden');
-      console.log('Сайт остановлен, показываем табличку');
-    } else {
-      overlay.classList.add('hidden');
-    }
-  } catch (e) { 
-    console.log('Ошибка статуса', e); 
-  }
-}
-
-// ---------- пользователь ----------
-async function checkMe() {
-  try {
-    const r = await fetch('/api/me');
-    const d = await r.json();
-    state.user = d.nickname;
-    renderUser();
-  } catch (e) {}
-}
-
-function renderUser() {
-  if (state.user) {
-    $('#userInfo').textContent = state.user;
-    hide($('#loginBtn'));
-    show($('#logoutBtn'));
-  } else {
-    $('#userInfo').textContent = '';
-    show($('#loginBtn'));
-    hide($('#logoutBtn'));
-  }
-}
-
-$('#logoutBtn').addEventListener('click', async () => {
-  await fetch('/api/logout', { method: 'POST' });
-  state.user = null;
-  renderUser();
-  navigate('home'); // Возвращаем на главную при выходе
-});
-
-// ---------- авторизация ----------
-let authMode = 'login';
-
-function openAuth(mode) {
-  authMode = mode;
-  $('#authTitle').textContent = mode === 'login' ? 'Вход' : 'Регистрация';
-  $('#authSubmit').textContent = mode === 'login' ? 'Войти' : 'Зарегистрироваться';
-  $('#authSwitch').textContent = mode === 'login' ? 'Нет аккаунта? Регистрация' : 'Уже есть аккаунт? Вход';
-  $('#authError').textContent = '';
-  show($('#authModal'));
-}
-
-$('#loginBtn').addEventListener('click', () => openAuth('login'));
-$('#authSwitch').addEventListener('click', () => openAuth(authMode === 'login' ? 'register' : 'login'));
-$('#authClose').addEventListener('click', () => hide($('#authModal')));
-
-$('#authSubmit').addEventListener('click', async () => {
-  const nickname = $('#authNick').value.trim();
-  const password = $('#authPass').value;
-  const errEl = $('#authError');
-  errEl.textContent = '';
-
-  const url = authMode === 'login' ? '/api/login' : '/api/register';
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nickname, password })
-  });
-  const d = await r.json();
-  if (!r.ok) {
-    errEl.textContent = d.error || 'Ошибка';
-    return;
-  }
-  state.user = d.nickname;
-  renderUser();
-  hide($('#authModal'));
-  $('#authNick').value = '';
-  $('#authPass').value = '';
-});
-
-// ---------- выбор коина (ОБЫЧНАЯ ПРОДАЖА) ----------
-document.querySelectorAll('#page-coins .coin-card').forEach(card => {
-  card.addEventListener('click', () => {
-    if (!state.user) {
-      openAuth('login');
-      return;
-    }
-    state.coin = card.dataset.coin;
-    if (state.coin === 'USDT') navigate('usdt-network');
-    else navigate('gram-pay');
-  });
-});
-
-// ---------- сети USDT (ОБЫЧНАЯ ПРОДАЖА) ----------
-const USDT_WALLETS = {
-  BEP20: '0x4eb35b332de372683aD24d7377abFa53F89451E4',
-  TRC20: 'TWCzWBarQUEfDd9pHYUwT5Chxr37e6Cdod',
-  ERC20: '0xefF29984a72b0CFf45c57210f7Df8B60340724C5',
-  TON: 'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2',
-  SPL: '3J5d7AadxyoVwh97ALxPW1h1m35bSVcgoPY3cHdMuMmR'
-};
-
-document.querySelectorAll('#page-usdt-network .network-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    state.network = btn.dataset.network;
-    $('#usdtNetTitle').textContent = 'USDT — сеть ' + state.network;
-    $('#usdtWallet').textContent = USDT_WALLETS[state.network];
-    navigate('usdt-pay');
-  });
-});
-
-// ---------- отправка продажи ----------
-async function submitSale(coin, network, wallet, phone, bank) {
-  if (!phone || !bank) {
-    alert('Заполните телефон и банк!');
-    return false;
-  }
-  try {
-    const r = await fetch('/api/sell', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coin, network, wallet, phone, bank })
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      alert(d.error || 'Ошибка');
-      return false;
-    }
-    return true;
-  } catch (e) {
-    alert('Ошибка сети!');
-    return false;
-  }
-}
-
-$('#usdtSent').addEventListener('click', async () => {
-  const phone = $('#usdtPhone').value.trim();
-  const bank = $('#usdtBank').value.trim();
-  const wallet = USDT_WALLETS[state.network];
-  const ok = await submitSale('USDT', state.network, wallet, phone, bank);
-  if (ok) {
-    show($('#thanksModal'));
-    $('#usdtPhone').value = '';
-    $('#usdtBank').value = '';
-  }
-});
-
-$('#gramSent').addEventListener('click', async () => {
-  const phone = $('#gramPhone').value.trim();
-  const bank = $('#gramBank').value.trim();
-  const wallet = 'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2';
-  const ok = await submitSale('GRAM', '', wallet, phone, bank);
-  if (ok) {
-    show($('#thanksModal'));
-    $('#gramPhone').value = '';
-    $('#gramBank').value = '';
-  }
-});
-
-$('#thanksClose').addEventListener('click', () => {
-  hide($('#thanksModal'));
-  navigate('home');
-});
-
-// ---------- история ----------
-async function loadHistory() {
-  try {
-    const r = await fetch('/api/history');
-    const rows = await r.json();
-    const list = $('#historyList');
-    if (!rows.length) {
-      list.innerHTML = '<p>Пока продаж нет</p>';
-      return;
-    }
-    list.innerHTML = rows.map(s => `
-      <div class="history-item">
-        <b>${s.nickname || 'гость'}</b> продал <b>${s.coin}</b>${s.network ? ' (' + s.network + ')' : ''}
-        <br><small>${new Date(s.created_at).toLocaleString('ru-RU')}</small>
-      </div>
-    `).join('');
-  } catch (e) { console.log('Ошибка истории'); }
-}
-
-$('#historyBtn').addEventListener('click', () => navigate('history'));
-
-// ---------- поддержка ----------
-$('#supportBtn').addEventListener('click', () => show($('#supportModal')));
-$('#supportClose').addEventListener('click', () => hide($('#supportModal')));
-
-// ---------- АДМИНКА ----------
-let bubbleClicks = 0;
-let bubbleTimer = null;
-
-function onBubbleClick() {
-  bubbleClicks++;
-  clearTimeout(bubbleTimer);
-  bubbleTimer = setTimeout(() => { bubbleClicks = 0; }, 10000);
-  if (bubbleClicks >= 10) {
-    bubbleClicks = 0;
-    clearTimeout(bubbleTimer);
-    // Секретный вход ведёт на отдельную страницу админки.
-    window.location.href = '/admin';
-  }
-}
-
-$('#bubbleLogo2').addEventListener('click', onBubbleClick);
-$('#bubbleLogo').addEventListener('click', onBubbleClick);
-$('#bubbleLogoStopped').addEventListener('click', onBubbleClick);
-
-$('#adminPassClose').addEventListener('click', () => hide($('#adminPassModal')));
-$('#adminPassSubmit').addEventListener('click', async () => {
-  const password = $('#adminPassInput').value;
-  const r = await fetch('/api/admin/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password })
-  });
-  if (!r.ok) {
-    $('#adminPassError').textContent = 'Неверный пароль';
-    return;
-  }
-  $('#adminPassError').textContent = '';
-  $('#adminPassInput').value = '';
-  hide($('#adminPassModal'));
-  show($('#adminPanel'));
-  await refreshAdminStatus();
-});
-
-async function refreshAdminStatus() {
-  const r = await fetch('/api/admin/stopped');
-  if (!r.ok) return;
-  const d = await r.json();
-  $('#adminStatus').textContent = d.stopped ? 'ОСТАНОВЛЕН' : 'работает';
-  $('#toggleStopBtn').textContent = d.stopped ? 'Возобновить работу' : 'Прекратить работу';
-}
-
-$('#toggleStopBtn').addEventListener('click', async () => {
-  const r = await fetch('/api/admin/toggle-stop', { method: 'POST' });
-  if (r.ok) {
-    window.location.reload(); 
-  }
-});
-$('#adminClose').addEventListener('click', () => hide($('#adminPanel')));
-$('#openMaintenanceBtn').addEventListener('click', () => window.open('/maintenance', '_blank', 'noopener')); 
-
-// ==========================================
-// ЛОГИКА ДЛЯ ВЫВОДА С САЙТОВ (КРИПТОЙ)
-// ==========================================
-
-// 1. Клик по коинам на странице вывода
-document.querySelectorAll('#page-withdraw-coins .coin-card').forEach(card => {
-  card.addEventListener('click', () => {
-    if (!state.user) {
-      alert('Для продажи необходимо войти или зарегистрироваться!');
-      openAuth('login');
-      return;
-    }
-    const coin = card.dataset.coin;
-    if (coin === 'WITHDRAW_USDT') {
-      navigate('withdraw-usdt-network');
-    } else {
-      navigate('withdraw-gram-pay');
-    }
-  });
-});
-
-// 2. Клик по сетям USDT на странице вывода
-document.querySelectorAll('#page-withdraw-usdt-network .network-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const network = btn.dataset.network;
-    document.getElementById('withdrawUsdtNetTitle').textContent = 'USDT — сеть ' + network;
-    document.getElementById('withdrawUsdtWallet').textContent = USDT_WALLETS[network];
-    navigate('withdraw-usdt-pay');
-  });
-});
-
-// 3. Отправка USDT
-document.getElementById('withdrawUsdtSent').addEventListener('click', async () => {
-  const amount = document.getElementById('withdrawUsdtAmount').value.trim();
-  const phone = document.getElementById('withdrawUsdtPhone').value.trim();
-  const bank = document.getElementById('withdrawUsdtBank').value.trim();
-  
-  if (!amount) {
-    alert('Укажите сумму вывода!');
-    return;
-  }
-
-  const wallet = document.getElementById('withdrawUsdtWallet').textContent;
-  const ok = await submitSale('USDT', 'Вывод с сайта', wallet, phone, `Банк: ${bank} | Сумма вывода: ${amount}`);
-  
-  if (ok) {
-    show($('#thanksModal'));
-    document.getElementById('withdrawUsdtAmount').value = '';
-    document.getElementById('withdrawUsdtPhone').value = '';
-    document.getElementById('withdrawUsdtBank').value = '';
-  }
-});
-
-// 4. Отправка GRAM
-document.getElementById('withdrawGramSent').addEventListener('click', async () => {
-  const amount = document.getElementById('withdrawGramAmount').value.trim();
-  const phone = document.getElementById('withdrawGramPhone').value.trim();
-  const bank = document.getElementById('withdrawGramBank').value.trim();
-  
-  if (!amount) {
-    alert('Укажите сумму вывода!');
-    return;
-  }
-
-  const wallet = 'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2';
-  const ok = await submitSale('GRAM', 'Вывод с сайта', wallet, phone, `Банк: ${bank} | Сумма вывода: ${amount}`);
-  
-  if (ok) {
-    show($('#thanksModal'));
-    document.getElementById('withdrawGramAmount').value = '';
-    document.getElementById('withdrawGramPhone').value = '';
-    document.getElementById('withdrawGramBank').value = '';
-  }
-});
+let authMode='login';
+function setAuthMode(mode){authMode=mode;$$('.auth-tabs button').forEach(b=>b.classList.toggle('selected',b.dataset.auth===mode));$('#authTitle').textContent=mode==='login'?'Вход в аккаунт':'Создать аккаунт';$('#authSubmit').innerHTML=(mode==='login'?'Войти':'Зарегистрироваться')+' <span>↗</span>';$('#passwordHint').textContent=mode==='register'?'Для нового аккаунта пароль должен содержать не менее 10 символов.':'Используй пароль, указанный при регистрации.';$('#authForm [name="password"]').minLength=mode==='register'?10:4;$('#authMessage').textContent='';}
+loginBtn.addEventListener('click',()=>{setAuthMode('login');openModal('authBackdrop')});$$('[data-auth]').forEach(b=>b.addEventListener('click',()=>setAuthMode(b.dataset.auth)));
+$('#authForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);$('#authMessage').textContent='Проверяем данные…';try{await api(authMode==='login'?'/api/login':'/api/register',{method:'POST',body:JSON.stringify(Object.fromEntries(f.entries()))});closeModal('authBackdrop');await refreshUser();toast(authMode==='login'?'Ты вошёл в аккаунт':'Аккаунт создан');form.reset()}catch(err){$('#authMessage').textContent=err.message;}});
+$('#logoutBtn').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'});await refreshUser();toast('Ты вышел из аккаунта')}catch{toast('Не удалось выйти')}});
+async function showHistory(){openModal('historyBackdrop');const box=$('#historyContent');box.innerHTML='<div class="empty-state"><small>Загружаем историю…</small></div>';try{const rows=await api('/api/history');if(!rows.length){box.innerHTML='<div class="empty-state"><span>◷</span><b>Здесь пока пусто</b><small>Твои заявки появятся здесь после отправки.</small></div>';return;}box.innerHTML=rows.map(x=>`<div class="history-row"><div><b>${escapeHtml(x.coin||'Операция')}</b><small>${escapeHtml(x.network||'—')}</small></div><div><b>${escapeHtml(x.operation_type==='withdraw'?'Вывод':'Продажа')}</b><small>${escapeHtml(x.status||'pending')}</small></div><div><b>${formatDate(x.created_at)}</b><small>${x.amount?escapeHtml(x.amount)+' USD':'Заявка №'+x.id}</small></div></div>`).join('')}catch(err){box.innerHTML=`<div class="empty-state"><b>${escapeHtml(err.message)}</b></div>`}}
+$('#historyBtn').addEventListener('click',showHistory);$('#historyCardBtn').addEventListener('click',showHistory);
+[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop']].forEach(([btn,id])=>$('#'+btn).addEventListener('click',()=>closeModal(id)));
+$$('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)closeModal(b.id)}));document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.modal-backdrop.open').forEach(m=>closeModal(m.id))});
+$$('[data-placeholder]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();toast('Контакт или документ будет добавлен перед запуском сервиса.')}));
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function formatDate(v){if(!v)return '—';const d=new Date(v.replace(' ','T')+'Z');return isNaN(d)?escapeHtml(v):d.toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'})}

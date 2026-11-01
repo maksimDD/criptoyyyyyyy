@@ -2,298 +2,286 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const crypto = require('crypto');
 const db = require('./db');
 const { notifyAdmin } = require('./bot');
 const { notifyNewUser } = require('./bot_register');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(48).toString('hex');
+if (!process.env.SESSION_SECRET) console.warn('ВНИМАНИЕ: задайте SESSION_SECRET в переменных окружения для постоянных сессий.');
+if (!process.env.BLUP_ADMIN_PASSWORD) console.warn('Админ-вход отключён: задайте BLUP_ADMIN_PASSWORD.');
+app.set('trust proxy', process.env.TRUST_PROXY === '1' ? 1 : false);
+app.disable('x-powered-by');
+app.use(express.json({ limit: '32kb' }));
 
-// Render передаёт исходный IP через доверенный прокси.
-app.set('trust proxy', 1);
-app.use(express.json());
+class SQLiteSessionStore extends session.Store {
+  get(sid, cb) {
+    db.get('SELECT sess, expires FROM sessions WHERE sid=?', [sid], (err, row) => {
+      if (err) return cb(err);
+      if (!row) return cb(null, null);
+      if (row.expires < Date.now()) return this.destroy(sid, () => cb(null, null));
+      try { cb(null, JSON.parse(row.sess)); } catch (e) { cb(e); }
+    });
+  }
+  set(sid, sess, cb = () => {}) {
+    const expires = sess.cookie && sess.cookie.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 7 * 86400000;
+    db.run('INSERT INTO sessions(sid,sess,expires) VALUES(?,?,?) ON CONFLICT(sid) DO UPDATE SET sess=excluded.sess, expires=excluded.expires', [sid, JSON.stringify(sess), expires], cb);
+  }
+  destroy(sid, cb = () => {}) { db.run('DELETE FROM sessions WHERE sid=?', [sid], cb); }
+  touch(sid, sess, cb = () => {}) { this.set(sid, sess, cb); }
+}
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'replace-this-secret-before-deployment',
+  name: 'blup.sid',
+  secret: SESSION_SECRET,
+  store: new SQLiteSessionStore(),
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 * 7 }
+  rolling: true,
+  cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 7 * 86400000 }
 }));
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-function requestIp(req) {
-  const raw = req.ip || req.socket.remoteAddress || 'unknown';
-  return raw.startsWith('::ffff:') ? raw.slice(7) : raw;
+const authAttempts = new Map();
+function rateLimit(key, max = 12, windowMs = 15 * 60 * 1000) {
+  const now = Date.now();
+  const item = authAttempts.get(key);
+  if (!item || item.until < now) { authAttempts.set(key, { count: 1, until: now + windowMs }); return false; }
+  item.count += 1;
+  return item.count > max;
 }
-
-function logAuthEvent(req, nickname, eventType, success) {
-  db.run(
-    'INSERT INTO login_events (nickname, ip_address, event_type, success) VALUES (?, ?, ?, ?)',
-    [String(nickname || '').slice(0, 80), requestIp(req), eventType, success ? 1 : 0]
-  );
+function ipOf(req) { return String(req.ip || req.socket.remoteAddress || '').replace(/^::ffff:/, '').slice(0, 64); }
+function getSetting(key, fallback, cb) {
+  db.get('SELECT value FROM settings WHERE key=?', [key], (err, row) => cb(err, row ? row.value : fallback));
 }
-
-function isIpBanned(ip, callback) {
-  db.get('SELECT id FROM ip_bans WHERE ip_address = ?', [ip], (err, row) => callback(Boolean(row)));
+function setSetting(key, value, cb) { db.run('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [key, String(value)], cb || (() => {})); }
+function logVisit(user, ip, event) {
+  db.run('INSERT INTO visits(user_id,nickname,ip,event) VALUES(?,?,?,?)', [user ? user.id : null, user ? user.nickname : null, ip, event]);
+  if (user) db.run('UPDATE users SET last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?', [ip, user.id]);
 }
+function sendBlocked(res) { return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' }); }
 
-// Блокировка применяется к регистрации и входу; админ-панель остаётся доступна владельцу.
-app.use((req, res, next) => {
-  if (req.method !== 'POST' || !['/api/login', '/api/register'].includes(req.path)) return next();
-  isIpBanned(requestIp(req), banned => {
-    if (banned) return res.status(403).json({ error: 'Вход с этого IP-адреса заблокирован' });
-    next();
+// Enforce IP/account bans on every API request, not only on login.
+app.use('/api', (req, res, next) => {
+  const ip = ipOf(req);
+  db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (err, ban) => {
+    if (err) return res.status(500).json({ error: 'Ошибка проверки доступа' });
+    if (ban) { if (req.session) req.session.destroy(() => {}); return sendBlocked(res); }
+    if (!req.session || !req.session.userId) return next();
+    db.get('SELECT id,nickname,is_banned,session_version FROM users WHERE id=?', [req.session.userId], (e, user) => {
+      if (e) return res.status(500).json({ error: 'Ошибка проверки аккаунта' });
+      if (!user || user.is_banned || user.session_version !== req.session.sessionVersion) {
+        return req.session.destroy(() => sendBlocked(res));
+      }
+      db.run('UPDATE users SET last_ip=?,last_seen=CURRENT_TIMESTAMP WHERE id=?', [ip, user.id]);
+      next();
+    });
   });
 });
 
-const DEFAULT_SITE_CONFIG = {
-  prices: { sellUsdt: 73, sellGram: 90, withdrawUsdt: 73, withdrawGram: 90 },
-  texts: {}
-};
-function readSiteConfig(callback) {
-  db.get("SELECT value FROM settings WHERE key='site_config'", (err, row) => {
-    let config = DEFAULT_SITE_CONFIG;
-    if (row && row.value) {
-      try {
-        const parsed = JSON.parse(row.value);
-        config = {
-          prices: { ...DEFAULT_SITE_CONFIG.prices, ...(parsed.prices || {}) },
-          texts: {}
-        };
-      } catch (_) {}
-    }
-    callback(config);
-  });
-}
-
-app.get('/api/site-config', (req, res) => readSiteConfig(config => res.json(config)));
-
-app.get('/api/status', (req, res) => {
-  db.get("SELECT value FROM settings WHERE key='stopped'", (err, row) => {
-    const stopped = row && row.value === '1';
-    res.json({ stopped: stopped === true || (row && row.value === '1') });
+// Режим техработ отображается на клиенте; API авторизации и регистрации остаются доступными.
+app.get('/api/status', (req, res) => getSetting('stopped', '0', (e, stopped) => res.json({ stopped: stopped === '1' && req.session.isAdmin !== true })));
+app.get('/api/config', (req, res) => {
+  db.all('SELECT key,value FROM settings WHERE key IN (\'usdt_rate\',\'gram_rate\',\'reserve_total\',\'reserve_available\',\'banks\')', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Ошибка настроек' });
+    const s = Object.fromEntries(rows.map(x => [x.key, x.value]));
+    let banks = []; try { banks = JSON.parse(s.banks || '[]'); } catch {}
+    res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks });
   });
 });
 
 app.post('/api/register', (req, res) => {
-  const { nickname, password } = req.body || {};
-  if (!nickname || !password || nickname.length < 3 || password.length < 4) {
-    logAuthEvent(req, nickname, 'register', false);
-    return res.status(400).json({ error: 'Ник от 3 символов, пароль от 4' });
+  const ip = ipOf(req), nickname = String(req.body?.nickname || '').trim(), password = String(req.body?.password || '');
+  if (rateLimit(`register:${ip}`, 8)) return res.status(429).json({ error: 'Слишком много попыток. Попробуйте позже.' });
+  if (!/^[\p{L}\p{N}_-]{3,24}$/u.test(nickname) || password.length < 10 || password.length > 128) {
+    return res.status(400).json({ error: 'Ник: 3–24 символа (буквы, цифры, _ или -). Пароль — не менее 10 символов.' });
   }
-  
-  db.get('SELECT id FROM users WHERE nickname = ?', [nickname], (err, row) => {
-    if (row) { logAuthEvent(req, nickname, 'register', false); return res.status(400).json({ error: 'Такой ник уже занят' }); }
-    
-    const hash = bcrypt.hashSync(password, 10);
-    db.run('INSERT INTO users (nickname, password_hash) VALUES (?, ?)', [nickname, hash], function(err) {
-      if (err) { logAuthEvent(req, nickname, 'register', false); return res.status(500).json({ error: 'Ошибка БД' }); }
-      logAuthEvent(req, nickname, 'register', true);
-      
-      req.session.userId = this.lastID;
-      req.session.nickname = nickname;
-
-      // --- ОТПРАВЛЯЕМ В НОВЫЙ БОТ ---
-      notifyNewUser(nickname); 
-      // -------------------------------
-
-      res.json({ ok: true, nickname });
+  db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (e, ban) => {
+    if (e) return res.status(500).json({ error: 'Ошибка БД' });
+    if (ban) return sendBlocked(res);
+    db.get('SELECT id FROM users WHERE nickname=? COLLATE NOCASE', [nickname], (err, existing) => {
+      if (err) return res.status(500).json({ error: 'Ошибка БД' });
+      if (existing) return res.status(409).json({ error: 'Такой ник уже занят' });
+      const hash = bcrypt.hashSync(password, 12);
+      db.run('INSERT INTO users(nickname,password_hash,last_ip,last_seen) VALUES(?,?,?,CURRENT_TIMESTAMP)', [nickname, hash, ip], function(insertErr) {
+        if (insertErr) return res.status(500).json({ error: 'Не удалось создать аккаунт' });
+        const user = { id: this.lastID, nickname, sessionVersion: 0 };
+        req.session.regenerate(regErr => {
+          if (regErr) return res.status(500).json({ error: 'Не удалось создать сессию' });
+          req.session.userId = user.id; req.session.nickname = nickname; req.session.sessionVersion = 0;
+          logVisit(user, ip, 'register');
+          // Never send/store a plaintext password in Telegram or logs.
+          notifyNewUser(nickname).catch(() => {});
+          req.session.save(() => res.json({ ok: true, nickname }));
+        });
+      });
     });
   });
 });
+
 app.post('/api/login', (req, res) => {
-  const { nickname, password } = req.body || {};
-  db.get('SELECT * FROM users WHERE nickname = ?', [nickname], (err, user) => {
-    if (err || !user || !password || !bcrypt.compareSync(password, user.password_hash)) {
-      logAuthEvent(req, nickname, 'login', false);
-      return res.status(400).json({ error: 'Неверный ник или пароль' });
-    }
-    logAuthEvent(req, user.nickname, 'login', true);
-    req.session.userId = user.id;
-    req.session.nickname = user.nickname;
-    res.json({ ok: true, nickname: user.nickname });
+  const ip = ipOf(req), nickname = String(req.body?.nickname || '').trim(), password = String(req.body?.password || '');
+  if (rateLimit(`login:${ip}`, 12)) return res.status(429).json({ error: 'Слишком много попыток. Попробуйте позже.' });
+  db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (e, ban) => {
+    if (e) return res.status(500).json({ error: 'Ошибка БД' });
+    if (ban) return sendBlocked(res);
+    db.get('SELECT * FROM users WHERE nickname=? COLLATE NOCASE', [nickname], (err, user) => {
+      if (err) return res.status(500).json({ error: 'Ошибка БД' });
+      if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(400).json({ error: 'Неверный ник или пароль' });
+      if (user.is_banned) return sendBlocked(res);
+      req.session.regenerate(regErr => {
+        if (regErr) return res.status(500).json({ error: 'Не удалось создать сессию' });
+        req.session.userId = user.id; req.session.nickname = user.nickname; req.session.sessionVersion = user.session_version || 0;
+        logVisit(user, ip, 'login');
+        req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
+      });
+    });
   });
 });
 
-app.post('/api/logout', (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
-});
-
-app.get('/api/me', (req, res) => {
-  res.json({ nickname: req.session.nickname || null });
-});
+app.post('/api/logout', (req, res) => req.session.destroy(() => { res.clearCookie('blup.sid'); res.json({ ok: true }); }));
+app.get('/api/me', (req, res) => res.json({ nickname: req.session.nickname || null }));
 
 app.get('/api/history', (req, res) => {
-  db.all("SELECT nickname, coin, network, created_at FROM sales WHERE status='sold' ORDER BY id DESC LIMIT 200", [], (err, rows) => {
-    res.json(rows || []);
-  });
+  const query = req.session.userId
+    ? ['SELECT id,nickname,coin,network,operation_type,status,amount,created_at FROM sales WHERE user_id=? ORDER BY id DESC LIMIT 100', [req.session.userId]]
+    : ['SELECT id,nickname,coin,network,operation_type,status,amount,created_at FROM sales WHERE user_id IS NULL ORDER BY id DESC LIMIT 50', []];
+  db.all(query[0], query[1], (err, rows) => err ? res.status(500).json({ error: 'Не удалось загрузить историю' }) : res.json(rows || []));
 });
 
 app.post('/api/sell', (req, res) => {
-  db.get("SELECT value FROM settings WHERE key='stopped'", (err, row) => {
-    const stopped = row && row.value === '1';
-    if (stopped && req.session.isAdmin !== true) {
-      return res.status(403).json({ error: 'пока что не покупаю' });
+  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт, чтобы отправить заявку.' });
+  getSetting('stopped', '0', (e, stopped) => {
+    if (e) return res.status(500).json({ error: 'Ошибка настроек' });
+    if (stopped === '1' && req.session.isAdmin !== true) return res.status(403).json({ error: 'Приём заявок временно приостановлен.' });
+    const { coin, network, wallet, memo, payoutType, payoutValue, bank, operationType = 'sell', amount } = req.body || {};
+    const asset = String(coin || '').toUpperCase();
+    const net = String(network || '');
+    const addr = String(wallet || '').trim();
+    const payout = String(payoutValue || '').trim();
+    const bankName = String(bank || '').trim();
+    const op = operationType === 'withdraw' ? 'withdraw' : 'sell';
+    const qty = Number(amount || 0);
+    const validNetwork = ['BEP20','TRC20','ERC20','TON','SPL'];
+    if ((op === 'sell' && !['USDT','GRAM'].includes(asset)) || (op === 'withdraw' && asset !== 'USD') || (op === 'sell' && (!addr || addr.length > 180)) || !payout || payout.length > 100 || !bankName) return res.status(400).json({ error: 'Проверьте обязательные поля заявки.' });
+    if (op === 'sell' && asset === 'USDT' && !validNetwork.includes(net)) return res.status(400).json({ error: 'Выберите сеть USDT.' });
+    if (op === 'sell' && asset === 'GRAM' && net !== 'TON') return res.status(400).json({ error: 'Для GRAM используется сеть TON.' });
+    if (op === 'withdraw' && (!Number.isFinite(qty) || qty <= 0 || qty > 1000000)) return res.status(400).json({ error: 'Укажите корректную сумму вывода.' });
+    if (op === 'withdraw') {
+      db.run('UPDATE settings SET value=CAST(value AS REAL)-? WHERE key=\'reserve_available\' AND CAST(value AS REAL)>=?', [qty, qty], function(err) {
+        if (err) return res.status(500).json({ error: 'Ошибка резерва' });
+        if (!this.changes) return res.status(400).json({ error: 'Недостаточно доступного резерва для этой суммы.' });
+        insertRequest();
+      });
+    } else insertRequest();
+    function insertRequest() {
+      db.run(`INSERT INTO sales(user_id,nickname,coin,network,wallet,phone,bank,operation_type,memo,payout_type,amount,status)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending')`,
+        [req.session.userId, req.session.nickname, asset, op === 'withdraw' ? 'Вывод с сайта' : (asset === 'GRAM' ? 'TON' : net), op === 'withdraw' ? '—' : addr, payout, bankName, op, String(memo || '').slice(0,120), String(payoutType || 'phone'), qty],
+        function(err) {
+          if (err) {
+            if (op === 'withdraw') db.run("UPDATE settings SET value=CAST(value AS REAL)+? WHERE key='reserve_available'", [qty]);
+            return res.status(500).json({ error: 'Не удалось сохранить заявку' });
+          }
+          const sale = { id: this.lastID, nickname: req.session.nickname, coin: asset, network: op === 'withdraw' ? 'Вывод с сайта' : (asset === 'GRAM' ? 'TON' : net), wallet: addr, phone: payout, bank: `${bankName} / ${payoutType || 'phone'}${op === 'withdraw' ? ` / сумма: ${qty} USD` : ''}`, memo: String(memo || '') };
+          notifyAdmin(sale).catch(() => {});
+          res.json({ ok: true, id: this.lastID });
+        });
     }
-
-    const { coin, network, wallet, phone, bank } = req.body || {};
-    if (!coin || !wallet || !phone || !bank) {
-      return res.status(400).json({ error: 'Заполните все поля' });
-    }
-
-    db.run(
-      'INSERT INTO sales (user_id, nickname, coin, network, wallet, phone, bank) VALUES (?,?,?,?,?,?,?)',
-      [req.session.userId || null, req.session.nickname || 'гость', coin, network || '', wallet, phone, bank],
-      function(err) {
-        if (err) return res.status(500).json({ error: 'Ошибка БД' });
-        
-        const sale = { id: this.lastID, nickname: req.session.nickname || 'гость', coin, network, wallet, phone, bank };
-        notifyAdmin(sale).catch(e => console.log('Ошибка телеги:', e.message));
-        res.json({ ok: true });
-      }
-    );
   });
 });
 
-app.get('/api/admin/me', (req, res) => {
-  res.json({ authenticated: req.session.isAdmin === true });
-});
-
+function adminOnly(req, res, next) { if (req.session.isAdmin === true) return next(); return res.status(403).json({ error: 'Доступ запрещён' }); }
 app.post('/api/admin/login', (req, res) => {
-  if (ADMIN_PASSWORD && req.body.password === ADMIN_PASSWORD) {
+  const ip = ipOf(req);
+  if (rateLimit(`admin:${ip}`, 5)) return res.status(429).json({ error: 'Слишком много попыток. Попробуйте позже.' });
+  const expected = process.env.BLUP_ADMIN_PASSWORD;
+  const supplied = String(req.body?.password || '');
+  if (!expected || Buffer.byteLength(supplied) !== Buffer.byteLength(expected) || !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return res.status(403).json({ error: 'Неверный пароль администратора' });
+  req.session.regenerate(err => {
+    if (err) return res.status(500).json({ error: 'Ошибка сессии' });
     req.session.isAdmin = true;
-    return res.json({ ok: true });
-  }
-  res.status(403).json({ error: 'Неверный пароль' });
-});
-
-app.get('/api/admin/stopped', (req, res) => {
-  if (!req.session.isAdmin) return res.status(403).json({ error: 'forbidden' });
-  db.get("SELECT value FROM settings WHERE key='stopped'", (err, row) => {
-    res.json({ stopped: row && row.value === '1' });
+    req.session.save(() => res.json({ ok: true }));
   });
 });
-
-app.post('/api/admin/toggle-stop', (req, res) => {
-  if (!req.session.isAdmin) return res.status(403).json({ error: 'forbidden' });
-  db.get("SELECT value FROM settings WHERE key='stopped'", (err, row) => {
-    const next = (row && row.value === '1') ? '0' : '1';
-    db.run("UPDATE settings SET value=? WHERE key='stopped'", [next], () => {
-      res.json({ stopped: next === '1' });
+app.post('/api/admin/logout', adminOnly, (req, res) => req.session.destroy(() => { res.clearCookie('blup.sid'); res.json({ ok: true }); }));
+app.get('/api/admin/me', (req, res) => res.json({ isAdmin: req.session.isAdmin === true }));
+app.get('/api/admin/overview', adminOnly, (req, res) => {
+  db.get('SELECT COUNT(*) AS users, SUM(CASE WHEN is_banned=1 THEN 1 ELSE 0 END) AS banned FROM users', [], (e, stats) => {
+    if (e) return res.status(500).json({ error: 'Ошибка БД' });
+    db.get("SELECT COUNT(*) AS pending FROM sales WHERE status='pending'", [], (e2, pending) => {
+      db.all('SELECT id,nickname,created_at,last_ip,last_seen,is_banned,ban_reason FROM users ORDER BY id DESC LIMIT 300', [], (e3, users) => {
+        db.all('SELECT id,user_id,nickname,coin,network,operation_type,amount,status,created_at,wallet,phone,bank,memo,payout_type FROM sales ORDER BY id DESC LIMIT 300', [], (e4, sales) => {
+          db.all('SELECT ip,reason,created_at FROM ip_bans ORDER BY created_at DESC', [], (e5, bans) => {
+            db.all('SELECT user_id,nickname,ip,event,created_at FROM visits ORDER BY id DESC LIMIT 200', [], (e7, visits) => {
+              if (e2 || e3 || e4 || e5 || e7) return res.status(500).json({ error: 'Ошибка загрузки панели' });
+              db.all('SELECT key,value FROM settings', [], (e6, rows) => {
+                const settings = Object.fromEntries(rows.map(x => [x.key, x.value]));
+                res.json({ stats: { users: stats.users || 0, banned: stats.banned || 0, pending: pending.pending || 0 }, users: users || [], sales: sales || [], ipBans: bans || [], visits: visits || [], settings });
+              });
+            });
+          });
+        });
+      });
     });
   });
 });
-
-
-app.get('/api/admin/sales', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  db.all('SELECT id, nickname, coin, network, created_at, status FROM sales ORDER BY id DESC LIMIT 300', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Не удалось загрузить историю' });
-    res.json(rows || []);
+app.post('/api/admin/settings', adminOnly, (req, res) => {
+  const { usdtRate, gramRate, reserveTotal, reserveAvailable, banks, stopped } = req.body || {};
+  const values = [usdtRate, gramRate, reserveTotal, reserveAvailable].map(Number);
+  if (values.some(v => !Number.isFinite(v) || v < 0 || v > 1e12) || values[3] > values[2]) return res.status(400).json({ error: 'Проверьте курсы и значения резерва.' });
+  if (!Array.isArray(banks) || banks.length > 100 || banks.some(x => typeof x !== 'string' || !x.trim() || x.length > 80)) return res.status(400).json({ error: 'Некорректный список банков.' });
+  db.serialize(() => {
+    const pairs = [['usdt_rate', values[0]], ['gram_rate', values[1]], ['reserve_total', values[2]], ['reserve_available', values[3]], ['banks', JSON.stringify([...new Set(banks.map(x => x.trim()))])], ['stopped', stopped ? '1' : '0']];
+    const stmt = db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+    pairs.forEach(p => stmt.run(p[0], String(p[1])));
+    stmt.finalize(err => err ? res.status(500).json({ error: 'Не удалось сохранить настройки' }) : res.json({ ok: true }));
   });
 });
-
-
-app.put('/api/admin/sales/:id/status', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  const status = String((req.body || {}).status || '');
-  if (!['sold', 'rejected'].includes(status)) {
-    return res.status(400).json({ error: 'Недопустимый статус транзакции' });
-  }
-  db.run('UPDATE sales SET status=? WHERE id=?', [status, req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: 'Не удалось обновить статус' });
-    if (!this.changes) return res.status(404).json({ error: 'Транзакция не найдена' });
-    res.json({ ok: true, status });
+app.post('/api/admin/users/:id/ban', adminOnly, (req, res) => {
+  const id = Number(req.params.id), banned = !!req.body?.banned, reason = String(req.body?.reason || '').slice(0,200);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный ID' });
+  db.run('UPDATE users SET is_banned=?,ban_reason=?,session_version=session_version+1 WHERE id=?', [banned ? 1 : 0, banned ? reason : null, id], function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка БД' });
+    if (!this.changes) return res.status(404).json({ error: 'Пользователь не найден' });
+    db.get('SELECT id,nickname,last_ip FROM users WHERE id=?', [id], (e, user) => {
+      if (banned && user?.last_ip) db.run('INSERT OR IGNORE INTO ip_bans(ip,reason) VALUES(?,?)', [user.last_ip, reason || 'Блокировка аккаунта']);
+      res.json({ ok: true });
+    });
   });
 });
-
-app.delete('/api/admin/sales', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  db.run('DELETE FROM sales', [], function(err) {
-    if (err) return res.status(500).json({ error: 'Не удалось очистить историю транзакций' });
-    // Reset SQLite sequence so the next record starts a fresh sequence where supported.
-    db.run("DELETE FROM sqlite_sequence WHERE name='sales'", [], () => res.json({ ok: true, deleted: this.changes }));
+app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
+  const ip = String(req.body?.ip || '').trim(), reason = String(req.body?.reason || '').slice(0,200);
+  if (!ip || ip.length > 64 || /[\s,;]/.test(ip)) return res.status(400).json({ error: 'Укажите корректный IP.' });
+  db.run('INSERT INTO ip_bans(ip,reason) VALUES(?,?) ON CONFLICT(ip) DO UPDATE SET reason=excluded.reason', [ip, reason], err => err ? res.status(500).json({ error: 'Ошибка БД' }) : res.json({ ok: true }));
+});
+app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => {
+  db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => err ? res.status(500).json({ error: 'Ошибка БД' }) : res.json({ ok: true }));
+});
+app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
+  const id = Number(req.params.id), status = String(req.body?.status || '');
+  if (!['pending','processing','completed','rejected'].includes(status)) return res.status(400).json({ error: 'Некорректный статус' });
+  db.get('SELECT * FROM sales WHERE id=?', [id], (err, sale) => {
+    if (err || !sale) return res.status(404).json({ error: 'Заявка не найдена' });
+    if (sale.operation_type === 'withdraw' && sale.status !== status) {
+      if (sale.status !== 'rejected' && status === 'rejected') {
+        db.run("UPDATE settings SET value=MIN(CAST((SELECT value FROM settings WHERE key='reserve_total') AS REAL), CAST(value AS REAL)+?) WHERE key='reserve_available'", [sale.amount || 0], e => {
+          if (e) return res.status(500).json({ error: 'Ошибка резерва' });
+          db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e2 => e2 ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
+        });
+      } else if (sale.status === 'rejected' && status !== 'rejected') {
+        db.run("UPDATE settings SET value=CAST(value AS REAL)-? WHERE key='reserve_available' AND CAST(value AS REAL)>=?", [sale.amount || 0, sale.amount || 0], function(e) {
+          if (e) return res.status(500).json({ error: 'Ошибка резерва' });
+          if (!this.changes) return res.status(400).json({ error: 'Недостаточно резерва, чтобы вернуть заявку в работу.' });
+          db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e2 => e2 ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
+        });
+      } else db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e => e ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
+    } else db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e => e ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
   });
 });
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.get('/api/admin/site-config', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  readSiteConfig(config => res.json(config));
-});
-
-app.put('/api/admin/site-config', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  const body = req.body || {};
-  const pricesIn = body.prices || {};
-  const prices = {};
-  for (const key of ['sellUsdt', 'sellGram', 'withdrawUsdt', 'withdrawGram']) {
-    const value = Number(pricesIn[key]);
-    if (!Number.isFinite(value) || value < 0 || value > 1000000000) {
-      return res.status(400).json({ error: 'Проверьте значения курсов: нужны числа от 0 до 1 000 000 000' });
-    }
-    prices[key] = value;
-  }
-  const texts = {};
-  const config = JSON.stringify({ prices, texts });
-  db.run("INSERT INTO settings (key, value) VALUES ('site_config', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [config], err => {
-    if (err) return res.status(500).json({ error: 'Не удалось сохранить изменения' });
-    res.json({ ok: true });
-  });
-});
-
-app.get('/api/admin/login-events', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  db.all('SELECT id, nickname, ip_address, event_type, success, created_at FROM login_events ORDER BY id DESC LIMIT 300', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Не удалось загрузить журнал входов' });
-    res.json(rows || []);
-  });
-});
-
-app.get('/api/admin/ip-bans', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  db.all('SELECT id, ip_address, reason, created_at FROM ip_bans ORDER BY id DESC', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Не удалось загрузить блокировки' });
-    res.json(rows || []);
-  });
-});
-
-app.post('/api/admin/ip-bans', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  const ip = String((req.body || {}).ip_address || '').trim();
-  const reason = String((req.body || {}).reason || '').trim().slice(0, 200);
-  // Принимаем только конкретный IPv4/IPv6, не CIDR и не маски диапазонов.
-  const validIp = /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}|[0-9a-fA-F:]{3,39})$/.test(ip);
-  if (!validIp) return res.status(400).json({ error: 'Укажите корректный IPv4 или IPv6' });
-  db.run('INSERT OR IGNORE INTO ip_bans (ip_address, reason) VALUES (?, ?)', [ip, reason], function(err) {
-    if (err) return res.status(500).json({ error: 'Не удалось добавить блокировку' });
-    res.json({ ok: true, added: this.changes > 0 });
-  });
-});
-
-app.delete('/api/admin/ip-bans/:id', (req, res) => {
-  if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
-  db.run('DELETE FROM ip_bans WHERE id = ?', [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: 'Не удалось снять блокировку' });
-    res.json({ ok: true, removed: this.changes > 0 });
-  });
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-app.get('/maintenance', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'maintenance.html'));
-});
-
-app.get('/', (req, res) => {
-  db.get("SELECT value FROM settings WHERE key='stopped'", (err, row) => {
-    const stopped = row && row.value === '1';
-    if (stopped) {
-      return res.sendFile(path.join(__dirname, 'public', 'maintenance.html'));
-    }
-    return res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  });
-});
-
-app.listen(PORT, () => console.log(`Сервер запущен: http://localhost:${PORT}`));
+db.ready.then(() => app.listen(PORT, () => console.log(`BLUP запущен на порту ${PORT}`))).catch(err => { console.error('Ошибка подготовки БД:', err); process.exit(1); });

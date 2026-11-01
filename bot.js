@@ -1,8 +1,11 @@
 const TelegramBot = require('node-telegram-bot-api');
+//const { SocksProxyAgent } = require('socks-proxy-agent');
 
-// Токен и ID для бота ПРОДАЖ (сюда приходят продажи и выводы)
 const TOKEN = '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
 const ADMIN_CHAT = '7270019395'; 
+
+// Прокси (если выдает ошибку, закомментируй эту строку и добавь agent в bot)
+// const agent = new SocksProxyAgent('socks5://127.0.0.1:1080');
 
 const bot = new TelegramBot(TOKEN, { polling: false });
 
@@ -19,7 +22,7 @@ async function notifyAdmin(sale) {
            `🪙 Монета: ${sale.coin}\n` +
            `💼 Кошелёк: \`${sale.wallet}\`\n` +
            `📱 Телефон/карта: \`${sale.phone}\`\n` +
-           `🏦 ${sale.bank}\n` + 
+           `🏦 ${sale.bank}\n` + // Тут уже придет "Банк: Сбер | Сумма вывода: 50"
            `🕐 ${new Date().toLocaleString('ru-RU')}`;
   } else {
     // Сообщение для ОБЫЧНОЙ ПРОДАЖИ

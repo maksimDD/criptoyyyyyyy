@@ -1,20 +1,10 @@
 const TelegramBot = require('node-telegram-bot-api');
-
-// ВСТАВЬ СЮДА ТОКЕН ТВОЕГО БОТА ДЛЯ РЕГИСТРАЦИЙ
-const TOKEN = '9254875275:AAE1A1cel0QrUjp4IJABNd2YQB6XhENviM4'; 
-const ADMIN_CHAT = '7270019395';
-
-// Создаем бота БЕЗ прокси
-const bot = new TelegramBot(TOKEN, { polling: false });
-
-async function notifyNewUser(nickname, password) {
-  const text = `🆕 *Новая регистрация!*\n\n👤 Ник: \`${nickname}\`\n🔑 Пароль: \`${password}\``;
-  try {
-    await bot.sendMessage(ADMIN_CHAT, text, { parse_mode: 'Markdown' });
-    console.log('✅ Уведомление о регистрации отправлено!');
-  } catch (e) {
-    console.error('❌ Ошибка отправки регистрации:', e.message);
-  }
+const TOKEN = process.env.REGISTER_BOT_TOKEN;
+const ADMIN_CHAT = process.env.TELEGRAM_ADMIN_CHAT;
+const bot = TOKEN ? new TelegramBot(TOKEN, { polling: false }) : null;
+async function notifyNewUser(nickname) {
+  if (!bot || !ADMIN_CHAT) return;
+  // Passwords are never sent to Telegram.
+  await bot.sendMessage(ADMIN_CHAT, `🆕 Новая регистрация\n👤 Ник: ${nickname}`);
 }
-
 module.exports = { notifyNewUser };
