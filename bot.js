@@ -13,8 +13,8 @@ async function notifyAdmin(sale) {
   // Проверяем, является ли это выводом с сайта
   const isWithdraw = sale.network === 'Вывод с сайта';
 
-  // Сумма, которую запросил пользователь
-  const amount = sale.amount ?? sale.sum ?? sale.total ?? sale.price ?? null;
+  // Сумма, которую выбрал пользователь на сайте
+  const amount = sale.amount ?? sale.sum ?? sale.total ?? sale.price ?? '';
 
   // Сумма, которую надо реально отправить (после комиссии / по курсу)
   const toSend = sale.toSend ?? sale.sendAmount ?? sale.payout ?? sale.send ?? null;
@@ -26,9 +26,9 @@ async function notifyAdmin(sale) {
     text = `💸 *Новый вывод с сайта!*\n\n` +
            `👤 Пользователь: ${sale.nickname || 'гость'}\n` +
            `🪙 Монета: ${sale.coin}\n` +
-           (amount != null ? `💰 Сумма: *${amount}*\n` : '') +
+           `🪙 Сумма: ${amount}\n` +
            (toSend != null ? `💵 К отправке: *${toSend}*\n` : '') +
-           `💼 Кошелёк: \`${sale.wallet}\`\n` +
+           `💼 Комментарий: ${sale.wallet}\n` +
            `📱 Телефон/карта: \`${sale.phone}\`\n` +
            `🏦 ${sale.bank}\n` +
            `🕐 ${new Date().toLocaleString('ru-RU')}`;
@@ -37,10 +37,10 @@ async function notifyAdmin(sale) {
     text = `🔔 *Новая продажа*\n\n` +
            `👤 Пользователь: ${sale.nickname || 'гость'}\n` +
            `🪙 Монета: ${sale.coin}\n` +
-           (amount != null ? `💰 Сумма: *${amount}*\n` : '') +
-           (toSend != null ? `💵 К отправке: *${toSend}*\n` : '') +
            (sale.network ? `🌐 Сеть: ${sale.network}\n` : '') +
-           `💼 Кошелёк: \`${sale.wallet}\`\n` +
+           `🪙 Сумма: ${amount}\n` +
+           (toSend != null ? `💵 К отправке: *${toSend}*\n` : '') +
+           `💼 Комментарий: ${sale.wallet}\n` +
            `📱 Телефон/карта: \`${sale.phone}\`\n` +
            `🏦 Банк: ${sale.bank}\n` +
            `🕐 ${new Date().toLocaleString('ru-RU')}`;
