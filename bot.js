@@ -1,6 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ADMIN_CHAT = process.env.TELEGRAM_ADMIN_CHAT;
+const TOKEN = '8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g ';        // строка 2
+const ADMIN_CHAT = '7646143249';    // строка 3
 const bot = TOKEN ? new TelegramBot(TOKEN, { polling: false }) : null;
 function moscowTime(value){return new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',dateStyle:'short',timeStyle:'medium'}).format(value?new Date(value):new Date());}
 async function notifyAdmin(item){
