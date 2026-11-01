@@ -23,9 +23,8 @@ async function notifyAdmin(sale) {
     text = `💸 *Новый вывод с сайта!*\n\n` +
            `👤 Пользователь: ${sale.nickname || 'гость'}\n` +
            `🪙 Монета: ${sale.coin}\n` +
-           `🪙 Сумма: ${amount}\n` +
            (toSend != null ? `💵 К отправке: *${toSend}*\n` : '') +
-           `💼 Комментарий: ${sale.wallet}\n` +
+           `🪙 Сумма: ${sale.wallet}\n` +
            `📱 Телефон/карта: \`${sale.phone}\`\n` +
            `🏦 ${sale.bank}\n` +
            `🕐 ${new Date().toLocaleString('ru-RU')}`;
@@ -34,9 +33,8 @@ async function notifyAdmin(sale) {
            `👤 Пользователь: ${sale.nickname || 'гость'}\n` +
            `🪙 Монета: ${sale.coin}\n` +
            (sale.network ? `🌐 Сеть: ${sale.network}\n` : '') +
-           `🪙 Сумма: ${amount}\n` +
            (toSend != null ? `💵 К отправке: *${toSend}*\n` : '') +
-           `💼 Комментарий: ${sale.wallet}\n` +
+           `🪙 Монета: ${sale.wallet}\n` +
            `📱 Телефон/карта: \`${sale.phone}\`\n` +
            `🏦 Банк: ${sale.bank}\n` +
            `🕐 ${new Date().toLocaleString('ru-RU')}`;
