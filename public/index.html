@@ -30,6 +30,7 @@
     <button class="menu-toggle" id="menuToggle" aria-label="Открыть меню"><i></i><i></i><i></i></button>
     <nav class="nav" id="nav">
       <a class="nav-link active" href="#home">Главная</a>
+      <a class="nav-link" href="#promos" id="promosNav">Промокоды</a>
       <a class="nav-link" href="#features">Возможности</a>
       <a class="nav-link" href="#advantages">Преимущества</a>
       <a class="nav-link" href="#how">Как это работает</a>
@@ -37,7 +38,7 @@
       <a class="nav-link" href="#contacts">Контакты</a>
     </nav>
     <div class="header-actions">
-      <button class="btn btn-ghost btn-small" id="historyBtn"><span>↗</span> История заявок</button>
+      <button class="btn btn-ghost btn-small" id="profileBtn">Профиль</button><button class="btn btn-ghost btn-small" id="historyBtn"><span>↗</span> История заявок</button>
       <button class="btn btn-outline btn-small" id="loginBtn">Войти</button>
       <div class="user-chip hidden" id="userChip"><span class="user-dot"></span><b id="userName"></b><button id="logoutBtn" title="Выйти">↗</button></div>
     </div>
@@ -142,6 +143,7 @@
     </section>
   </main>
 
+  <section class="section-wrap" id="promos" style="padding:70px 0"><div class="section-heading"><div class="eyebrow">BLUP / PROMO</div><h2>Промокоды</h2><p>Данная функция находится в разработке.</p></div><form id="promoApplyForm" class="form-grid" style="max-width:560px"><label class="full">Промокод<input name="code" placeholder="Введи промокод" required></label><button class="btn btn-primary btn-submit full">Применить</button><p id="promoMessage" class="form-message full"></p></form></section>
   <footer class="footer section-wrap">
     <a class="brand" href="#home"><span class="brand-orb"></span><span>BLUP</span></a>
     <span class="footer-copy">© <span id="year"></span> BLUP. Информация о сервисе.</span>
@@ -169,6 +171,7 @@
     </section>
   </div>
 
+  <div class="modal-backdrop" id="profileBackdrop" aria-hidden="true"><section class="modal"><button class="modal-close" id="profileClose">×</button><div class="modal-eyebrow">BLUP / PROFILE</div><h2>Профиль</h2><div id="profileContent" class="history-content">Загрузка…</div></section></div>
   <div class="modal-backdrop" id="historyBackdrop" aria-hidden="true">
     <section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
       <button class="modal-close" id="historyClose" aria-label="Закрыть">×</button>
