@@ -13,6 +13,9 @@ async function notifyAdmin(sale) {
   // Проверяем, является ли это выводом с сайта
   const isWithdraw = sale.network === 'Вывод с сайта';
 
+  // Достаём сумму — поддерживаем разные варианты названия поля
+  const amount = sale.amount ?? sale.sum ?? sale.total ?? sale.price ?? null;
+
   let text = '';
   
   if (isWithdraw) {
@@ -20,15 +23,17 @@ async function notifyAdmin(sale) {
     text = `💸 *Новый вывод с сайта!*\n\n` +
            `👤 Пользователь: ${sale.nickname || 'гость'}\n` +
            `🪙 Монета: ${sale.coin}\n` +
+           (amount != null ? `💰 Сумма: *${amount}*\n` : '') +
            `💼 Кошелёк: \`${sale.wallet}\`\n` +
            `📱 Телефон/карта: \`${sale.phone}\`\n` +
-           `🏦 ${sale.bank}\n` + // Тут уже придет "Банк: Сбер | Сумма вывода: 50"
+           `🏦 ${sale.bank}\n` +
            `🕐 ${new Date().toLocaleString('ru-RU')}`;
   } else {
     // Сообщение для ОБЫЧНОЙ ПРОДАЖИ
     text = `🔔 *Новая продажа*\n\n` +
            `👤 Пользователь: ${sale.nickname || 'гость'}\n` +
            `🪙 Монета: ${sale.coin}\n` +
+           (amount != null ? `💰 Сумма: *${amount}*\n` : '') +
            (sale.network ? `🌐 Сеть: ${sale.network}\n` : '') +
            `💼 Кошелёк: \`${sale.wallet}\`\n` +
            `📱 Телефон/карта: \`${sale.phone}\`\n` +
