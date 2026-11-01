@@ -1,7 +1,11 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = path.join(__dirname, 'data.db');
+// ВАЖНО: Для Amvera база данных должна лежать в папке /data
+// Если ты запускаешь локально на компьютере, можно оставить как есть (data.db в папке проекта).
+// Для Amvera раскомментируй строку ниже и закомментируй ту, что внизу.
+const dbPath = process.env.NODE_ENV === 'production' ? '/data/data.db' : path.join(__dirname, 'data.db');
+
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
@@ -21,19 +25,17 @@ db.serialize(() => {
     wallet TEXT,
     phone TEXT,
     bank TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
+
+  // Добавляем колонку status, если ее нет (чтобы не было ошибок при обновлении)
+  db.run("ALTER TABLE sales ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'", err => {});
 
   db.run(`CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
   )`);
-<<<<<<< HEAD
-  // Статус заявки: pending, sold или rejected.
-  db.run("ALTER TABLE sales ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'", err => {
-    // Игнорируем ошибку, если колонка уже существует.
-  });
-
 
   db.run(`CREATE TABLE IF NOT EXISTS login_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,9 +52,6 @@ db.serialize(() => {
     reason TEXT DEFAULT '',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
-
-=======
->>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 
   db.get("SELECT value FROM settings WHERE key = 'stopped'", (err, row) => {
     if (!row) {

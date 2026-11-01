@@ -9,43 +9,6 @@ const state = {
   user: null
 };
 
-<<<<<<< HEAD
-// Настройки текста и курсов, сохранённые администратором.
-async function applySiteConfig() {
-  try {
-    const response = await fetch('/api/site-config', { credentials: 'include' });
-    if (!response.ok) return;
-    const config = await response.json();
-    const prices = config.prices || {};
-    const priceText = (coin, price) => `1 ${coin} = ${price} ₽`;
-    const rateMap = [
-      ['#page-coins [data-coin="USDT"] .coin-rate', priceText('USDT', prices.sellUsdt ?? 73)],
-      ['#page-coins [data-coin="GRAM"] .coin-rate', priceText('GRAM', prices.sellGram ?? 90)],
-      ['#page-withdraw-coins [data-coin="WITHDRAW_USDT"] .coin-rate', priceText('USDT', prices.withdrawUsdt ?? 73)],
-      ['#page-withdraw-coins [data-coin="WITHDRAW_GRAM"] .coin-rate', priceText('GRAM', prices.withdrawGram ?? 90)]
-    ];
-    for (const [selector, value] of rateMap) {
-      const el = document.querySelector(selector);
-      if (el) el.textContent = value;
-    }
-    const usdtNotice = document.querySelector('#page-usdt-pay .important');
-    if (usdtNotice) {
-      usdtNotice.textContent = `ВАЖНО! КИДАЙТЕ ЛЮБУЮ СУММУ ДО 200$ НА УКАЗАННЫЙ АДРЕС, КОМИССИЯ СЕТИ НА ВАС, ДЕНЬГИ ПРИДУТ ПО КУРСУ 1 USDT = ${prices.sellUsdt ?? 73} ₽. ОЖИДАНИЕ ДО 1 ЧАСА. ПОСЛЕ ОТПРАВКИ КРИПТЫ НАЖМИТЕ КНОПКУ.`;
-    }
-    const gramNotice = document.querySelector('#page-gram-pay .important');
-    if (gramNotice) {
-      gramNotice.textContent = `ВАЖНО! КИДАЙТЕ ЛЮБУЮ СУММУ ДО 200$ НА УКАЗАННЫЙ АДРЕС, КОМИССИЯ СЕТИ НА ВАС, ДЕНЬГИ ПРИДУТ ПО КУРСУ 1 GRAM = ${prices.sellGram ?? 90} ₽. ОЖИДАНИЕ ДО 1 ЧАСА. ПОСЛЕ ОТПРАВКИ КРИПТЫ НАЖМИТЕ КНОПКУ.`;
-    }
-    const withdrawGramNotice = document.querySelector('#page-withdraw-gram-pay .important');
-    if (withdrawGramNotice) {
-      withdrawGramNotice.textContent = `ВАЖНО! КИДАЙТЕ ЛЮБУЮ СУММУ ДО 200$ НА УКАЗАННЫЙ АДРЕС, КОМИССИЯ СЕТИ НА ВАС, ДЕНЬГИ ПРИДУТ ПО КУРСУ 1 GRAM = ${prices.withdrawGram ?? 90} ₽. ОЖИДАНИЕ ДО 1 ЧАСА.`;
-    }
-  } catch (_) { /* Сайт продолжает работать с базовыми значениями. */ }
-}
-applySiteConfig();
-
-=======
->>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 // ---------- принудительно убираем загрузчик через 1.5 сек ----------
 setTimeout(() => {
   const loader = document.getElementById('loader');
@@ -59,7 +22,6 @@ setTimeout(() => {
 
 // ---------- навигация с защитой ----------
 function navigate(page) {
-  // Если пытаемся зайти на страницы продажи и не авторизованы
   const protectedPages = ['coins', 'withdraw-coins', 'usdt-network', 'usdt-pay', 'gram-pay', 'withdraw-usdt-network', 'withdraw-usdt-pay', 'withdraw-gram-pay'];
   
   if (protectedPages.includes(page) && !state.user) {
@@ -73,16 +35,6 @@ function navigate(page) {
   if (page === 'history') loadHistory();
 }
 
-<<<<<<< HEAD
-['#bubbleLogo', '#bubbleLogo2', '#bubbleLogoStopped', '.site-name'].forEach(selector => {
-  document.querySelectorAll(selector).forEach(el => {
-    el.style.cursor = 'pointer';
-    el.addEventListener('click', () => navigate('home'));
-  });
-});
-
-=======
->>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 document.querySelectorAll('[data-nav]').forEach(btn => {
   btn.addEventListener('click', () => navigate(btn.dataset.nav));
 });
@@ -116,11 +68,7 @@ async function checkMe() {
 
 function renderUser() {
   if (state.user) {
-<<<<<<< HEAD
-    $('#userInfo').textContent = state.user;
-=======
     $('#userInfo').textContent = '👤 ' + state.user;
->>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
     hide($('#loginBtn'));
     show($('#logoutBtn'));
   } else {
@@ -134,7 +82,7 @@ $('#logoutBtn').addEventListener('click', async () => {
   await fetch('/api/logout', { method: 'POST' });
   state.user = null;
   renderUser();
-  navigate('home'); // Возвращаем на главную при выходе
+  navigate('home');
 });
 
 // ---------- авторизация ----------
@@ -293,19 +241,10 @@ let bubbleTimer = null;
 function onBubbleClick() {
   bubbleClicks++;
   clearTimeout(bubbleTimer);
-<<<<<<< HEAD
-  bubbleTimer = setTimeout(() => { bubbleClicks = 0; }, 10000);
-  if (bubbleClicks >= 10) {
-    bubbleClicks = 0;
-    clearTimeout(bubbleTimer);
-    // Секретный вход ведёт на отдельную страницу админки.
-    window.location.href = '/admin';
-=======
   bubbleTimer = setTimeout(() => { bubbleClicks = 0; }, 3000);
   if (bubbleClicks >= 10) {
     bubbleClicks = 0;
     show($('#adminPassModal'));
->>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
   }
 }
 
@@ -347,10 +286,6 @@ $('#toggleStopBtn').addEventListener('click', async () => {
   }
 });
 $('#adminClose').addEventListener('click', () => hide($('#adminPanel')));
-<<<<<<< HEAD
-$('#openMaintenanceBtn').addEventListener('click', () => window.open('/maintenance', '_blank', 'noopener')); 
-=======
->>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 
 // ==========================================
 // ЛОГИКА ДЛЯ ВЫВОДА С САЙТОВ (КРИПТОЙ)
@@ -360,7 +295,6 @@ $('#openMaintenanceBtn').addEventListener('click', () => window.open('/maintenan
 document.querySelectorAll('#page-withdraw-coins .coin-card').forEach(card => {
   card.addEventListener('click', () => {
     if (!state.user) {
-      alert('Для продажи необходимо войти или зарегистрироваться!');
       openAuth('login');
       return;
     }
