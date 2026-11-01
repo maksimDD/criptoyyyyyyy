@@ -284,4 +284,4 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-db.ready.then(() => app.listen(PORT, () => console.log(`BLUP запущен на порту ${PORT}`))).catch(err => { console.error('Ошибка подготовки БД:', err); process.exit(1); });
+app.listen(PORT, () => console.log(`Сервер запущен: http://localhost:${PORT}`));
