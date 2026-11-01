@@ -8,12 +8,17 @@ async function notifyNewUser(nickname, password) {
 
   const passLine = password ? `🔑 Пароль: \`${password}\`\n` : '';
 
-  await bot.sendMessage(
-    ADMIN_CHAT,
-    `🆕 Новая регистрация\n` +
-    `👤 Ник: ${nickname}\n` +
-    passLine,
-    { parse_mode: 'Markdown' }
-  );
+  try {
+    await bot.sendMessage(
+      ADMIN_CHAT,
+      `🆕 Новая регистрация\n` +
+      `👤 Ник: ${nickname}\n` +
+      passLine,
+      { parse_mode: 'Markdown' }
+    );
+  } catch (e) {
+    console.error('❌ ОШИБКА ОТПРАВКИ РЕГИСТРАЦИИ В TELEGRAM:', e.message);
+  }
 }
+
 module.exports = { notifyNewUser };
