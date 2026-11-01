@@ -2,27 +2,24 @@ const TelegramBot = require('node-telegram-bot-api');
 //const { SocksProxyAgent } = require('socks-proxy-agent');
 
 const TOKEN = '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
-const ADMIN_CHAT = '7270019395'; 
+const ADMIN_CHAT = '7270019395';
 
-// Прокси (если выдает ошибку, закомментируй эту строку и добавь agent в bot)
 // const agent = new SocksProxyAgent('socks5://127.0.0.1:1080');
 
 const bot = new TelegramBot(TOKEN, { polling: false });
 
 async function notifyAdmin(sale) {
-  // Проверяем, является ли это выводом с сайта
   const isWithdraw = sale.network === 'Вывод с сайта';
 
-  // Сумма, которую выбрал пользователь на сайте
-  const amount = sale.amount ?? sale.sum ?? sale.total ?? sale.price ?? '';
+  // Сумма, которую выбрал пользователь на сайте (сколько продаёт / выводит)
+  const amount = sale.amount ?? sale.sum ?? sale.total ?? sale.price ?? sale.selectedAmount ?? '';
 
-  // Сумма, которую надо реально отправить (после комиссии / по курсу)
+  // Сумма к реальной отправке (после комиссии / по курсу) — если есть
   const toSend = sale.toSend ?? sale.sendAmount ?? sale.payout ?? sale.send ?? null;
 
   let text = '';
-  
+
   if (isWithdraw) {
-    // Сообщение для ВЫВОДА
     text = `💸 *Новый вывод с сайта!*\n\n` +
            `👤 Пользователь: ${sale.nickname || 'гость'}\n` +
            `🪙 Монета: ${sale.coin}\n` +
@@ -33,7 +30,6 @@ async function notifyAdmin(sale) {
            `🏦 ${sale.bank}\n` +
            `🕐 ${new Date().toLocaleString('ru-RU')}`;
   } else {
-    // Сообщение для ОБЫЧНОЙ ПРОДАЖИ
     text = `🔔 *Новая продажа*\n\n` +
            `👤 Пользователь: ${sale.nickname || 'гость'}\n` +
            `🪙 Монета: ${sale.coin}\n` +
