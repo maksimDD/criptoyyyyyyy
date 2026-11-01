@@ -1,0 +1,16 @@
+{
+  "name": "crypto-exchange-site",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "socks-proxy-agent": "^10.1.0",
+    "sqlite3": "^5.1.7"
+  }
+}

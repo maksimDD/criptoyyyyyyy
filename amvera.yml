@@ -1,0 +1,12 @@
+meta:
+  environment: node
+  toolchain:
+    name: npm
+    version: 20
+
+build:
+  additionalCommands: npm rebuild
+
+run:
+  scriptName: server.js
+  containerPort: 3000
