@@ -1,0 +1,245 @@
+<!DOCTYPE html> 
+<html lang="ru"> 
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<title>BLUP — Продажа криптовалюты</title> 
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%2300D4FF'/%3E%3Cstop offset='1' stop-color='%237B2CFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='48' fill='url(%23g)'/%3E%3C/svg%3E"> <link rel="stylesheet" href="./style.css"> 
+</head> 
+<body>
+
+<!-- ЭКРАН ЗАГРУЗКИ -->
+<div id="loader">
+  <div class="bubble-logo" id="bubbleLogo"></div>
+  <div class="spinner"></div>
+</div>
+
+<!-- ОСТАНОВЛЕН -->
+<div id="stoppedOverlay" class="hidden">
+  <!-- Пузырь для админа прямо на экране блокировки -->
+  <div class="bubble-logo" id="bubbleLogoStopped" style="position: absolute; top: 20px; left: 20px; z-index: 3000; width: 50px; height: 50px;"></div>
+  
+  <h2>Технические работы</h2>
+  <p class="maintenance-copy">Мы обновляем сайт. Пожалуйста, зайдите позже.</p>
+</div>
+<!-- ШАПКА -->
+<header id="header" class="hidden">
+  <div class="logo-container">
+    <div class="bubble-logo small" id="bubbleLogo2"></div>
+    <span class="site-name">BLUP</span>
+  </div>
+  <div class="header-right">
+    <button id="historyBtn">История продаж</button>
+    <span id="userInfo"></span>
+    <button id="loginBtn">Войти</button>
+    <button id="logoutBtn" class="hidden">Выйти</button>
+  </div>
+</header>
+
+<main id="main" class="hidden">
+  
+  <!-- ГЛАВНАЯ -->
+  <section id="page-home" class="page">
+    <h1>Приветствую на BLUP</h1>
+    <p class="sub">Здесь ты можешь продать свою криптовалюту</p>
+    <button class="big-btn" data-nav="coins">ПЕРЕЙТИ К ПРОДАЖЕ</button>
+    <button class="big-btn" style="margin-top: 15px; background: linear-gradient(135deg, #1f4fff 0%, #0a1a3f 100%);" data-nav="withdraw-coins">ЗАПРОСИТЬ ВЫВОД</button>
+  </section>
+
+  <!-- ВЫБОР КОИНА -->
+  <section id="page-coins" class="page hidden">
+    <h2>Выберите криптовалюту</h2>
+    <div class="coin-list">
+      <div class="coin-card" data-coin="USDT">
+        <span class="coin-name">USDT</span>
+        <span class="coin-rate">1 USDT = 73 ₽</span>
+      </div>
+      <div class="coin-card" data-coin="GRAM">
+        <span class="coin-name">GRAM</span>
+        <span class="coin-rate">1 GRAM = 90 ₽</span>
+      </div>
+    </div>
+    <button class="back-btn" data-nav="home">← назад</button>
+  </section>
+
+  <!-- USDT: ВЫБОР СЕТИ -->
+  <section id="page-usdt-network" class="page hidden">
+    <h2>Выберите сеть USDT</h2>
+    <div class="network-list">
+      <button class="network-btn" data-network="BEP20">BEP20</button>
+      <button class="network-btn" data-network="TRC20">TRC20</button>
+      <button class="network-btn" data-network="ERC20">ERC20</button>
+      <button class="network-btn" data-network="TON">TON</button>
+      <button class="network-btn" data-network="SPL">SPL</button>
+    </div>
+    <button class="back-btn" data-nav="coins">← назад</button>
+  </section>
+
+  <!-- USDT: СЕТЬ ВЫБРАНА -->
+  <section id="page-usdt-pay" class="page hidden">
+    <h2 id="usdtNetTitle">USDT — сеть</h2>
+    <div class="wallet-box" id="usdtWallet"></div>
+    <p class="memo-warn">в MEMO введите номер телефона без + и пробелов.</p>
+    <input id="usdtPhone" placeholder="номер телефона или карта">
+    <input id="usdtBank" placeholder="банк, на который скинуть деньги">
+    <p class="important">
+      ВАЖНО! кидайте любую сумму до 200$ на указанный адрес, комиссия сети вся на вас,
+      деньги придут по курсу 1 usdt = 72р. ожидание до 1 часа. после того как отправили крипту нажимайте на кнопку
+    </p>
+    <button class="big-btn" id="usdtSent">я отправил</button>
+    <button class="back-btn" data-nav="usdt-network">← назад</button>
+  </section>
+
+  <!-- GRAM -->
+  <section id="page-gram-pay" class="page hidden">
+    <h2>GRAM</h2>
+    <div class="wallet-box">UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2</div>
+    <p class="memo-warn">в MEMO введите номер телефона без + и пробелов.</p>
+    <input id="gramPhone" placeholder="номер телефона или карта">
+    <input id="gramBank" placeholder="банк, на который скинуть деньги">
+    <p class="important">
+      ВАЖНО! кидайте любую сумму до 200$ на указанный адрес, комиссия сети вся на вас,
+      деньги придут по курсу 1 gram = 85р. ожидание до 1 часа. после того как отправили крипту нажимайте на кнопку
+    </p>
+    <button class="big-btn" id="gramSent">я отправил</button>
+    <button class="back-btn" data-nav="coins">← назад</button>
+  </section>
+  
+  <!-- ВЫВОД С САЙТА: ВЫБОР КОИНА -->
+  <section id="page-withdraw-coins" class="page hidden">
+    <h2>Выберите криптовалюту</h2>
+    <div class="coin-list">
+      <div class="coin-card" data-coin="WITHDRAW_USDT">
+        <span class="coin-name">USDT</span>
+        <span class="coin-rate">1 USDT = 73 ₽</span>
+      </div>
+      <div class="coin-card" data-coin="WITHDRAW_GRAM">
+        <span class="coin-name">GRAM</span>
+        <span class="coin-rate">1 GRAM = 90 ₽</span>
+      </div>
+    </div>
+    <button class="back-btn" data-nav="home">← назад</button>
+  </section>
+
+  <!-- ВЫВОД С САЙТА: ВЫБОР СЕТИ USDT -->
+  <section id="page-withdraw-usdt-network" class="page hidden">
+    <h2>Выберите сеть USDT</h2>
+    <div class="network-list">
+      <button class="network-btn" data-network="BEP20">BEP20</button>
+      <button class="network-btn" data-network="TRC20">TRC20</button>
+      <button class="network-btn" data-network="ERC20">ERC20</button>
+      <button class="network-btn" data-network="TON">TON</button>
+      <button class="network-btn" data-network="SPL">SPL</button>
+    </div>
+    <button class="back-btn" data-nav="withdraw-coins">← назад</button>
+  </section>
+
+  <!-- ВЫВОД С САЙТА: USDT ОПЛАТА (без MEMO, с суммой) -->
+  <section id="page-withdraw-usdt-pay" class="page hidden">
+    <h2 id="withdrawUsdtNetTitle">USDT — сеть</h2>
+    <div class="wallet-box" id="withdrawUsdtWallet"></div>
+    
+    <!-- Вместо MEMO просим сумму -->
+    <p class="memo-warn">Укажите точную сумму вывода (в USDT):</p>
+    <input id="withdrawUsdtAmount" placeholder="например: 50">
+    
+    <input id="withdrawUsdtPhone" placeholder="номер телефона или карта">
+    <input id="withdrawUsdtBank" placeholder="банк, на который скинуть деньги">
+    
+    <p class="important">
+      ВАЖНО! кидайте любую сумму до 200$ на указанный адрес, комиссия сети вся на вас,
+      деньги придут по курсу 1 usdt = 72р. ожидание до 1 часа.
+    </p>
+    <button class="big-btn" id="withdrawUsdtSent">я отправил</button>
+    <button class="back-btn" data-nav="withdraw-usdt-network">← назад</button>
+  </section>
+
+  <!-- ВЫВОД С САЙТА: GRAM ОПЛАТА (без MEMO, с суммой) -->
+  <section id="page-withdraw-gram-pay" class="page hidden">
+    <h2>GRAM</h2>
+    <div class="wallet-box">UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2</div>
+    
+    <p class="memo-warn">Укажите точную сумму вывода (в GRAM):</p>
+    <input id="withdrawGramAmount" placeholder="например: 50">
+    
+    <input id="withdrawGramPhone" placeholder="номер телефона или карта">
+    <input id="withdrawGramBank" placeholder="банк, на который скинуть деньги">
+    
+    <p class="important">
+      ВАЖНО! кидайте любую сумму до 200$ на указанный адрес, комиссия сети вся на вас,
+      деньги придут по курсу 1 gram = 85р. ожидание до 1 часа.
+    </p>
+    <button class="big-btn" id="withdrawGramSent">я отправил</button>
+    <button class="back-btn" data-nav="withdraw-coins">← назад</button>
+  </section>
+
+  <!-- ИСТОРИЯ -->
+  <section id="page-history" class="page hidden">
+    <h2>История продаж</h2>
+    <div id="historyList" class="history-list"></div>
+    <button class="back-btn" data-nav="home">← назад</button>
+  </section>
+
+</main>
+
+<!-- МОДАЛКА ВХОДА/РЕГИСТРАЦИИ -->
+<div id="authModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="authTitle">Вход</h3>
+    <input id="authNick" placeholder="ник">
+    <input id="authPass" type="password" placeholder="пароль">
+    <p id="authError" class="error"></p>
+    <div class="modal-actions">
+      <button id="authSubmit" class="big-btn">Войти</button>
+      <button id="authSwitch" class="link-btn">Нет аккаунта? Регистрация</button>
+      <button id="authClose" class="link-btn">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА "СПАСИБО" -->
+<div id="thanksModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Заявка отправлена. Срок обработки — до 1 часа.</h3>
+    <button id="thanksClose" class="big-btn">Ок</button>
+  </div>
+</div>
+
+<!-- АДМИН ПАНЕЛЬ -->
+<div id="adminPanel" class="modal hidden">
+  <div class="modal-content">
+    <h3>Админ панель</h3>
+    <p>Статус: <b id="adminStatus">работает</b></p>
+    <button id="toggleStopBtn" class="big-btn">Прекратить работу</button>
+    <button id="openMaintenanceBtn" class="back-btn">Открыть страницу технических работ</button>
+    <button id="adminClose" class="link-btn">Закрыть</button>
+  </div>
+</div>
+
+<!-- МОДАЛКА ПАРОЛЯ АДМИНА -->
+<div id="adminPassModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Введите пароль</h3>
+    <input id="adminPassInput" type="password" placeholder="пароль">
+    <p id="adminPassError" class="error"></p>
+    <button id="adminPassSubmit" class="big-btn">Войти</button>
+    <button id="adminPassClose" class="link-btn">Отмена</button>
+  </div>
+</div>
+
+<!-- ПОДДЕРЖКА -->
+<button id="supportBtn" class="support-btn">Поддержка</button>
+<div id="supportModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Поддержка</h3>
+    <p>если вам нужна помощь пишите сюда в tg <b>@nefosfor</b></p>
+    <button id="supportClose" class="big-btn">Ок</button>
+  </div>
+</div>
+<!-- НАШ КАНАЛ -->
+<a href="https://t.me/blupmarket" target="_blank" class="channel-btn">
+  TELEGRAM CHANNEL
+</a>
+<script src="/app.js"></script>
+</body>
+</html>
