@@ -168,7 +168,7 @@ app.post('/api/sell', (req, res) => {
     const validNetwork = asset === 'GRAM' ? ['TON'] : ['BEP20','TRC20','ERC20','TON','SPL'];
     const expectedWallet = BLUP_WALLETS[asset]?.[net];
     if (!['USDT','GRAM'].includes(asset) || !validNetwork.includes(net) || !expectedWallet || String(destinationWallet || '') !== expectedWallet) return res.status(400).json({ error: 'Проверьте валюту, сеть и адрес кошелька BLUP.' });
-    if (op === 'sell' && (!payout || payout.length > 100 || !bankName || userWallet.length > 180)) return res.status(400).json({ error: 'Укажите реквизиты для получения оплаты.' });
+    if (op === 'sell' && (!payout || payout.length > 100 || !bankName || userWallet.length > 180 || !Number.isFinite(qty) || qty <= 0 || qty > 1000000)) return res.status(400).json({ error: 'Укажите сумму продажи и реквизиты для получения оплаты.' });
     if (op === 'withdraw' && (!userWallet || userWallet.length > 180 || !Number.isFinite(qty) || qty <= 0 || qty > 1000000)) return res.status(400).json({ error: 'Укажите сумму и корректный адрес кошелька для получения.' });
     if (op === 'withdraw') {
       db.run('UPDATE settings SET value=CAST(value AS REAL)-? WHERE key=\'reserve_available\' AND CAST(value AS REAL)>=?', [qty, qty], function(err) {
