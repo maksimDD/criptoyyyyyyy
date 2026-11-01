@@ -25,7 +25,7 @@ db.ready = (async () => {
 
   const migrations = {
     users: { last_ip:'TEXT', last_seen:'TEXT', is_banned:'INTEGER DEFAULT 0', ban_reason:'TEXT', session_version:'INTEGER DEFAULT 0' },
-    sales: { operation_type:"TEXT DEFAULT 'sell'", memo:'TEXT', payout_type:'TEXT', amount:'REAL DEFAULT 0', status:"TEXT DEFAULT 'pending'" }
+    sales: { operation_type:"TEXT DEFAULT 'sell'", memo:'TEXT', payout_type:'TEXT', amount:'REAL DEFAULT 0', status:"TEXT DEFAULT 'pending'", destination_wallet:'TEXT' }
   };
   for (const [table, columns] of Object.entries(migrations)) {
     const existing = new Set((await all(`PRAGMA table_info(${table})`)).map(x=>x.name));

@@ -8,6 +8,7 @@ const { notifyAdmin } = require('./bot');
 const { notifyNewUser } = require('./bot_register');
 
 const app = express();
+const BLUP_WALLETS = { USDT: { BEP20:'0x4eb35b332de372683aD24d7377abFa53F89451E4', TRC20:'TWCzWBarQUEfDd9pHYUwT5Chxr37e6Cdod', ERC20:'0xefF29984a72b0CFf45c57210f7Df8B60340724C5', TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2', SPL:'3J5d7AadxyoVwh97ALxPW1h1m35bSVcgoPY3cHdMuMmR' }, GRAM: { TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2' } };
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(48).toString('hex');
 if (!process.env.SESSION_SECRET) console.warn('ВНИМАНИЕ: задайте SESSION_SECRET в переменных окружения для постоянных сессий.');
@@ -88,7 +89,7 @@ app.get('/api/config', (req, res) => {
     if (err) return res.status(500).json({ error: 'Ошибка настроек' });
     const s = Object.fromEntries(rows.map(x => [x.key, x.value]));
     let banks = []; try { banks = JSON.parse(s.banks || '[]'); } catch {}
-    res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks });
+    res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks, wallets: BLUP_WALLETS });
   });
 });
 
@@ -156,19 +157,19 @@ app.post('/api/sell', (req, res) => {
   getSetting('stopped', '0', (e, stopped) => {
     if (e) return res.status(500).json({ error: 'Ошибка настроек' });
     if (stopped === '1' && req.session.isAdmin !== true) return res.status(403).json({ error: 'Приём заявок временно приостановлен.' });
-    const { coin, network, wallet, memo, payoutType, payoutValue, bank, operationType = 'sell', amount } = req.body || {};
+    const { coin, network, wallet, destinationWallet, memo, payoutType, payoutValue, bank, operationType = 'sell', amount } = req.body || {};
     const asset = String(coin || '').toUpperCase();
     const net = String(network || '');
-    const addr = String(wallet || '').trim();
+    const userWallet = String(wallet || '').trim();
     const payout = String(payoutValue || '').trim();
     const bankName = String(bank || '').trim();
     const op = operationType === 'withdraw' ? 'withdraw' : 'sell';
     const qty = Number(amount || 0);
-    const validNetwork = ['BEP20','TRC20','ERC20','TON','SPL'];
-    if ((op === 'sell' && !['USDT','GRAM'].includes(asset)) || (op === 'withdraw' && asset !== 'USD') || (op === 'sell' && (!addr || addr.length > 180)) || !payout || payout.length > 100 || !bankName) return res.status(400).json({ error: 'Проверьте обязательные поля заявки.' });
-    if (op === 'sell' && asset === 'USDT' && !validNetwork.includes(net)) return res.status(400).json({ error: 'Выберите сеть USDT.' });
-    if (op === 'sell' && asset === 'GRAM' && net !== 'TON') return res.status(400).json({ error: 'Для GRAM используется сеть TON.' });
-    if (op === 'withdraw' && (!Number.isFinite(qty) || qty <= 0 || qty > 1000000)) return res.status(400).json({ error: 'Укажите корректную сумму вывода.' });
+    const validNetwork = asset === 'GRAM' ? ['TON'] : ['BEP20','TRC20','ERC20','TON','SPL'];
+    const expectedWallet = BLUP_WALLETS[asset]?.[net];
+    if (!['USDT','GRAM'].includes(asset) || !validNetwork.includes(net) || !expectedWallet || String(destinationWallet || '') !== expectedWallet) return res.status(400).json({ error: 'Проверьте валюту, сеть и адрес кошелька BLUP.' });
+    if (op === 'sell' && (!payout || payout.length > 100 || !bankName || userWallet.length > 180)) return res.status(400).json({ error: 'Укажите реквизиты для получения оплаты.' });
+    if (op === 'withdraw' && (!userWallet || userWallet.length > 180 || !Number.isFinite(qty) || qty <= 0 || qty > 1000000)) return res.status(400).json({ error: 'Укажите сумму и корректный адрес кошелька для получения.' });
     if (op === 'withdraw') {
       db.run('UPDATE settings SET value=CAST(value AS REAL)-? WHERE key=\'reserve_available\' AND CAST(value AS REAL)>=?', [qty, qty], function(err) {
         if (err) return res.status(500).json({ error: 'Ошибка резерва' });
@@ -177,15 +178,19 @@ app.post('/api/sell', (req, res) => {
       });
     } else insertRequest();
     function insertRequest() {
-      db.run(`INSERT INTO sales(user_id,nickname,coin,network,wallet,phone,bank,operation_type,memo,payout_type,amount,status)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending')`,
-        [req.session.userId, req.session.nickname, asset, op === 'withdraw' ? 'Вывод с сайта' : (asset === 'GRAM' ? 'TON' : net), op === 'withdraw' ? '—' : addr, payout, bankName, op, String(memo || '').slice(0,120), String(payoutType || 'phone'), qty],
+      const storedNetwork = net;
+      const storedWallet = userWallet || '—';
+      const storedPayout = op === 'withdraw' ? userWallet : payout;
+      const storedBank = op === 'withdraw' ? 'Криптовалютный кошелёк' : bankName;
+      db.run(`INSERT INTO sales(user_id,nickname,coin,network,wallet,destination_wallet,phone,bank,operation_type,memo,payout_type,amount,status)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'pending')`,
+        [req.session.userId, req.session.nickname, asset, storedNetwork, storedWallet, expectedWallet, storedPayout, storedBank, op, String(memo || '').slice(0,120), op === 'withdraw' ? 'wallet' : String(payoutType || 'phone'), qty],
         function(err) {
           if (err) {
             if (op === 'withdraw') db.run("UPDATE settings SET value=CAST(value AS REAL)+? WHERE key='reserve_available'", [qty]);
-            return res.status(500).json({ error: 'Не удалось сохранить заявку' });
+            return res.status(500).json({ error: 'Не удалось создать заявку.' });
           }
-          const sale = { id: this.lastID, nickname: req.session.nickname, coin: asset, network: op === 'withdraw' ? 'Вывод с сайта' : (asset === 'GRAM' ? 'TON' : net), wallet: addr, phone: payout, bank: `${bankName} / ${payoutType || 'phone'}${op === 'withdraw' ? ` / сумма: ${qty} USD` : ''}`, memo: String(memo || '') };
+          const sale = { id: this.lastID, nickname: req.session.nickname, coin: asset, network: storedNetwork, wallet: storedWallet, destinationWallet: expectedWallet, phone: storedPayout, bank: storedBank, memo: String(memo || '') };
           notifyAdmin(sale).catch(() => {});
           res.json({ ok: true, id: this.lastID });
         });
@@ -207,13 +212,14 @@ app.post('/api/admin/login', (req, res) => {
   });
 });
 app.post('/api/admin/logout', adminOnly, (req, res) => req.session.destroy(() => { res.clearCookie('blup.sid'); res.json({ ok: true }); }));
+app.post('/api/admin/maintenance', adminOnly, (req, res) => setSetting('stopped', req.body?.stopped ? '1' : '0', err => err ? res.status(500).json({ error: 'Не удалось изменить режим техработ' }) : res.json({ ok: true, stopped: !!req.body?.stopped })));
 app.get('/api/admin/me', (req, res) => res.json({ isAdmin: req.session.isAdmin === true }));
 app.get('/api/admin/overview', adminOnly, (req, res) => {
   db.get('SELECT COUNT(*) AS users, SUM(CASE WHEN is_banned=1 THEN 1 ELSE 0 END) AS banned FROM users', [], (e, stats) => {
     if (e) return res.status(500).json({ error: 'Ошибка БД' });
     db.get("SELECT COUNT(*) AS pending FROM sales WHERE status='pending'", [], (e2, pending) => {
       db.all('SELECT id,nickname,created_at,last_ip,last_seen,is_banned,ban_reason FROM users ORDER BY id DESC LIMIT 300', [], (e3, users) => {
-        db.all('SELECT id,user_id,nickname,coin,network,operation_type,amount,status,created_at,wallet,phone,bank,memo,payout_type FROM sales ORDER BY id DESC LIMIT 300', [], (e4, sales) => {
+        db.all('SELECT id,user_id,nickname,coin,network,operation_type,amount,status,created_at,wallet,destination_wallet,phone,bank,memo,payout_type FROM sales ORDER BY id DESC LIMIT 300', [], (e4, sales) => {
           db.all('SELECT ip,reason,created_at FROM ip_bans ORDER BY created_at DESC', [], (e5, bans) => {
             db.all('SELECT user_id,nickname,ip,event,created_at FROM visits ORDER BY id DESC LIMIT 200', [], (e7, visits) => {
               if (e2 || e3 || e4 || e5 || e7) return res.status(500).json({ error: 'Ошибка загрузки панели' });
@@ -229,12 +235,12 @@ app.get('/api/admin/overview', adminOnly, (req, res) => {
   });
 });
 app.post('/api/admin/settings', adminOnly, (req, res) => {
-  const { usdtRate, gramRate, reserveTotal, reserveAvailable, banks, stopped } = req.body || {};
+  const { usdtRate, gramRate, reserveTotal, reserveAvailable, banks } = req.body || {};
   const values = [usdtRate, gramRate, reserveTotal, reserveAvailable].map(Number);
   if (values.some(v => !Number.isFinite(v) || v < 0 || v > 1e12) || values[3] > values[2]) return res.status(400).json({ error: 'Проверьте курсы и значения резерва.' });
   if (!Array.isArray(banks) || banks.length > 100 || banks.some(x => typeof x !== 'string' || !x.trim() || x.length > 80)) return res.status(400).json({ error: 'Некорректный список банков.' });
   db.serialize(() => {
-    const pairs = [['usdt_rate', values[0]], ['gram_rate', values[1]], ['reserve_total', values[2]], ['reserve_available', values[3]], ['banks', JSON.stringify([...new Set(banks.map(x => x.trim()))])], ['stopped', stopped ? '1' : '0']];
+    const pairs = [['usdt_rate', values[0]], ['gram_rate', values[1]], ['reserve_total', values[2]], ['reserve_available', values[3]], ['banks', JSON.stringify([...new Set(banks.map(x => x.trim()))])]];
     const stmt = db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
     pairs.forEach(p => stmt.run(p[0], String(p[1])));
     stmt.finalize(err => err ? res.status(500).json({ error: 'Не удалось сохранить настройки' }) : res.json({ ok: true }));
