@@ -9,6 +9,7 @@ const state = {
   user: null
 };
 
+<<<<<<< HEAD
 // Настройки текста и курсов, сохранённые администратором.
 async function applySiteConfig() {
   try {
@@ -43,6 +44,8 @@ async function applySiteConfig() {
 }
 applySiteConfig();
 
+=======
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 // ---------- принудительно убираем загрузчик через 1.5 сек ----------
 setTimeout(() => {
   const loader = document.getElementById('loader');
@@ -70,6 +73,7 @@ function navigate(page) {
   if (page === 'history') loadHistory();
 }
 
+<<<<<<< HEAD
 ['#bubbleLogo', '#bubbleLogo2', '#bubbleLogoStopped', '.site-name'].forEach(selector => {
   document.querySelectorAll(selector).forEach(el => {
     el.style.cursor = 'pointer';
@@ -77,6 +81,8 @@ function navigate(page) {
   });
 });
 
+=======
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 document.querySelectorAll('[data-nav]').forEach(btn => {
   btn.addEventListener('click', () => navigate(btn.dataset.nav));
 });
@@ -110,7 +116,11 @@ async function checkMe() {
 
 function renderUser() {
   if (state.user) {
+<<<<<<< HEAD
     $('#userInfo').textContent = state.user;
+=======
+    $('#userInfo').textContent = '👤 ' + state.user;
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
     hide($('#loginBtn'));
     show($('#logoutBtn'));
   } else {
@@ -283,12 +293,19 @@ let bubbleTimer = null;
 function onBubbleClick() {
   bubbleClicks++;
   clearTimeout(bubbleTimer);
+<<<<<<< HEAD
   bubbleTimer = setTimeout(() => { bubbleClicks = 0; }, 10000);
   if (bubbleClicks >= 10) {
     bubbleClicks = 0;
     clearTimeout(bubbleTimer);
     // Секретный вход ведёт на отдельную страницу админки.
     window.location.href = '/admin';
+=======
+  bubbleTimer = setTimeout(() => { bubbleClicks = 0; }, 3000);
+  if (bubbleClicks >= 10) {
+    bubbleClicks = 0;
+    show($('#adminPassModal'));
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
   }
 }
 
@@ -330,7 +347,10 @@ $('#toggleStopBtn').addEventListener('click', async () => {
   }
 });
 $('#adminClose').addEventListener('click', () => hide($('#adminPanel')));
+<<<<<<< HEAD
 $('#openMaintenanceBtn').addEventListener('click', () => window.open('/maintenance', '_blank', 'noopener')); 
+=======
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 
 // ==========================================
 // ЛОГИКА ДЛЯ ВЫВОДА С САЙТОВ (КРИПТОЙ)

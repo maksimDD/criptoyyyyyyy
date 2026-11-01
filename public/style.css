@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+=======
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 /* =====================================================
    ПАЛИТРА: чёрный / голубой / синий / белый
    ===================================================== */
@@ -741,6 +744,7 @@ header {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   text-transform: uppercase;
+<<<<<<< HEAD
 }
 /* BLUP visual refresh: typography, ambient motion and tactile controls */
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
@@ -860,3 +864,6 @@ input:focus,textarea:focus,select:focus{border-color:#6bdfff!important;box-shado
 .maintenance-home{background:linear-gradient(110deg,rgba(81,69,255,.2),rgba(81,215,255,.09))!important}
 ::selection{background:rgba(124,103,255,.55);color:#fff}
 @media(prefers-reduced-motion:reduce){body,body::before,.bubble-logo,.big-btn,.coin-card{animation:none!important}}
+=======
+}
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8

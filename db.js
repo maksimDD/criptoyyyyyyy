@@ -28,6 +28,7 @@ db.serialize(() => {
     key TEXT PRIMARY KEY,
     value TEXT
   )`);
+<<<<<<< HEAD
   // Статус заявки: pending, sold или rejected.
   db.run("ALTER TABLE sales ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'", err => {
     // Игнорируем ошибку, если колонка уже существует.
@@ -50,6 +51,8 @@ db.serialize(() => {
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
+=======
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 
   db.get("SELECT value FROM settings WHERE key = 'stopped'", (err, row) => {
     if (!row) {

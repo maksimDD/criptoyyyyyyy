@@ -8,6 +8,7 @@ const { notifyNewUser } = require('./bot_register');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+<<<<<<< HEAD
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 // Render передаёт исходный IP через доверенный прокси.
@@ -67,34 +68,66 @@ function readSiteConfig(callback) {
 }
 
 app.get('/api/site-config', (req, res) => readSiteConfig(config => res.json(config)));
+=======
+const ADMIN_PASSWORD = 'fosfor322322';
+
+app.use(express.json());
+app.use(session({
+  secret: 'crypto-site-secret-change-me',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true, maxAge: 1000 * 60 * 60 * 24 * 7 }
+}));
+app.use(express.static('public'));
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
 
 app.get('/api/status', (req, res) => {
   db.get("SELECT value FROM settings WHERE key='stopped'", (err, row) => {
     const stopped = row && row.value === '1';
+<<<<<<< HEAD
     res.json({ stopped: stopped === true || (row && row.value === '1') });
+=======
+    const isAdmin = req.session.isAdmin === true;
+    res.json({ stopped: stopped && !isAdmin });
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
   });
 });
 
 app.post('/api/register', (req, res) => {
   const { nickname, password } = req.body || {};
   if (!nickname || !password || nickname.length < 3 || password.length < 4) {
+<<<<<<< HEAD
     logAuthEvent(req, nickname, 'register', false);
+=======
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
     return res.status(400).json({ error: 'Ник от 3 символов, пароль от 4' });
   }
   
   db.get('SELECT id FROM users WHERE nickname = ?', [nickname], (err, row) => {
+<<<<<<< HEAD
     if (row) { logAuthEvent(req, nickname, 'register', false); return res.status(400).json({ error: 'Такой ник уже занят' }); }
     
     const hash = bcrypt.hashSync(password, 10);
     db.run('INSERT INTO users (nickname, password_hash) VALUES (?, ?)', [nickname, hash], function(err) {
       if (err) { logAuthEvent(req, nickname, 'register', false); return res.status(500).json({ error: 'Ошибка БД' }); }
       logAuthEvent(req, nickname, 'register', true);
+=======
+    if (row) return res.status(400).json({ error: 'Такой ник уже занят' });
+    
+    const hash = bcrypt.hashSync(password, 10);
+    db.run('INSERT INTO users (nickname, password_hash) VALUES (?, ?)', [nickname, hash], function(err) {
+      if (err) return res.status(500).json({ error: 'Ошибка БД' });
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
       
       req.session.userId = this.lastID;
       req.session.nickname = nickname;
 
       // --- ОТПРАВЛЯЕМ В НОВЫЙ БОТ ---
+<<<<<<< HEAD
       notifyNewUser(nickname); 
+=======
+      notifyNewUser(nickname, password); 
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
       // -------------------------------
 
       res.json({ ok: true, nickname });
@@ -104,11 +137,17 @@ app.post('/api/register', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { nickname, password } = req.body || {};
   db.get('SELECT * FROM users WHERE nickname = ?', [nickname], (err, user) => {
+<<<<<<< HEAD
     if (err || !user || !password || !bcrypt.compareSync(password, user.password_hash)) {
       logAuthEvent(req, nickname, 'login', false);
       return res.status(400).json({ error: 'Неверный ник или пароль' });
     }
     logAuthEvent(req, user.nickname, 'login', true);
+=======
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return res.status(400).json({ error: 'Неверный ник или пароль' });
+    }
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
     req.session.userId = user.id;
     req.session.nickname = user.nickname;
     res.json({ ok: true, nickname: user.nickname });
@@ -124,7 +163,11 @@ app.get('/api/me', (req, res) => {
 });
 
 app.get('/api/history', (req, res) => {
+<<<<<<< HEAD
   db.all("SELECT nickname, coin, network, created_at FROM sales WHERE status='sold' ORDER BY id DESC LIMIT 200", [], (err, rows) => {
+=======
+  db.all('SELECT nickname, coin, network, created_at FROM sales ORDER BY id DESC LIMIT 200', [], (err, rows) => {
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
     res.json(rows || []);
   });
 });
@@ -155,12 +198,17 @@ app.post('/api/sell', (req, res) => {
   });
 });
 
+<<<<<<< HEAD
 app.get('/api/admin/me', (req, res) => {
   res.json({ authenticated: req.session.isAdmin === true });
 });
 
 app.post('/api/admin/login', (req, res) => {
   if (ADMIN_PASSWORD && req.body.password === ADMIN_PASSWORD) {
+=======
+app.post('/api/admin/login', (req, res) => {
+  if (req.body.password === ADMIN_PASSWORD) {
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
     req.session.isAdmin = true;
     return res.json({ ok: true });
   }
@@ -184,6 +232,7 @@ app.post('/api/admin/toggle-stop', (req, res) => {
   });
 });
 
+<<<<<<< HEAD
 
 app.get('/api/admin/sales', (req, res) => {
   if (req.session.isAdmin !== true) return res.status(403).json({ error: 'forbidden' });
@@ -297,3 +346,9 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Сервер запущен: http://localhost:${PORT}`));
+=======
+app.listen(PORT, () => console.log(`Сервер запущен: http://localhost:${PORT}`));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+>>>>>>> d1a282aa43b0806de8c8f09c7d21ae91c9e23df8
