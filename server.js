@@ -3,6 +3,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 const db = require('./db');
 const { notifyAdmin } = require('./bot');
 const { notifyNewUser } = require('./bot_register');
@@ -10,10 +11,11 @@ const { notifyNewUser } = require('./bot_register');
 const app = express();
 const BLUP_WALLETS = { USDT: { BEP20:'0x4eb35b332de372683aD24d7377abFa53F89451E4', TRC20:'TWCzWBarQUEfDd9pHYUwT5Chxr37e6Cdod', ERC20:'0xefF29984a72b0CFf45c57210f7Df8B60340724C5', TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2', SPL:'3J5d7AadxyoVwh97ALxPW1h1m35bSVcgoPY3cHdMuMmR' }, GRAM: { TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2' } };
 const PORT = process.env.PORT || 3000;
-const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(48).toString('hex');
-if (!process.env.SESSION_SECRET) console.warn('ВНИМАНИЕ: задайте SESSION_SECRET в переменных окружения для постоянных сессий.');
+const SESSION_SECRET_FILE = path.join(__dirname, '.blup-session-secret');
+let SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET) { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} if (!SESSION_SECRET) { SESSION_SECRET = crypto.randomBytes(48).toString('hex'); try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET, { mode: 0o600, flag: 'wx' }); } catch { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} } } }
 if (!process.env.BLUP_ADMIN_PASSWORD) console.warn('Админ-вход отключён: задайте BLUP_ADMIN_PASSWORD.');
-app.set('trust proxy', process.env.TRUST_PROXY === '1' ? 1 : false);
+app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
 
@@ -170,12 +172,29 @@ app.post('/api/withdraw',(req,res)=>{
  const saleId=Number(req.body?.saleId), payoutType=String(req.body?.payoutType||'phone'), payout=String(req.body?.payoutValue||'').trim(), bank=String(req.body?.bank||'').trim();
  db.get("SELECT * FROM sales WHERE id=? AND user_id=? AND operation_type='sell' AND status='completed'",[saleId,req.session.userId],(e,sale)=>{
   if(e||!sale)return res.status(400).json({error:'Вывод доступен только после одобрения продажи'});
-  const rateKey=sale.coin==='GRAM'?'gram_rate':'usdt_rate';getSetting(rateKey,'0',(err,rateRaw)=>{const rate=Number(rateRaw),usd=Number(req.body?.amount||sale.amount);if(err||!rate||!Number.isFinite(usd)||usd<=0||usd>sale.amount||!payout||payout.length>100||!bank||!['phone','card'].includes(payoutType))return res.status(400).json({error:'Проверьте сумму, курс и банковские реквизиты'});const rub=Number((usd*rate).toFixed(2));db.run(`INSERT INTO sales(user_id,nickname,coin,network,operation_type,amount,payout_rub,phone,bank,payout_type,parent_sale_id,status) VALUES(?,?,?,?,'withdraw',?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,sale.coin,sale.network,usd,rub,payout,bank,payoutType,saleId],function(ins){if(ins)return res.status(500).json({error:'Не удалось создать заявку на вывод'});notifyAdmin({id:this.lastID,nickname:req.session.nickname,coin:sale.coin,network:sale.network,amount:usd,payoutRub:rub,phone:payout,bank,operation:'withdraw'}).catch(()=>{});res.json({ok:true,id:this.lastID,usd,rub,rate});});});
+  const rateKey=sale.coin==='GRAM'?'gram_rate':'usdt_rate';getSetting(rateKey,'0',(err,rateRaw)=>{const rate=Number(rateRaw),usd=Number(req.body?.amount||sale.amount);if(err||!rate||!Number.isFinite(usd)||usd<=0||usd>sale.amount||!payout||payout.length>100||!bank||!['phone','card'].includes(payoutType))return res.status(400).json({error:'Проверьте сумму, курс и банковские реквизиты'});db.get('SELECT percent FROM user_discounts WHERE user_id=? AND active=1',[req.session.userId],(de,discountRow)=>{const discount= req.body?.applyDiscount===true && !de ? Number(discountRow?.percent||0) : 0;const rub=Number((usd*rate*(1+discount/100)).toFixed(2));db.run(`INSERT INTO sales(user_id,nickname,coin,network,operation_type,amount,payout_rub,phone,bank,payout_type,parent_sale_id,status) VALUES(?,?,?,?,'withdraw',?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,sale.coin,sale.network,usd,rub,payout,bank,payoutType,saleId],function(ins){if(ins)return res.status(500).json({error:'Не удалось создать заявку на вывод'});notifyAdmin({id:this.lastID,nickname:req.session.nickname,coin:sale.coin,network:sale.network,amount:usd,payoutRub:rub,phone:payout,bank,operation:'withdraw'}).catch(()=>{});res.json({ok:true,id:this.lastID,usd,rub,rate,discount});});});});
  });
 });
-app.get('/api/withdraw/eligible',(req,res)=>{if(!req.session.userId)return res.status(401).json({error:'Войдите'});db.all("SELECT id,coin,network,amount,created_at FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed' ORDER BY id DESC",[req.session.userId],(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows));});
+app.get('/api/withdraw/eligible',(req,res)=>{if(!req.session.userId)return res.status(401).json({error:'Войдите'});db.all("SELECT id,coin,network,amount,created_at FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed' ORDER BY id DESC",[req.session.userId],(e,rows)=>{if(e)return res.status(500).json({error:'Ошибка'});db.get('SELECT percent FROM user_discounts WHERE user_id=? AND active=1',[req.session.userId],(de,d)=>res.json((rows||[]).map(x=>({...x,discountPercent:d?.percent||0}))));});});
 app.get('/api/promos',(req,res)=>db.all('SELECT code,description,reward_type,reward_value FROM promos WHERE active=1 ORDER BY id DESC',(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
-app.post('/api/promos/apply',(req,res)=>{if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});const code=String(req.body?.code||'').trim();db.get('SELECT code,description,reward_type,reward_value FROM promos WHERE code=? COLLATE NOCASE AND active=1',[code],(e,row)=>e||!row?res.status(404).json({error:'Промокод не найден или неактивен'}):res.json({ok:true,promo:row}));});
+app.post('/api/promos/apply',(req,res)=>{
+ if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
+ const code=String(req.body?.code||'').trim();
+ db.get('SELECT id,code,description,reward_type,reward_value,activation_limit,activation_count FROM promos WHERE code=? COLLATE NOCASE AND active=1',[code],(e,promo)=>{
+  if(e||!promo)return res.status(404).json({error:'Промокод не найден или неактивен'});
+  if(promo.activation_limit>0&&promo.activation_count>=promo.activation_limit)return res.status(409).json({error:'Лимит активаций промокода исчерпан'});
+  db.get('SELECT id,public_id,nickname FROM users WHERE id=?',[req.session.userId],(ue,user)=>{
+   if(ue||!user)return res.status(400).json({error:'Пользователь не найден'});
+   db.run('INSERT INTO promo_redemptions(promo_id,user_id,public_id,nickname) VALUES(?,?,?,?)',[promo.id,user.id,user.public_id,user.nickname],function(re){
+    if(re)return res.status(409).json({error:re.message.includes('UNIQUE')?'Ты уже активировал этот промокод':'Не удалось активировать промокод'});
+    db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?',[promo.id]);
+    if(promo.reward_type==='percent'&&[1,3].includes(Number(promo.reward_value))) db.run('INSERT INTO user_discounts(user_id,percent,source,active) VALUES(?,?,?,1) ON CONFLICT(user_id) DO UPDATE SET percent=MAX(user_discounts.percent,excluded.percent),active=1',[user.id,Number(promo.reward_value),'promo']);
+    notifyAdmin({operation:'promo',nickname:user.nickname,publicId:user.public_id,promoCode:promo.code}).catch(()=>{});
+    res.json({ok:true,promo:{code:promo.code,description:promo.description,reward_type:promo.reward_type,reward_value:promo.reward_value}});
+   });
+  });
+ });
+});
 
 function adminOnly(req, res, next) { if (req.session.isAdmin === true) return next(); return res.status(403).json({ error: 'Доступ запрещён' }); }
 app.post('/api/admin/login', (req, res) => {
@@ -274,9 +293,15 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
     } else db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e => e ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
   });
 });
-app.post('/api/admin/promos',adminOnly,(req,res)=>{const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||'info'),value=Number(req.body?.rewardValue||0),description=String(req.body?.description||'').slice(0,200);if(!/^[A-Z0-9_-]{3,24}$/.test(code)||!['info','percent','fixed'].includes(type)||!Number.isFinite(value)||value<0||value>1000000)return res.status(400).json({error:'Проверьте данные промокода'});db.run('INSERT INTO promos(code,reward_type,reward_value,description) VALUES(?,?,?,?)',[code,type,value,description],e=>e?res.status(409).json({error:'Такой промокод уже существует'}):res.json({ok:true}));});
-app.get('/api/admin/promos',adminOnly,(req,res)=>db.all('SELECT * FROM promos ORDER BY id DESC',(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
+app.post('/api/admin/promos',adminOnly,(req,res)=>{
+ const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||''),value=Number(req.body?.rewardValue||0),description=String(req.body?.description||'').slice(0,200),limit=Math.max(0,Math.floor(Number(req.body?.activationLimit||0)));
+ const allowed={sell_discount_1:['percent',1,'Скидка 1% на продажу'],sell_discount_3:['percent',3,'Скидка 3% на продажу'],deposit_150:['deposit_kb',150,'Депозит 150р на кб'],deposit_300:['deposit_jab',300,'Депозит 300р на жабу']};
+ const preset=allowed[type];if(!/^[A-Z0-9_-]{3,24}$/.test(code)||!preset||!Number.isFinite(limit)||limit>1000000)return res.status(400).json({error:'Проверьте данные промокода'});
+ db.run('INSERT INTO promos(code,reward_type,reward_value,description,activation_limit) VALUES(?,?,?,?,?)',[code,preset[0],preset[1],description||preset[2],limit],e=>e?res.status(409).json({error:'Такой промокод уже существует'}):res.json({ok:true}));
+});
+app.get('/api/admin/promos',adminOnly,(req,res)=>db.all(`SELECT p.*, (SELECT GROUP_CONCAT(COALESCE(r.public_id,r.user_id)||':'||r.nickname, char(10)) FROM promo_redemptions r WHERE r.promo_id=p.id) AS activators FROM promos p ORDER BY p.id DESC`,(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
 app.post('/api/admin/promos/:id/toggle',adminOnly,(req,res)=>db.run('UPDATE promos SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE id=?',[Number(req.params.id)],function(e){e?res.status(500).json({error:'Ошибка'}):res.json({ok:true});}));
+app.post('/api/admin/users/:id/discount',adminOnly,(req,res)=>{const id=Number(req.params.id),percent=Number(req.body?.percent);if(!Number.isInteger(id)||id<1||![0,1,3].includes(percent))return res.status(400).json({error:'Укажите ID и скидку 1%, 3% или 0%'});if(percent===0)return db.run('DELETE FROM user_discounts WHERE user_id=?',[id],e=>e?res.status(500).json({error:'Ошибка БД'}):res.json({ok:true}));db.run('INSERT INTO user_discounts(user_id,percent,source,active) VALUES(?,?,?,1) ON CONFLICT(user_id) DO UPDATE SET percent=excluded.percent,source=excluded.source,active=1',[id,percent,'admin'],e=>e?res.status(500).json({error:'Ошибка БД'}):res.json({ok:true}));});
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
