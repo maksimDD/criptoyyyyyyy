@@ -4,8 +4,8 @@ const TelegramBot = require('node-telegram-bot-api');
 // Pair 1: TELEGRAM_BOT_TOKEN + TELEGRAM_ADMIN_CHAT
 // Pair 2: TELEGRAM_BOT_TOKEN_2 + TELEGRAM_ADMIN_CHAT_2
 const destinations = [
-  { token: process.env.TELEGRAM_BOT_TOKEN || '8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g', chatId: process.env.TELEGRAM_ADMIN_CHAT || '7646143249' },
-  { token: process.env.TELEGRAM_BOT_TOKEN_2 || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnU1sI', chatId: process.env.TELEGRAM_ADMIN_CHAT_2 || '7270019395' }
+  { token: '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI', chatId: '7270019395' },
+  { token: '8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g'', chatId: '7646143249' },
 ].filter(x => x.token && x.chatId)
   .map(x => ({ bot: new TelegramBot(x.token, { polling: false }), chatId: x.chatId }));
 
