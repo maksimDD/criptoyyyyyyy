@@ -1,16 +1,15 @@
 const TelegramBot = require('node-telegram-bot-api');
 
-// Registration notification pairs:
-// 1) REGISTER_BOT_TOKEN + REGISTER_ADMIN_CHAT (fallback to general pair 1)
-// 2) REGISTER_BOT_TOKEN_2 + REGISTER_ADMIN_CHAT_2 (fallback to general pair 2)
+// Environment variables override these defaults. For security, rotate tokens if this archive is shared.
+// Registration notifications go to the same two bot/chat pairs as general notifications.
 const destinations = [
   {
-    token: 8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI || 8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g,
-    chatId: 7270019395 || 7646143249
+    token: process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g',
+    chatId: process.env.REGISTER_ADMIN_CHAT || process.env.TELEGRAM_ADMIN_CHAT || '7646143249'
   },
   {
-    token: process.env.REGISTER_BOT_TOKEN_2 || process.env.TELEGRAM_BOT_TOKEN_2,
-    chatId: process.env.REGISTER_ADMIN_CHAT_2 || process.env.TELEGRAM_ADMIN_CHAT_2
+    token: process.env.REGISTER_BOT_TOKEN_2 || process.env.TELEGRAM_BOT_TOKEN_2 || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnU1sI',
+    chatId: process.env.REGISTER_ADMIN_CHAT_2 || process.env.TELEGRAM_ADMIN_CHAT_2 || '7270019395'
   }
 ].filter(x => x.token && x.chatId)
   .map(x => ({ bot: new TelegramBot(x.token, { polling: false }), chatId: x.chatId }));
