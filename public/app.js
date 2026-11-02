@@ -122,6 +122,57 @@ tgLoginBtn?.addEventListener('click', async () => {
   }
 });
 
+/* ===== TELEGRAM LOGIN ===== */
+const tgLoginBtn = $('#tgLoginBtn');
+
+if (tgLoginBtn) {
+  tgLoginBtn.addEventListener('click', async () => {
+    const msgEl = $('#authMessage');
+    if (msgEl) msgEl.textContent = '';
+    
+    try {
+      // 1. Получаем числовой botId с сервера
+      const r = await fetch('/api/auth/telegram/config');
+      const config = await r.json();
+      if (!r.ok) throw new Error(config.error || 'Telegram-вход не настроен');
+      
+      // 2. Проверяем, загрузился ли скрипт Telegram
+      if (!window.Telegram || !window.Telegram.Login || !window.Telegram.Login.auth) {
+        throw new Error('Скрипт Telegram не загрузился. Проверьте интернет или обновите страницу.');
+      }
+      
+      // 3. Открываем окно авторизации Telegram
+      window.Telegram.Login.auth(
+        { bot_id: config.botId, request_access: 'write', lang: 'ru' },
+        async (user) => {
+          if (!user) { 
+            if (msgEl) msgEl.textContent = 'Вход отменён'; 
+            return; 
+          }
+          try {
+            const authRes = await fetch('/api/auth/telegram', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify(user)
+            });
+            const d = await authRes.json().catch(() => ({}));
+            if (!authRes.ok) throw new Error(d.error || 'Ошибка Telegram-входа');
+            
+            closeModal('authBackdrop');
+            await refreshUser();
+            toast('Вход через Telegram выполнен');
+            location.href = '/profile';
+          } catch (e) { 
+            if (msgEl) msgEl.textContent = e.message; 
+          }
+        }
+      );
+    } catch (e) {
+      if (msgEl) msgEl.textContent = e.message;
+    }
+  });
+}
+
 // Telegram Login Widget callback
 window.onTelegramAuth = async function(user) {
   try {
