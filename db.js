@@ -1,6 +1,24 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const db = new sqlite3.Database(path.join(__dirname, 'data.db'));
+const fs = require('fs');
+
+// Amvera's persistent Data storage is mounted at /data by amvera.yml.
+// Locally, keep using ./data.db unless DB_PATH is explicitly configured.
+const localDbPath = path.join(__dirname, 'data.db');
+const DB_PATH = process.env.DB_PATH || (
+  process.env.NODE_ENV === 'production' ? '/data/data.db' : localDbPath
+);
+
+// One-time safety net: if the old database is still present beside the app
+// and the persistent database does not exist yet, copy it before opening SQLite.
+// Best practice is still to stop the app and upload/copy the DB into Amvera Data
+// before deploying this version.
+if (DB_PATH !== localDbPath && !fs.existsSync(DB_PATH) && fs.existsSync(localDbPath)) {
+  fs.copyFileSync(localDbPath, DB_PATH);
+  console.log(`Copied existing SQLite database to persistent storage: ${DB_PATH}`);
+}
+const db = new sqlite3.Database(DB_PATH);
+console.log(`SQLite database path: ${DB_PATH}`);
 const run = (sql, params=[]) => new Promise((resolve,reject)=>db.run(sql,params,function(err){if(err)reject(err);else resolve(this);}));
 const all = (sql, params=[]) => new Promise((resolve,reject)=>db.all(sql,params,(err,rows)=>err?reject(err):resolve(rows)));
 
