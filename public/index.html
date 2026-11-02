@@ -156,17 +156,16 @@
     </section>
   </div>
 
-  <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
+    <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
     <section class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <button class="modal-close" id="authClose" aria-label="Закрыть">×</button>
-      <div class="modal-eyebrow">BLUP / АККАУНТ</div><h2 id="authTitle">Вход в аккаунт</h2><p class="modal-desc">Войди или создай аккаунт, чтобы пользоваться возможностями сервиса.</p>
-      <div class="auth-tabs"><button class="selected" data-auth="login">Войти</button><button data-auth="register">Регистрация</button></div>
-      <form id="authForm"><label>Никнейм<input name="nickname" minlength="3" required placeholder="Твой никнейм" autocomplete="username"></label><label>Пароль<input name="password" type="password" minlength="4" required placeholder="Пароль" autocomplete="current-password"></label><small class="auth-password-hint" id="passwordHint">Для нового аккаунта используйте пароль не короче 10 символов.</small><small class="auth-password-hint">Для безопасности фиксируются IP-адрес и время входа. Не используй чужие платёжные реквизиты и никому не сообщай коды подтверждения.</small><p class="form-message" id="authMessage"></p><button class="btn btn-primary btn-submit" type="submit" id="authSubmit">Войти <span>↗</span></button></form>
-      <div class="tg-login-wrap" id="tgLoginWrap">
-        <div class="tg-divider"><span>или</span></div>
-        <div id="tgLoginContainer"></div>
-        <small class="tg-login-hint">Вход через Telegram создаёт отдельный аккаунт BLUP, привязанный к твоему Telegram-профилю (аватарка, ник, ID).</small>
-      </div>
+      <div class="modal-eyebrow">BLUP / АККАУНТ</div>
+      <h2 id="authTitle">Вход в аккаунт</h2>
+      <p class="modal-desc">Войди через Telegram, чтобы пользоваться возможностями сервиса.</p>
+      <button class="btn btn-primary btn-submit tg-login-btn" type="button" id="tgLoginBtn">
+        <span class="tg-btn-icon">✈</span> Войти через Telegram <span>↗</span>
+      </button>
+      <p class="form-message" id="authMessage"></p>
     </section>
   </div>
 
@@ -191,15 +190,5 @@
   </div>
   <div class="toast" id="toast"></div>
   <script src="/app.js"></script>
-  <!-- Telegram Login Widget: замени BlupAuthBot на username своего бота -->
-  <script async src="https://telegram.org/js/telegram-widget.js?22"
-    data-telegram-login="gift_demo_bot"
-    data-size="large"
-    data-radius="10"
-    data-userpic="true"
-    data-request-access="write"
-    data-onauth="onTelegramAuth(user)"
-    data-auth-url=""
-    data-lang="ru"></script>
-</body>
-</html>
+
+  <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
