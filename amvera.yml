@@ -8,6 +8,5 @@ build:
   additionalCommands: npm rebuild
 
 run:
-  persistenceMount: /data
   scriptName: server.js
   containerPort: 3000

@@ -11,25 +11,9 @@ const { notifyNewUser } = require('./bot_register');
 const app = express();
 const BLUP_WALLETS = { USDT: { BEP20:'0x4eb35b332de372683aD24d7377abFa53F89451E4', TRC20:'TWCzWBarQUEfDd9pHYUwT5Chxr37e6Cdod', ERC20:'0xefF29984a72b0CFf45c57210f7Df8B60340724C5', TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2', SPL:'3J5d7AadxyoVwh97ALxPW1h1m35bSVcgoPY3cHdMuMmR' }, GRAM: { TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2' } };
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? '/data' : __dirname);
-const SESSION_SECRET_FILE = path.join(DATA_DIR, '.blup-session-secret');
+const SESSION_SECRET_FILE = path.join(__dirname, '.blup-session-secret');
 let SESSION_SECRET = process.env.SESSION_SECRET;
-if (!SESSION_SECRET) {
-  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
-  // Migrate the old secret when possible so existing session cookies remain valid.
-  if (DATA_DIR === '/data' && !fs.existsSync(SESSION_SECRET_FILE)) {
-    try {
-      const oldSecret = path.join(__dirname, '.blup-session-secret');
-      if (fs.existsSync(oldSecret)) fs.copyFileSync(oldSecret, SESSION_SECRET_FILE, { mode: 0o600 });
-    } catch {}
-  }
-  try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {}
-  if (!SESSION_SECRET) {
-    SESSION_SECRET = crypto.randomBytes(48).toString('hex');
-    try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET, { mode: 0o600, flag: 'wx' }); }
-    catch { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} }
-  }
-}
+if (!SESSION_SECRET) { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} if (!SESSION_SECRET) { SESSION_SECRET = crypto.randomBytes(48).toString('hex'); try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET, { mode: 0o600, flag: 'wx' }); } catch { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} } } }
 if (!process.env.BLUP_ADMIN_PASSWORD) console.warn('Админ-вход отключён: задайте BLUP_ADMIN_PASSWORD.');
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
@@ -85,44 +69,19 @@ function sendBlocked(res) { return res.status(403).json({ error: 'Аккаунт
 // Enforce IP/account bans on every API request, not only on login.
 app.use('/api', (req, res, next) => {
   const ip = ipOf(req);
-  const checkIpBan = () => db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (err, ban) => {
-    if (err) {
-      // Log the underlying SQLite error: the previous version returned a generic
-      // message without logging, making this failure invisible in Amvera logs.
-      console.error('[IP-ban check] SQLite error:', err.message, 'DB_PATH:', process.env.DB_PATH || '(default)');
-      // Recover if the table is missing (for example, after switching DB files).
-      return db.run("CREATE TABLE IF NOT EXISTS ip_bans (ip TEXT PRIMARY KEY, reason TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP)", createErr => {
-        if (createErr) {
-          console.error('[IP-ban check] Could not ensure ip_bans table:', createErr.message);
-          return res.status(500).json({ error: 'Ошибка проверки доступа' });
-        }
-        db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (retryErr, retryBan) => {
-          if (retryErr) {
-            console.error('[IP-ban check] Retry failed:', retryErr.message);
-            return res.status(500).json({ error: 'Ошибка проверки доступа' });
-          }
-          continueAfterBanCheck(retryBan);
-        });
-      });
-    }
-    continueAfterBanCheck(ban);
-  });
-  const continueAfterBanCheck = ban => {
+  db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (err, ban) => {
+    if (err) return res.status(500).json({ error: 'Ошибка проверки доступа' });
     if (ban) { if (req.session) req.session.destroy(() => {}); return sendBlocked(res); }
     if (!req.session || !req.session.userId) return next();
     db.get('SELECT id,nickname,is_banned,session_version FROM users WHERE id=?', [req.session.userId], (e, user) => {
-      if (e) {
-        console.error('[Account check] SQLite error:', e.message);
-        return res.status(500).json({ error: 'Ошибка проверки аккаунта' });
-      }
+      if (e) return res.status(500).json({ error: 'Ошибка проверки аккаунта' });
       if (!user || user.is_banned || user.session_version !== req.session.sessionVersion) {
         return req.session.destroy(() => sendBlocked(res));
       }
       db.run('UPDATE users SET last_ip=?,last_seen=CURRENT_TIMESTAMP WHERE id=?', [ip, user.id]);
       next();
     });
-  };
-  checkIpBan();
+  });
 });
 
 // Режим техработ отображается на клиенте; API авторизации и регистрации остаются доступными.
@@ -203,7 +162,7 @@ app.post('/api/sell',(req,res)=>{
  if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
  getSetting('stopped','0',(me,stopped)=>{if(stopped==='1'&&req.session.isAdmin!==true)return res.status(403).json({error:'Приём заявок временно приостановлен.'});
  const coin=String(req.body?.coin||'').toUpperCase(), network=String(req.body?.network||''), amount=Number(req.body?.amount), comment=String(req.body?.comment||'').slice(0,500), tg=String(req.body?.telegramUsername||'').trim().replace(/^@/, ''), payoutType=String(req.body?.payoutType||'phone'), payout=String(req.body?.payoutValue||'').trim(), bank=String(req.body?.bank||'').trim();
- if(!['USDT','GRAM'].includes(coin)||!(coin==='GRAM'?network==='TON':['BEP20','TRC20','ERC20','TON','SPL'].includes(network))||!BLUP_WALLETS[coin]?.[network]||!Number.isFinite(amount)||amount<=0||amount>1000000||!/^([A-Za-z0-9_]{5,32})$/.test(tg)||!['phone','card'].includes(payoutType)||!payout||payout.length>100||!bank)return res.status(400).json({error:'Проверьте монету, сеть, сумму, Telegram и банковские реквизиты.'});
+ if(!['USDT','GRAM'].includes(coin)||!(coin==='GRAM'?network==='TON':['BEP20','TRC20','ERC20','TON','SPL'].includes(network))||!BLUP_WALLETS[coin]?.[network]||!Number.isFinite(amount)||amount<=0||amount>200||!/^([A-Za-z0-9_]{5,32})$/.test(tg)||!['phone','card'].includes(payoutType)||!payout||payout.length>100||!bank)return res.status(400).json({error:'Проверьте монету, сеть, сумму (до 200 USD), Telegram и банковские реквизиты.'});
  db.get('SELECT value FROM settings WHERE key=?',['usdt_rate'],(rateErr,usdtRow)=>{db.get('SELECT value FROM settings WHERE key=?',['gram_rate'],(gramErr,gramRow)=>{const rate=Number(coin==='USDT'?usdtRow?.value:gramRow?.value)||0;if(rate<=0)return res.status(400).json({error:'Курс для этой криптовалюты ещё не установлен администратором'});db.get('SELECT percent FROM user_discounts WHERE user_id=? AND active=1',[req.session.userId],(de,discountRow)=>{const discountPercent=[1,3].includes(Number(discountRow?.percent))?Number(discountRow.percent):0;const discountApplied=!!req.body?.applyDiscount&&discountPercent>0;const payoutRub=Number((amount*rate*(discountApplied?1+discountPercent/100:1)).toFixed(2));db.run(`INSERT INTO sales(user_id,nickname,coin,network,destination_wallet,operation_type,amount,memo,comment,phone,bank,payout_type,payout_rub,status) VALUES(?,?,?,?,?,'sell',?,?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,coin,network,BLUP_WALLETS[coin][network],amount,'',comment,payout,bank,payoutType,payoutRub],function(e){if(e)return res.status(500).json({error:'Не удалось создать заявку'});const item={id:this.lastID,nickname:req.session.nickname,coin,network,wallet:BLUP_WALLETS[coin][network],amount,rate,payoutRub,discountPercent:discountApplied?discountPercent:0,comment,telegramUsername:tg,phone:payout,bank,payoutType,created_at:new Date().toISOString()};notifyAdmin(item).catch(()=>{});db.run('UPDATE users SET telegram_username=? WHERE id=?',[tg,req.session.userId]);res.json({ok:true,id:this.lastID,payoutRub,discountPercent:item.discountPercent});});});});});
  });
 });
