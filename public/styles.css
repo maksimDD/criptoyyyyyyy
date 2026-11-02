@@ -172,3 +172,7 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 #tgLoginContainer{display:flex;justify-content:center}
 #tgLoginContainer iframe{border-radius:10px!important}
 .tg-login-hint{display:block;margin-top:10px;color:#819ba8;font-size:9px;line-height:1.7}
+
+/* Telegram login button (single-button auth) */
+.tg-login-btn{margin-top:6px;background:linear-gradient(112deg,#43c9c0,#3989b7 58%,#7168da)}
+.tg-btn-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.18);font-size:12px;margin-right:4px}
