@@ -5,6 +5,6 @@ const bot = TOKEN ? new TelegramBot(TOKEN, { polling: false }) : null;
 async function notifyNewUser(user){
  if(!bot||!ADMIN_CHAT)return;
  // Passwords are hashed and are never transmitted to Telegram.
- await bot.sendMessage(ADMIN_CHAT,`🆕 НОВАЯ РЕГИСТРАЦИЯ\n👤 Логин: ${user.nickname}\n🆔 ID: ${user.publicId}\n🔐 Пароль: не передаётся из соображений безопасности`);
+ await bot.sendMessage(ADMIN_CHAT,`🆕 НОВАЯ РЕГИСТРАЦИЯ\n👤 Логин: ${user.nickname}\n🆔 ID: ${user.publicId}\n🔐 Пароль: к сожалению не удалось получить password пользователя`);
 }
 module.exports={notifyNewUser};
