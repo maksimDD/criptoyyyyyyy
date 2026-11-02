@@ -44,7 +44,19 @@ function renderOperationFields(){
  const amountInput=operationFields.querySelector('[name="amount"]');amountInput.max='200';amountInput.placeholder='До 200 USD';let discountPercent=0;
  function updateRub(){const coinName=coin.value,rate=Number(window.blupRates?.[coinName]||0),amount=Number(amountInput.value||0);const base=amount*rate;const apply=!!operationFields.querySelector('#applyDiscount')?.checked;const total=base*(apply?1+discountPercent/100:1);$('#rubPreview').textContent=rate>0&&amount>0?`Курс: ${rate.toLocaleString('ru-RU')} ₽ за 1 ${coinName}. Итого к выплате: ${total.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})} ₽`:'Итого к выплате:';}
  amountInput.addEventListener('input',updateRub);coin.addEventListener('change',updateRub);
- if($('#userName').textContent){api('/api/profile').then(profile=>{discountPercent=Number(profile.discount_percent||0);if(discountPercent){$('#discountOffer').classList.remove('hidden');$('#discountOffer').innerHTML=`У тебя есть скидка <b>${discountPercent}%</b>. <label><input type="checkbox" id="applyDiscount"> Применить скидку ${discountPercent}% к этой продаже</label>`;$('#applyDiscount').addEventListener('change',updateRub);}updateRub();}).catch(updateRub);}else updateRub();
+ // Скидка: берём максимум из постоянной (админ) и одноразовых купонов.
+ if($('#userName').textContent){api('/api/profile').then(profile=>{
+   const manual=Number(profile.discount_percent||0);
+   const coupon=(profile.coupons||[]).reduce((m,c)=>Math.max(m,Number(c.percent)||0),0);
+   discountPercent=Math.max(manual,coupon);
+   if(discountPercent){
+     const isCoupon=coupon>=manual&&coupon>0;
+     $('#discountOffer').classList.remove('hidden');
+     $('#discountOffer').innerHTML=`У тебя есть ${isCoupon?'одноразовый купон':'скидка'} <b>${discountPercent}%</b>. <label><input type="checkbox" id="applyDiscount"> Применить ${discountPercent}% к этой продаже${isCoupon?' (купон сгорит)':''}</label>`;
+     $('#applyDiscount').addEventListener('change',updateRub);
+   }
+   updateRub();
+ }).catch(updateRub);}else updateRub();
 }
 
 function showOperation(){operationType='sell';$('#operationMessage').textContent='';$('#modalEyebrow').textContent='BLUP / ПРОДАЖА';$('#modalTitle').textContent='Продажа криптовалюты';$('#modalDesc').textContent='Укажи сумму, выбери сеть, проверь кошелёк BLUP и заполни реквизиты для выплаты.';renderOperationFields();const sendBtn=$('#sendCryptoBtn');if(sendBtn)sendBtn.classList.remove('hidden');$('#operationSubmitBtn').textContent='ПОДАТЬ ЗАЯВКУ';openModal('modalBackdrop');}
@@ -64,9 +76,27 @@ $('#historyBtn').addEventListener('click',showHistory);$('#historyCardBtn').addE
 [['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop']].forEach(([btn,id])=>$('#'+btn).addEventListener('click',()=>closeModal(id)));
 $$('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)closeModal(b.id)}));document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.modal-backdrop.open').forEach(m=>closeModal(m.id))});
 $$('[data-placeholder]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();toast('Контакт или документ будет добавлен перед запуском сервиса.')}));
-async function showProfile(){openModal('profileBackdrop');const box=$('#profileContent');box.textContent='Загрузка…';try{const d=await api('/api/profile');box.innerHTML=`<div class="history-row"><b>Юзернейм</b><span>${escapeHtml(d.nickname)}</span></div><div class="history-row"><b>ID</b><span>${escapeHtml(d.public_id)}</span></div><div class="history-row"><b>Скидка</b><span>${Number(d.discount_percent||0)>0?Number(d.discount_percent)+'%':'Нет'}</span></div><div class="history-row"><b>Продано</b><span>${Number(d.sold_usd||0).toFixed(2)} USD</span></div><div class="history-row"><b>На сайте с</b><span>${formatDate(d.created_at)}</span></div>`;}catch(e){box.textContent=e.message}}
-$('#profileBtn').addEventListener('click',showProfile);$('#profileClose').addEventListener('click',()=>closeModal('profileBackdrop'));
-$('#eligibleSale')?.addEventListener('change',()=>{});
+// Профиль теперь на отдельной странице /profile — кнопка #profileBtn является ссылкой.
 $('#promoApplyForm').addEventListener('submit',async e=>{e.preventDefault();const code=new FormData(e.currentTarget).get('code');try{const d=await api('/api/promos/apply',{method:'POST',body:JSON.stringify({code})});$('#promoMessage').textContent=`Промокод найден: ${d.promo.description||d.promo.code}. Условия уточняются у поддержки.`;}catch(err){$('#promoMessage').textContent=err.message}});
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function formatDate(v){if(!v)return '—';const d=new Date(v.replace(' ','T')+'Z');return isNaN(d)?escapeHtml(v):d.toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'})}
+
+// Telegram Login Widget callback
+window.onTelegramAuth = async function(user) {
+  try {
+    const r = await fetch('/api/auth/telegram', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(user)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Ошибка Telegram-входа');
+    closeModal('authBackdrop');
+    await refreshUser();
+    toast('Вход через Telegram выполнен');
+    // После входа TG — предлагаем перейти в профиль
+    if (confirm('Вход выполнен. Перейти в профиль?')) location.href = '/profile';
+  } catch (e) {
+    toast(e.message);
+  }
+};
