@@ -12,8 +12,17 @@ const app = express();
 const BLUP_WALLETS = { USDT: { BEP20:'0x4eb35b332de372683aD24d7377abFa53F89451E4', TRC20:'TWCzWBarQUEfDd9pHYUwT5Chxr37e6Cdod', ERC20:'0xefF29984a72b0CFf45c57210f7Df8B60340724C5', TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2', SPL:'3J5d7AadxyoVwh97ALxPW1h1m35bSVcgoPY3cHdMuMmR' }, GRAM: { TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2' } };
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET_FILE = path.join(__dirname, '.blup-session-secret');
+
 let SESSION_SECRET = process.env.SESSION_SECRET;
-if (!SESSION_SECRET) { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} if (!SESSION_SECRET) { SESSION_SECRET = crypto.randomBytes(48).toString('hex'); try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET, { mode: 0o600, flag: 'wx' }); } catch { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} } } }
+if (!SESSION_SECRET) { 
+  try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} 
+  if (!SESSION_SECRET) { 
+    SESSION_SECRET = crypto.randomBytes(48).toString('hex'); 
+    try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET, { mode: 0o600, flag: 'wx' }); } 
+    catch { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} } 
+  } 
+}
+
 if (!process.env.BLUP_ADMIN_PASSWORD) console.warn('Админ-вход отключён: задайте BLUP_ADMIN_PASSWORD.');
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
@@ -66,7 +75,6 @@ function logVisit(user, ip, event) {
 }
 function sendBlocked(res) { return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' }); }
 
-// Enforce IP/account bans on every API request, not only on login.
 app.use('/api', (req, res, next) => {
   const ip = ipOf(req);
   db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (err, ban) => {
@@ -84,20 +92,7 @@ app.use('/api', (req, res, next) => {
   });
 });
 
-// Режим техработ отображается на клиенте; API авторизации и регистрации остаются доступными.
 app.get('/api/status', (req, res) => getSetting('stopped', '0', (e, stopped) => res.json({ stopped: stopped === '1' && req.session.isAdmin !== true })));
-
-app.get('/api/auth/telegram/config', (req, res) => {
-  const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return res.status(503).json({ error: 'Telegram-вход не настроен' });
-  
-  // Извлекаем числовой ID из токена (часть до двоеточия)
-  const botId = token.split(':')[0];
-  if (!botId || isNaN(botId)) return res.status(503).json({ error: 'Некорректный токен бота' });
-  
-  res.json({ botId });
-});
-
 app.get('/api/config', (req, res) => {
   db.all('SELECT key,value FROM settings WHERE key IN (\'usdt_rate\',\'gram_rate\',\'reserve_total\',\'reserve_available\',\'banks\')', [], (err, rows) => {
     if (err) return res.status(500).json({ error: 'Ошибка настроек' });
@@ -105,6 +100,14 @@ app.get('/api/config', (req, res) => {
     let banks = []; try { banks = JSON.parse(s.banks || '[]'); } catch {}
     res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks, wallets: BLUP_WALLETS });
   });
+});
+
+app.get('/api/auth/telegram/config', (req, res) => {
+  const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return res.status(503).json({ error: 'Telegram-вход не настроен' });
+  const botId = token.split(':')[0];
+  if (!botId || isNaN(botId)) return res.status(503).json({ error: 'Некорректный токен бота' });
+  res.json({ botId });
 });
 
 app.post('/api/register', (req, res) => {
@@ -127,7 +130,6 @@ app.post('/api/register', (req, res) => {
           if (regErr) return res.status(500).json({ error: 'Не удалось создать сессию' });
           req.session.userId = user.id; req.session.nickname = nickname; req.session.sessionVersion = 0;
           logVisit(user, ip, 'register');
-          // Never send/store a plaintext password in Telegram or logs.
           notifyNewUser({nickname, publicId}).catch(() => {});
           req.session.save(() => res.json({ ok: true, nickname, publicId }));
         });
@@ -156,11 +158,10 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// Вход через Telegram Login Widget
 app.post('/api/auth/telegram', (req, res) => {
   const ip = ipOf(req);
   const data = req.body || {};
-  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g';
   if (!botToken) return res.status(503).json({ error: 'Telegram-вход не настроен на сервере' });
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Некорректные данные Telegram' });
   if (rateLimit(`tg:${ip}`, 20)) return res.status(429).json({ error: 'Слишком много попыток. Попробуйте позже.' });
@@ -176,7 +177,7 @@ app.post('/api/auth/telegram', (req, res) => {
     if (e) return res.status(500).json({ error: 'Ошибка БД' });
     if (ban) return sendBlocked(res);
 
-        const finishLogin = user => {
+    const finishLogin = user => {
       if (!user || user.is_banned) return sendBlocked(res);
       req.session.regenerate(regErr => {
         if (regErr) return res.status(500).json({ error: 'Не удалось создать сессию' });
@@ -185,7 +186,6 @@ app.post('/api/auth/telegram', (req, res) => {
         req.session.sessionVersion = user.session_version || 0;
         logVisit(user, ip, 'login_telegram');
         
-        // Отправка уведомления в Telegram, если это новый пользователь
         if (user.isNew) {
           notifyNewUser({
             nickname: user.nickname,
@@ -197,7 +197,7 @@ app.post('/api/auth/telegram', (req, res) => {
 
         req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
       });
-    };;
+    };
 
     db.get('SELECT * FROM users WHERE telegram_id=?', [data.id], (err, byTg) => {
       if (err) return res.status(500).json({ error: 'Ошибка БД' });
@@ -206,7 +206,6 @@ app.post('/api/auth/telegram', (req, res) => {
           [data.username || null, data.first_name || null, data.last_name || null, data.photo_url || null, ip, byTg.id]);
         return finishLogin(byTg);
       }
-      // Новый аккаунт, привязанный к Telegram
       const baseNick = (data.username || `tg_${data.id}`).replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20) || `tg_${data.id}`;
       const randomHash = bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), 12);
       let publicId;
@@ -223,20 +222,23 @@ app.post('/api/auth/telegram', (req, res) => {
               cb(null, { id: this.lastID, nickname: nick, session_version: 0, is_banned: 0 });
             });
         };
-                  tryInsert(baseNick, (err1, user1) => {
-            if (!err1) { 
-              user1.isNew = true; 
-              user1.public_id = pid; 
-              return finishLogin(user1); 
-            }
-            // ник занят — добавляем суффикс с telegram id
-            tryInsert(`${baseNick}_${data.id}`.slice(0,24), (err2, user2) => {
-              if (err2) return res.status(500).json({ error: 'Не удалось создать аккаунт' });
-              user2.isNew = true;
-              user2.public_id = pid;
-              finishLogin(user2);
-            });
+        tryInsert(baseNick, (err1, user1) => {
+          if (!err1) { 
+            user1.isNew = true; 
+            user1.public_id = pid; 
+            return finishLogin(user1); 
+          }
+          tryInsert(`${baseNick}_${data.id}`.slice(0,24), (err2, user2) => {
+            if (err2) return res.status(500).json({ error: 'Не удалось создать аккаунт' });
+            user2.isNew = true;
+            user2.public_id = pid;
+            finishLogin(user2);
           });
+        });
+      });
+    });
+  });
+});
 
 app.post('/api/logout', (req, res) => req.session.destroy(() => { res.clearCookie('blup.sid'); res.json({ ok: true }); }));
 app.get('/api/me', (req, res) => res.json({ nickname: req.session.nickname || null }));
@@ -280,7 +282,6 @@ app.post('/api/sell',(req,res)=>{
        db.run(`INSERT INTO sales(user_id,nickname,coin,network,destination_wallet,operation_type,amount,memo,comment,phone,bank,payout_type,payout_rub,status) VALUES(?,?,?,?,?,'sell',?,?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,coin,network,BLUP_WALLETS[coin][network],amount,'',comment,payout,bank,payoutType,payoutRub],function(e){
          if(e)return res.status(500).json({error:'Не удалось создать заявку'});
          const saleId=this.lastID;
-         // Одноразовый купон сгорает только после успешного создания продажи.
          if(discountApplied&&coupon&&couponPercent>=manualPercent){
            db.run('UPDATE user_coupons SET used_at=CURRENT_TIMESTAMP, used_sale_id=? WHERE id=? AND used_at IS NULL',[saleId,coupon.id]);
          }
@@ -306,7 +307,6 @@ app.post('/api/promos/apply',(req,res)=>{
    db.run('INSERT INTO promo_redemptions(promo_id,user_id,public_id,nickname) VALUES(?,?,?,?)',[promo.id,user.id,user.public_id,user.nickname],function(re){
     if(re)return res.status(409).json({error:re.message.includes('UNIQUE')?'Ты уже активировал этот промокод':'Не удалось активировать промокод'});
     db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?',[promo.id]);
-    // Скидка-промокод выдаётся одноразовым купоном, а не постоянной скидкой.
     if(promo.reward_type==='percent'&&[1,3].includes(Number(promo.reward_value))){
       db.run('INSERT INTO user_coupons(user_id,promo_id,percent,source) VALUES(?,?,?,?)',[user.id,promo.id,Number(promo.reward_value),'promo'],ce=>{
         if(ce)return res.status(500).json({error:'Не удалось выдать купон'});
@@ -390,7 +390,6 @@ app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
 app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => {
   db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => err ? res.status(500).json({ error: 'Ошибка БД' }) : res.json({ ok: true }));
 });
-// Remove only finalized requests; active requests are deliberately preserved.
 app.delete('/api/admin/sales', adminOnly, (req, res) => {
   db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) {
     if (err) return res.status(500).json({ error: 'Не удалось очистить историю заявок' });
