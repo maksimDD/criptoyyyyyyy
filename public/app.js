@@ -67,19 +67,50 @@ operationFields.addEventListener('click',e=>{const b=e.target.closest('[data-cop
 $('#operationForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;if(!$('#userName').textContent){closeModal('modalBackdrop');setAuthMode('login');openModal('authBackdrop');toast('Сначала войди или зарегистрируйся');return;}const payload=Object.fromEntries(new FormData(form).entries());payload.applyDiscount=!!form.querySelector('#applyDiscount')?.checked;const endpoint='/api/sell';payload.coin=payload.coin||'USDT';payload.network=payload.coin==='GRAM'?'TON':payload.network;$('#operationMessage').textContent='Отправляем заявку…';try{const d=await api(endpoint,{method:'POST',body:JSON.stringify(payload)});$('#operationMessage').textContent='';form.reset();closeModal('modalBackdrop');toast(`Заявка №${d.id} отправлена`);refreshConfig();}catch(err){$('#operationMessage').textContent=err.message;}});
 
 let authMode='login';
-function setAuthMode(mode){authMode=mode;$$('.auth-tabs button').forEach(b=>b.classList.toggle('selected',b.dataset.auth===mode));$('#authTitle').textContent=mode==='login'?'Вход в аккаунт':'Создать аккаунт';$('#authSubmit').innerHTML=(mode==='login'?'Войти':'Зарегистрироваться')+' <span>↗</span>';$('#passwordHint').textContent=mode==='register'?'Для нового аккаунта пароль должен содержать не менее 10 символов.':'Используй пароль, указанный при регистрации.';$('#authForm [name="password"]').minLength=mode==='register'?10:4;$('#authMessage').textContent='';}
-loginBtn.addEventListener('click',()=>{setAuthMode('login');openModal('authBackdrop')});$$('[data-auth]').forEach(b=>b.addEventListener('click',()=>setAuthMode(b.dataset.auth)));
-$('#authForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);$('#authMessage').textContent='Проверяем данные…';try{await api(authMode==='login'?'/api/login':'/api/register',{method:'POST',body:JSON.stringify(Object.fromEntries(f.entries()))});closeModal('authBackdrop');await refreshUser();toast(authMode==='login'?'Ты вошёл в аккаунт':'Аккаунт создан');form.reset()}catch(err){$('#authMessage').textContent=err.message;}});
-$('#logoutBtn').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'});await refreshUser();toast('Ты вышел из аккаунта')}catch{toast('Не удалось выйти')}});
-async function showHistory(){openModal('historyBackdrop');const box=$('#historyContent');box.innerHTML='<div class="empty-state"><small>Загружаем историю…</small></div>';try{const rows=await api('/api/history');if(!rows.length){box.innerHTML='<div class="empty-state"><span>◷</span><b>Здесь пока пусто</b><small>Твои заявки появятся здесь после отправки.</small></div>';return;}box.innerHTML=rows.map(x=>`<div class="history-row"><div><b>${escapeHtml(x.coin||'Операция')}</b><small>${escapeHtml(x.network||'—')}</small></div><div><b>${'Продажа'}</b><small>${escapeHtml(x.status||'pending')}</small></div><div><b>${formatDate(x.created_at)}</b><small>${x.amount?escapeHtml(x.amount)+' USD':'Заявка №'+x.id}</small></div></div>`).join('')}catch(err){box.innerHTML=`<div class="empty-state"><b>${escapeHtml(err.message)}</b></div>`}}
-$('#historyBtn').addEventListener('click',showHistory);$('#historyCardBtn').addEventListener('click',showHistory);
-[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop']].forEach(([btn,id])=>$('#'+btn).addEventListener('click',()=>closeModal(id)));
-$$('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)closeModal(b.id)}));document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.modal-backdrop.open').forEach(m=>closeModal(m.id))});
-$$('[data-placeholder]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();toast('Контакт или документ будет добавлен перед запуском сервиса.')}));
-// Профиль теперь на отдельной странице /profile — кнопка #profileBtn является ссылкой.
-$('#promoApplyForm').addEventListener('submit',async e=>{e.preventDefault();const code=new FormData(e.currentTarget).get('code');try{const d=await api('/api/promos/apply',{method:'POST',body:JSON.stringify({code})});$('#promoMessage').textContent=`Промокод найден: ${d.promo.description||d.promo.code}. Условия уточняются у поддержки.`;}catch(err){$('#promoMessage').textContent=err.message}});
-function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function formatDate(v){if(!v)return '—';const d=new Date(v.replace(' ','T')+'Z');return isNaN(d)?escapeHtml(v):d.toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'})}
+const tgLoginBtn = $('#tgLoginBtn');
+let tgBotUsername = null;
+
+async function ensureTgConfig() {
+  if (tgBotUsername) return tgBotUsername;
+  const r = await fetch('/api/auth/telegram/config');
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Telegram-вход не настроен');
+  tgBotUsername = d.botUsername;
+  return tgBotUsername;
+}
+
+loginBtn.addEventListener('click', () => { openModal('authBackdrop'); $('#authMessage').textContent=''; });
+
+tgLoginBtn?.addEventListener('click', async () => {
+  $('#authMessage').textContent = '';
+  try {
+    const bot = await ensureTgConfig();
+    if (!window.Telegram || !window.Telegram.Login || !window.Telegram.Login.auth) {
+      throw new Error('Telegram-виджет ещё не загрузился. Обнови страницу.');
+    }
+    window.Telegram.Login.auth(
+      { bot_id: bot, request_access: 'write', lang: 'ru' },
+      async (user) => {
+        if (!user) { $('#authMessage').textContent = 'Вход отменён'; return; }
+        try {
+          const r = await fetch('/api/auth/telegram', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(user)
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(d.error || 'Ошибка Telegram-входа');
+          closeModal('authBackdrop');
+          await refreshUser();
+          toast('Вход через Telegram выполнен');
+          location.href = '/profile';
+        } catch (e) { $('#authMessage').textContent = e.message; }
+      }
+    );
+  } catch (e) {
+    $('#authMessage').textContent = e.message;
+  }
+});
 
 // Telegram Login Widget callback
 window.onTelegramAuth = async function(user) {
