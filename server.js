@@ -144,6 +144,75 @@ app.post('/api/login', (req, res) => {
   });
 });
 
+// Вход через Telegram Login Widget
+app.post('/api/auth/telegram', (req, res) => {
+  const ip = ipOf(req);
+  const data = req.body || {};
+  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return res.status(503).json({ error: 'Telegram-вход не настроен на сервере' });
+  if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Некорректные данные Telegram' });
+  if (rateLimit(`tg:${ip}`, 20)) return res.status(429).json({ error: 'Слишком много попыток. Попробуйте позже.' });
+  if (Math.floor(Date.now()/1000) - Number(data.auth_date) > 300) {
+    return res.status(400).json({ error: 'Подпись Telegram устарела. Попробуйте снова.' });
+  }
+  const secret = crypto.createHash('sha256').update(botToken).digest();
+  const checkString = Object.keys(data).filter(k => k !== 'hash').sort().map(k => `${k}=${data[k]}`).join('\n');
+  const hmac = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
+  if (hmac !== data.hash) return res.status(403).json({ error: 'Подпись Telegram неверна' });
+
+  db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (e, ban) => {
+    if (e) return res.status(500).json({ error: 'Ошибка БД' });
+    if (ban) return sendBlocked(res);
+
+    const finishLogin = user => {
+      if (!user || user.is_banned) return sendBlocked(res);
+      req.session.regenerate(regErr => {
+        if (regErr) return res.status(500).json({ error: 'Не удалось создать сессию' });
+        req.session.userId = user.id;
+        req.session.nickname = user.nickname;
+        req.session.sessionVersion = user.session_version || 0;
+        logVisit(user, ip, 'login_telegram');
+        req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
+      });
+    };
+
+    db.get('SELECT * FROM users WHERE telegram_id=?', [data.id], (err, byTg) => {
+      if (err) return res.status(500).json({ error: 'Ошибка БД' });
+      if (byTg) {
+        db.run(`UPDATE users SET telegram_username=?, telegram_first_name=?, telegram_last_name=?, telegram_photo_url=?, last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?`,
+          [data.username || null, data.first_name || null, data.last_name || null, data.photo_url || null, ip, byTg.id]);
+        return finishLogin(byTg);
+      }
+      // Новый аккаунт, привязанный к Telegram
+      const baseNick = (data.username || `tg_${data.id}`).replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20) || `tg_${data.id}`;
+      const randomHash = bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), 12);
+      let publicId;
+      const pickId = cb => { const n = Math.floor(Math.random()*99999)+1;
+        db.get('SELECT id FROM users WHERE public_id=?',[n],(e,row)=>row?pickId(cb):cb(n)); };
+      pickId(pid => {
+        publicId = pid;
+        const tryInsert = (nick, cb) => {
+          db.run(`INSERT INTO users(nickname,password_hash,last_ip,last_seen,public_id,telegram_id,telegram_username,telegram_first_name,telegram_last_name,telegram_photo_url)
+                  VALUES(?,?,?,CURRENT_TIMESTAMP,?,?,?,?,?,?)`,
+            [nick, randomHash, ip, pid, data.id, data.username||null, data.first_name||null, data.last_name||null, data.photo_url||null],
+            function(insErr) {
+              if (insErr) return cb(insErr);
+              cb(null, { id: this.lastID, nickname: nick, session_version: 0, is_banned: 0 });
+            });
+        };
+        tryInsert(baseNick, (err1, user1) => {
+          if (!err1) return finishLogin(user1);
+          // ник занят — добавляем суффикс с telegram id
+          tryInsert(`${baseNick}_${data.id}`.slice(0,24), (err2, user2) => {
+            if (err2) return res.status(500).json({ error: 'Не удалось создать аккаунт' });
+            finishLogin(user2);
+          });
+        });
+      });
+    });
+  });
+});
+
 app.post('/api/logout', (req, res) => req.session.destroy(() => { res.clearCookie('blup.sid'); res.json({ ok: true }); }));
 app.get('/api/me', (req, res) => res.json({ nickname: req.session.nickname || null }));
 
@@ -156,14 +225,48 @@ app.get('/api/history', (req, res) => {
 
 app.get('/api/profile', (req,res) => {
   if(!req.session.userId) return res.status(401).json({error:'Войдите в аккаунт'});
-  db.get(`SELECT u.nickname,u.public_id,u.created_at,COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd,COALESCE((SELECT percent FROM user_discounts WHERE user_id=u.id AND active=1),0) discount_percent FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.id=? GROUP BY u.id`,[req.session.userId],(e,row)=>e?res.status(500).json({error:'Ошибка профиля'}):res.json(row||{}));
+  db.get(`SELECT u.nickname,u.public_id,u.created_at,u.telegram_id,u.telegram_username,u.telegram_first_name,u.telegram_last_name,u.telegram_photo_url,
+            COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd,
+            COALESCE((SELECT percent FROM user_discounts WHERE user_id=u.id AND active=1),0) discount_percent
+          FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.id=? GROUP BY u.id`,
+    [req.session.userId], (e,row) => {
+      if (e) return res.status(500).json({error:'Ошибка профиля'});
+      db.all('SELECT id,percent,created_at FROM user_coupons WHERE user_id=? AND used_at IS NULL ORDER BY id ASC',
+        [req.session.userId], (e2, coupons) => {
+          if (e2) return res.status(500).json({error:'Ошибка купонов'});
+          res.json({ ...row, coupons: coupons || [] });
+        });
+    });
 });
+
 app.post('/api/sell',(req,res)=>{
  if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
  getSetting('stopped','0',(me,stopped)=>{if(stopped==='1'&&req.session.isAdmin!==true)return res.status(403).json({error:'Приём заявок временно приостановлен.'});
  const coin=String(req.body?.coin||'').toUpperCase(), network=String(req.body?.network||''), amount=Number(req.body?.amount), comment=String(req.body?.comment||'').slice(0,500), tg=String(req.body?.telegramUsername||'').trim().replace(/^@/, ''), payoutType=String(req.body?.payoutType||'phone'), payout=String(req.body?.payoutValue||'').trim(), bank=String(req.body?.bank||'').trim();
  if(!['USDT','GRAM'].includes(coin)||!(coin==='GRAM'?network==='TON':['BEP20','TRC20','ERC20','TON','SPL'].includes(network))||!BLUP_WALLETS[coin]?.[network]||!Number.isFinite(amount)||amount<=0||amount>200||!/^([A-Za-z0-9_]{5,32})$/.test(tg)||!['phone','card'].includes(payoutType)||!payout||payout.length>100||!bank)return res.status(400).json({error:'Проверьте монету, сеть, сумму (до 200 USD), Telegram и банковские реквизиты.'});
- db.get('SELECT value FROM settings WHERE key=?',['usdt_rate'],(rateErr,usdtRow)=>{db.get('SELECT value FROM settings WHERE key=?',['gram_rate'],(gramErr,gramRow)=>{const rate=Number(coin==='USDT'?usdtRow?.value:gramRow?.value)||0;if(rate<=0)return res.status(400).json({error:'Курс для этой криптовалюты ещё не установлен администратором'});db.get('SELECT percent FROM user_discounts WHERE user_id=? AND active=1',[req.session.userId],(de,discountRow)=>{const discountPercent=[1,3].includes(Number(discountRow?.percent))?Number(discountRow.percent):0;const discountApplied=!!req.body?.applyDiscount&&discountPercent>0;const payoutRub=Number((amount*rate*(discountApplied?1+discountPercent/100:1)).toFixed(2));db.run(`INSERT INTO sales(user_id,nickname,coin,network,destination_wallet,operation_type,amount,memo,comment,phone,bank,payout_type,payout_rub,status) VALUES(?,?,?,?,?,'sell',?,?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,coin,network,BLUP_WALLETS[coin][network],amount,'',comment,payout,bank,payoutType,payoutRub],function(e){if(e)return res.status(500).json({error:'Не удалось создать заявку'});const item={id:this.lastID,nickname:req.session.nickname,coin,network,wallet:BLUP_WALLETS[coin][network],amount,rate,payoutRub,discountPercent:discountApplied?discountPercent:0,comment,telegramUsername:tg,phone:payout,bank,payoutType,created_at:new Date().toISOString()};notifyAdmin(item).catch(()=>{});db.run('UPDATE users SET telegram_username=? WHERE id=?',[tg,req.session.userId]);res.json({ok:true,id:this.lastID,payoutRub,discountPercent:item.discountPercent});});});});});
+ db.get('SELECT value FROM settings WHERE key=?',['usdt_rate'],(rateErr,usdtRow)=>{db.get('SELECT value FROM settings WHERE key=?',['gram_rate'],(gramErr,gramRow)=>{const rate=Number(coin==='USDT'?usdtRow?.value:gramRow?.value)||0;if(rate<=0)return res.status(400).json({error:'Курс для этой криптовалюты ещё не установлен администратором'});
+   db.get('SELECT percent FROM user_discounts WHERE user_id=? AND active=1',[req.session.userId],(de,discountRow)=>{
+     const manualPercent=[1,3].includes(Number(discountRow?.percent))?Number(discountRow.percent):0;
+     db.get('SELECT id,percent FROM user_coupons WHERE user_id=? AND used_at IS NULL AND percent IN (1,3) ORDER BY id ASC LIMIT 1',[req.session.userId],(ce,coupon)=>{
+       const couponPercent=coupon?Number(coupon.percent):0;
+       const chosenPercent=Math.max(manualPercent,couponPercent);
+       const discountApplied=!!req.body?.applyDiscount&&chosenPercent>0;
+       const payoutRub=Number((amount*rate*(discountApplied?1+chosenPercent/100:1)).toFixed(2));
+       db.run(`INSERT INTO sales(user_id,nickname,coin,network,destination_wallet,operation_type,amount,memo,comment,phone,bank,payout_type,payout_rub,status) VALUES(?,?,?,?,?,'sell',?,?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,coin,network,BLUP_WALLETS[coin][network],amount,'',comment,payout,bank,payoutType,payoutRub],function(e){
+         if(e)return res.status(500).json({error:'Не удалось создать заявку'});
+         const saleId=this.lastID;
+         // Одноразовый купон сгорает только после успешного создания продажи.
+         if(discountApplied&&coupon&&couponPercent>=manualPercent){
+           db.run('UPDATE user_coupons SET used_at=CURRENT_TIMESTAMP, used_sale_id=? WHERE id=? AND used_at IS NULL',[saleId,coupon.id]);
+         }
+         const item={id:saleId,nickname:req.session.nickname,coin,network,wallet:BLUP_WALLETS[coin][network],amount,rate,payoutRub,discountPercent:discountApplied?chosenPercent:0,comment,telegramUsername:tg,phone:payout,bank,payoutType,created_at:new Date().toISOString()};
+         notifyAdmin(item).catch(()=>{});
+         db.run('UPDATE users SET telegram_username=? WHERE id=?',[tg,req.session.userId]);
+         res.json({ok:true,id:saleId,payoutRub,discountPercent:item.discountPercent});
+       });
+     });
+   });
+ });});
  });
 });
 app.get('/api/promos',(req,res)=>db.all('SELECT code,description,reward_type,reward_value FROM promos WHERE active=1 ORDER BY id DESC',(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
@@ -178,9 +281,17 @@ app.post('/api/promos/apply',(req,res)=>{
    db.run('INSERT INTO promo_redemptions(promo_id,user_id,public_id,nickname) VALUES(?,?,?,?)',[promo.id,user.id,user.public_id,user.nickname],function(re){
     if(re)return res.status(409).json({error:re.message.includes('UNIQUE')?'Ты уже активировал этот промокод':'Не удалось активировать промокод'});
     db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?',[promo.id]);
-    if(promo.reward_type==='percent'&&[1,3].includes(Number(promo.reward_value))) db.run('INSERT INTO user_discounts(user_id,percent,source,active) VALUES(?,?,?,1) ON CONFLICT(user_id) DO UPDATE SET percent=MAX(user_discounts.percent,excluded.percent),active=1',[user.id,Number(promo.reward_value),'promo']);
-    notifyAdmin({operation:'promo',nickname:user.nickname,publicId:user.public_id,promoCode:promo.code}).catch(()=>{});
-    res.json({ok:true,promo:{code:promo.code,description:promo.description,reward_type:promo.reward_type,reward_value:promo.reward_value}});
+    // Скидка-промокод выдаётся одноразовым купоном, а не постоянной скидкой.
+    if(promo.reward_type==='percent'&&[1,3].includes(Number(promo.reward_value))){
+      db.run('INSERT INTO user_coupons(user_id,promo_id,percent,source) VALUES(?,?,?,?)',[user.id,promo.id,Number(promo.reward_value),'promo'],ce=>{
+        if(ce)return res.status(500).json({error:'Не удалось выдать купон'});
+        notifyAdmin({operation:'promo',nickname:user.nickname,publicId:user.public_id,promoCode:promo.code}).catch(()=>{});
+        res.json({ok:true,promo:{code:promo.code,description:promo.description,reward_type:promo.reward_type,reward_value:promo.reward_value}});
+      });
+    } else {
+      notifyAdmin({operation:'promo',nickname:user.nickname,publicId:user.public_id,promoCode:promo.code}).catch(()=>{});
+      res.json({ok:true,promo:{code:promo.code,description:promo.description,reward_type:promo.reward_type,reward_value:promo.reward_value}});
+    }
    });
   });
  });
@@ -281,6 +392,7 @@ app.get('/api/admin/promos',adminOnly,(req,res)=>db.all(`SELECT p.*, (SELECT GRO
 app.post('/api/admin/promos/:id/toggle',adminOnly,(req,res)=>db.run('UPDATE promos SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE id=?',[Number(req.params.id)],function(e){e?res.status(500).json({error:'Ошибка'}):res.json({ok:true});}));
 app.post('/api/admin/users/:id/discount',adminOnly,(req,res)=>{const id=Number(req.params.id),percent=Number(req.body?.percent);if(!Number.isInteger(id)||id<1||![0,1,3].includes(percent))return res.status(400).json({error:'Укажите ID и скидку 1%, 3% или 0%'});if(percent===0)return db.run('DELETE FROM user_discounts WHERE user_id=?',[id],e=>e?res.status(500).json({error:'Ошибка БД'}):res.json({ok:true}));db.run('INSERT INTO user_discounts(user_id,percent,source,active) VALUES(?,?,?,1) ON CONFLICT(user_id) DO UPDATE SET percent=excluded.percent,source=excluded.source,active=1',[id,percent,'admin'],e=>e?res.status(500).json({error:'Ошибка БД'}):res.json({ok:true}));});
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 db.ready.then(() => app.listen(PORT, () => console.log(`BLUP запущен на порту ${PORT}`))).catch(err => { console.error('Ошибка подготовки БД:', err); process.exit(1); });
