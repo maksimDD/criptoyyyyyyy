@@ -33,7 +33,7 @@
       <a class="nav-link" href="#contacts">Контакты</a>
     </nav>
     <div class="header-actions">
-      <button class="btn btn-ghost btn-small" id="profileBtn">Профиль</button><button class="btn btn-ghost btn-small" id="historyBtn"><span>↗</span> История заявок</button>
+      <a class="btn btn-ghost btn-small" id="profileBtn" href="/profile">Профиль</a><button class="btn btn-ghost btn-small" id="historyBtn"><span>↗</span> История заявок</button>
       <button class="btn btn-outline btn-small" id="loginBtn">Войти</button>
       <div class="user-chip hidden" id="userChip"><span class="user-dot"></span><b id="userName"></b><button id="logoutBtn" title="Выйти">↗</button></div>
     </div>
@@ -162,6 +162,11 @@
       <div class="modal-eyebrow">BLUP / АККАУНТ</div><h2 id="authTitle">Вход в аккаунт</h2><p class="modal-desc">Войди или создай аккаунт, чтобы пользоваться возможностями сервиса.</p>
       <div class="auth-tabs"><button class="selected" data-auth="login">Войти</button><button data-auth="register">Регистрация</button></div>
       <form id="authForm"><label>Никнейм<input name="nickname" minlength="3" required placeholder="Твой никнейм" autocomplete="username"></label><label>Пароль<input name="password" type="password" minlength="4" required placeholder="Пароль" autocomplete="current-password"></label><small class="auth-password-hint" id="passwordHint">Для нового аккаунта используйте пароль не короче 10 символов.</small><small class="auth-password-hint">Для безопасности фиксируются IP-адрес и время входа. Не используй чужие платёжные реквизиты и никому не сообщай коды подтверждения.</small><p class="form-message" id="authMessage"></p><button class="btn btn-primary btn-submit" type="submit" id="authSubmit">Войти <span>↗</span></button></form>
+      <div class="tg-login-wrap" id="tgLoginWrap">
+        <div class="tg-divider"><span>или</span></div>
+        <div id="tgLoginContainer"></div>
+        <small class="tg-login-hint">Вход через Telegram создаёт отдельный аккаунт BLUP, привязанный к твоему Telegram-профилю (аватарка, ник, ID).</small>
+      </div>
     </section>
   </div>
 
@@ -177,7 +182,6 @@
       </form>
     </section>
   </div>
-  <div class="modal-backdrop" id="profileBackdrop" aria-hidden="true"><section class="modal"><button class="modal-close" id="profileClose">×</button><div class="modal-eyebrow">BLUP / PROFILE</div><h2>Профиль</h2><div id="profileContent" class="history-content">Загрузка…</div></section></div>
   <div class="modal-backdrop" id="historyBackdrop" aria-hidden="true">
     <section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
       <button class="modal-close" id="historyClose" aria-label="Закрыть">×</button>
@@ -187,5 +191,15 @@
   </div>
   <div class="toast" id="toast"></div>
   <script src="/app.js"></script>
+  <!-- Telegram Login Widget: замени BlupAuthBot на username своего бота -->
+  <script async src="https://telegram.org/js/telegram-widget.js?22"
+    data-telegram-login="BlupAuthBot"
+    data-size="large"
+    data-radius="10"
+    data-userpic="true"
+    data-request-access="write"
+    data-onauth="onTelegramAuth(user)"
+    data-auth-url=""
+    data-lang="ru"></script>
 </body>
 </html>
