@@ -29,4 +29,14 @@
 .blup-select.is-open .blup-select-chevron { transform: rotate(-135deg) translateY(-2px); }
 .blup-select-menu { position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 40; list-style: none; margin: 0; padding: 6px; background: linear-gradient(145deg, #122230, #09141f); border: 1px solid rgba(130,185,205,.2); border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.55); opacity: 0; transform: translateY(-6px) scale(.98); pointer-events: none; transition: opacity .16s ease, transform .16s ease; max-height: 280px; overflow-y: auto; }
 .blup-select.is-open .blup-select-menu { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-.blup-select-menu li { display: flex; align-items: center; gap: 10px; padding: 9px 10
+.blup-select-menu li { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: #c2d8dc; cursor: pointer; transition: background .14s ease, color .14s ease; }
+.blup-select-menu li:hover, .blup-select-menu li.is-active { background: rgba(101,230,220,.1); color: #fff; }
+.blup-select-menu li.is-selected { background: rgba(101,230,220,.15); color: #fff; }
+.blup-select-menu li.is-selected::after { content: "✓"; margin-left: auto; color: #65dcd2; font-weight: 800; }
+.blup-select-menu .opt-icon { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: rgba(101,230,220,.1); color: #8dece1; font-weight: 800; font-size: 12px; flex-shrink: 0; }
+.blup-select-menu .opt-text { display: flex; flex-direction: column; line-height: 1.2; }
+.blup-select-menu .opt-text b { font-size: 12px; font-weight: 700; }
+.blup-select-menu .opt-text small { font-size: 10px; color: #819ba8; margin-top: 2px; }
+.blup-select-menu::-webkit-scrollbar { width: 6px; }
+.blup-select-menu::-webkit-scrollbar-thumb { background: rgba(101,230,220,.3); border-radius: 3px; }
+.settings-form label .blup-select { margin-top: 8px; }
