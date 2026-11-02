@@ -1,6 +1,22 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const db = new sqlite3.Database(path.join(__dirname, 'data.db'));
+const fs = require('fs');
+
+// Amvera's /data mount survives restarts and redeployments. Keep local development
+// working from the project directory, while production stores the whole SQLite DB
+// (users, settings, sales, sessions, promos, etc.) on persistent storage.
+const DATA_DIR = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? '/data' : __dirname);
+const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'data.db');
+if (DATA_DIR === '/data') {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  // One-time safety migration: preserve an old database from the app directory
+  // if it still exists and the persistent database has not been created yet.
+  if (!fs.existsSync(DB_PATH)) {
+    const oldDB = path.join(__dirname, 'data.db');
+    if (fs.existsSync(oldDB)) fs.copyFileSync(oldDB, DB_PATH);
+  }
+}
+const db = new sqlite3.Database(DB_PATH);
 const run = (sql, params=[]) => new Promise((resolve,reject)=>db.run(sql,params,function(err){if(err)reject(err);else resolve(this);}));
 const all = (sql, params=[]) => new Promise((resolve,reject)=>db.all(sql,params,(err,rows)=>err?reject(err):resolve(rows)));
 

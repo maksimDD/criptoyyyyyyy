@@ -11,9 +11,25 @@ const { notifyNewUser } = require('./bot_register');
 const app = express();
 const BLUP_WALLETS = { USDT: { BEP20:'0x4eb35b332de372683aD24d7377abFa53F89451E4', TRC20:'TWCzWBarQUEfDd9pHYUwT5Chxr37e6Cdod', ERC20:'0xefF29984a72b0CFf45c57210f7Df8B60340724C5', TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2', SPL:'3J5d7AadxyoVwh97ALxPW1h1m35bSVcgoPY3cHdMuMmR' }, GRAM: { TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2' } };
 const PORT = process.env.PORT || 3000;
-const SESSION_SECRET_FILE = path.join(__dirname, '.blup-session-secret');
+const DATA_DIR = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? '/data' : __dirname);
+const SESSION_SECRET_FILE = path.join(DATA_DIR, '.blup-session-secret');
 let SESSION_SECRET = process.env.SESSION_SECRET;
-if (!SESSION_SECRET) { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} if (!SESSION_SECRET) { SESSION_SECRET = crypto.randomBytes(48).toString('hex'); try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET, { mode: 0o600, flag: 'wx' }); } catch { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} } } }
+if (!SESSION_SECRET) {
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
+  // Migrate the old secret when possible so existing session cookies remain valid.
+  if (DATA_DIR === '/data' && !fs.existsSync(SESSION_SECRET_FILE)) {
+    try {
+      const oldSecret = path.join(__dirname, '.blup-session-secret');
+      if (fs.existsSync(oldSecret)) fs.copyFileSync(oldSecret, SESSION_SECRET_FILE, { mode: 0o600 });
+    } catch {}
+  }
+  try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {}
+  if (!SESSION_SECRET) {
+    SESSION_SECRET = crypto.randomBytes(48).toString('hex');
+    try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET, { mode: 0o600, flag: 'wx' }); }
+    catch { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} }
+  }
+}
 if (!process.env.BLUP_ADMIN_PASSWORD) console.warn('Админ-вход отключён: задайте BLUP_ADMIN_PASSWORD.');
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
