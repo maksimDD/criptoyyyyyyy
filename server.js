@@ -176,7 +176,7 @@ app.post('/api/auth/telegram', (req, res) => {
     if (e) return res.status(500).json({ error: 'Ошибка БД' });
     if (ban) return sendBlocked(res);
 
-    const finishLogin = user => {
+        const finishLogin = user => {
       if (!user || user.is_banned) return sendBlocked(res);
       req.session.regenerate(regErr => {
         if (regErr) return res.status(500).json({ error: 'Не удалось создать сессию' });
@@ -184,9 +184,20 @@ app.post('/api/auth/telegram', (req, res) => {
         req.session.nickname = user.nickname;
         req.session.sessionVersion = user.session_version || 0;
         logVisit(user, ip, 'login_telegram');
+        
+        // Отправка уведомления в Telegram, если это новый пользователь
+        if (user.isNew) {
+          notifyNewUser({
+            nickname: user.nickname,
+            publicId: user.public_id,
+            telegramId: data.id,
+            telegramUsername: data.username || 'нет юзернейма'
+          }).catch(() => {});
+        }
+
         req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
       });
-    };
+    };;
 
     db.get('SELECT * FROM users WHERE telegram_id=?', [data.id], (err, byTg) => {
       if (err) return res.status(500).json({ error: 'Ошибка БД' });
@@ -212,18 +223,20 @@ app.post('/api/auth/telegram', (req, res) => {
               cb(null, { id: this.lastID, nickname: nick, session_version: 0, is_banned: 0 });
             });
         };
-        tryInsert(baseNick, (err1, user1) => {
-          if (!err1) return finishLogin(user1);
-          // ник занят — добавляем суффикс с telegram id
-          tryInsert(`${baseNick}_${data.id}`.slice(0,24), (err2, user2) => {
-            if (err2) return res.status(500).json({ error: 'Не удалось создать аккаунт' });
-            finishLogin(user2);
+                  tryInsert(baseNick, (err1, user1) => {
+            if (!err1) { 
+              user1.isNew = true; 
+              user1.public_id = pid; 
+              return finishLogin(user1); 
+            }
+            // ник занят — добавляем суффикс с telegram id
+            tryInsert(`${baseNick}_${data.id}`.slice(0,24), (err2, user2) => {
+              if (err2) return res.status(500).json({ error: 'Не удалось создать аккаунт' });
+              user2.isNew = true;
+              user2.public_id = pid;
+              finishLogin(user2);
+            });
           });
-        });
-      });
-    });
-  });
-});
 
 app.post('/api/logout', (req, res) => req.session.destroy(() => { res.clearCookie('blup.sid'); res.json({ ok: true }); }));
 app.get('/api/me', (req, res) => res.json({ nickname: req.session.nickname || null }));
