@@ -11,11 +11,7 @@ const { notifyNewUser } = require('./bot_register');
 const app = express();
 const BLUP_WALLETS = { USDT: { BEP20:'0x4eb35b332de372683aD24d7377abFa53F89451E4', TRC20:'TWCzWBarQUEfDd9pHYUwT5Chxr37e6Cdod', ERC20:'0xefF29984a72b0CFf45c57210f7Df8B60340724C5', TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2', SPL:'3J5d7AadxyoVwh97ALxPW1h1m35bSVcgoPY3cHdMuMmR' }, GRAM: { TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2' } };
 const PORT = process.env.PORT || 3000;
-// Keep the fallback session secret in persistent storage on Amvera. Otherwise a
-// container rebuild can change the secret and invalidate every browser session.
-const SESSION_SECRET_FILE = process.env.NODE_ENV === 'production'
-  ? '/data/.blup-session-secret'
-  : path.join(__dirname, '.blup-session-secret');
+const SESSION_SECRET_FILE = path.join(__dirname, '.blup-session-secret');
 let SESSION_SECRET = process.env.SESSION_SECRET;
 if (!SESSION_SECRET) { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} if (!SESSION_SECRET) { SESSION_SECRET = crypto.randomBytes(48).toString('hex'); try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET, { mode: 0o600, flag: 'wx' }); } catch { try { SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim(); } catch {} } } }
 if (!process.env.BLUP_ADMIN_PASSWORD) console.warn('Админ-вход отключён: задайте BLUP_ADMIN_PASSWORD.');
