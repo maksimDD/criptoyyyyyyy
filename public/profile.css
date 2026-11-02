@@ -1,0 +1,26 @@
+.profile-body{min-height:100vh;background:radial-gradient(ellipse at 12% 0,rgba(35,128,127,.18),transparent 36%),radial-gradient(ellipse at 92% 22%,rgba(68,85,170,.14),transparent 34%),#070b12;color:#edf8fb}
+.profile-body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.13;background-image:linear-gradient(rgba(140,190,210,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(140,190,210,.05) 1px,transparent 1px);background-size:58px 58px}
+.profile-shell{width:min(980px,calc(100% - 48px));margin:0 auto;padding:48px 0 80px;display:flex;flex-direction:column;gap:22px}
+.profile-error{color:#ff9aaf;font-size:12px;min-height:0}
+.profile-card{border:1px solid rgba(130,185,205,.15);border-radius:18px;background:linear-gradient(145deg,rgba(18,34,48,.94),rgba(9,20,31,.96));box-shadow:0 18px 50px #0003,inset 0 1px 0 #ffffff08;padding:28px}
+.profile-head{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.profile-avatar-wrap{width:104px;height:104px;border-radius:50%;overflow:hidden;border:2px solid rgba(101,230,220,.4);box-shadow:0 0 30px rgba(69,208,198,.25);background:#0a1620;flex-shrink:0;display:grid;place-items:center}
+.profile-avatar{width:100%;height:100%;object-fit:cover;display:block}
+.profile-avatar-fallback{width:100%;height:100%;display:grid;place-items:center;font-size:42px;font-weight:900;background:linear-gradient(135deg,#65e6dc,#3a91b6 60%,#6b70d5);color:#062026}
+.profile-head-info h1{margin:6px 0 10px;font-size:clamp(26px,4vw,34px);letter-spacing:-.05em}
+.profile-eyebrow{font-size:9px;letter-spacing:.22em;font-weight:900;color:#72dcd4}
+.profile-meta{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;padding:6px 10px;border:1px solid rgba(130,185,205,.2);border-radius:99px;background:rgba(10,22,32,.7);font-size:11px;color:#c2d8dc}
+.pill-tg{border-color:rgba(101,230,220,.35);color:#a9f5e9}
+.profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:24px}
+.profile-item{border:1px solid rgba(130,185,205,.12);border-radius:12px;padding:14px;background:rgba(6,16,26,.55)}
+.profile-item small{display:block;font-size:9px;color:#8fa8b4;margin-bottom:6px;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
+.profile-item b{font-size:14px;color:#e8fbf8;word-break:break-word}
+.profile-card-head h2{margin:8px 0 4px;font-size:20px;letter-spacing:-.04em}
+.muted{color:#8fa8b4;font-size:11px;line-height:1.7;margin:0}
+.coupon-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.coupon{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid rgba(101,230,220,.28);border-radius:12px;background:rgba(101,230,220,.07)}
+.coupon b{font-size:22px;color:#a9f5e9}
+.coupon span{font-size:11px;color:#8fa8b4}
+@media(max-width:720px){.profile-shell{width:calc(100% - 32px);padding-top:28px}.profile-grid{grid-template-columns:1fr 1fr}.profile-card{padding:20px}}
+@media(max-width:460px){.profile-grid{grid-template-columns:1fr}.profile-avatar-wrap{width:84px;height:84px}}
