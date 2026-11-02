@@ -66,18 +66,28 @@ $('#sendCryptoBtn').addEventListener('click',copyCurrentBlupWallet);
 operationFields.addEventListener('click',e=>{const b=e.target.closest('[data-copy-wallet]');if(b&&b.dataset.copyWallet)navigator.clipboard?.writeText(b.dataset.copyWallet).then(()=>toast('Адрес скопирован')).catch(()=>toast('Не удалось скопировать адрес'));});
 $('#operationForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;if(!$('#userName').textContent){closeModal('modalBackdrop');setAuthMode('login');openModal('authBackdrop');toast('Сначала войди или зарегистрируйся');return;}const payload=Object.fromEntries(new FormData(form).entries());payload.applyDiscount=!!form.querySelector('#applyDiscount')?.checked;const endpoint='/api/sell';payload.coin=payload.coin||'USDT';payload.network=payload.coin==='GRAM'?'TON':payload.network;$('#operationMessage').textContent='Отправляем заявку…';try{const d=await api(endpoint,{method:'POST',body:JSON.stringify(payload)});$('#operationMessage').textContent='';form.reset();closeModal('modalBackdrop');toast(`Заявка №${d.id} отправлена`);refreshConfig();}catch(err){$('#operationMessage').textContent=err.message;}});
 
-let authMode='login';
-const tgLoginBtn = $('#tgLoginBtn');
-let tgBotUsername = null;
-
-async function ensureTgConfig() {
-  if (tgBotUsername) return tgBotUsername;
-  const r = await fetch('/api/auth/telegram/config');
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || 'Telegram-вход не настроен');
-  tgBotUsername = d.botUsername;
-  return tgBotUsername;
-}
+tgLoginBtn?.addEventListener('click', async () => {
+  $('#authMessage').textContent = '';
+  try {
+    const r = await fetch('/api/auth/telegram/config');
+    const config = await r.json();
+    if (!r.ok) throw new Error(config.error || 'Telegram-вход не настроен');
+    
+    if (!window.Telegram || !window.Telegram.Login || !window.Telegram.Login.auth) {
+      throw new Error('Telegram-виджет ещё не загрузился. Обнови страницу.');
+    }
+    
+    // ВАЖНО: передаём числовой botId, а не username
+    window.Telegram.Login.auth(
+      { bot_id: config.botId, request_access: 'write', lang: 'ru' },
+      async (user) => {
+        // ... остальной код обработки (без изменений)
+      }
+    );
+  } catch (e) {
+    $('#authMessage').textContent = e.message;
+  }
+});
 
 loginBtn.addEventListener('click', () => { openModal('authBackdrop'); $('#authMessage').textContent=''; });
 
