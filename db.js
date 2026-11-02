@@ -24,7 +24,8 @@ db.ready = (async () => {
   await run('CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL, expires INTEGER NOT NULL)');
 
   const migrations = {
-    users: { last_ip:'TEXT', last_seen:'TEXT', is_banned:'INTEGER DEFAULT 0', ban_reason:'TEXT', session_version:'INTEGER DEFAULT 0', public_id:'INTEGER', telegram_username:'TEXT' },
+    users: { last_ip:'TEXT', last_seen:'TEXT', is_banned:'INTEGER DEFAULT 0', ban_reason:'TEXT', session_version:'INTEGER DEFAULT 0', public_id:'INTEGER', telegram_username:'TEXT',
+      telegram_id:'INTEGER', telegram_first_name:'TEXT', telegram_last_name:'TEXT', telegram_photo_url:'TEXT' },
     sales: { operation_type:"TEXT DEFAULT 'sell'", memo:'TEXT', payout_type:'TEXT', amount:'REAL DEFAULT 0', status:"TEXT DEFAULT 'pending'", destination_wallet:'TEXT', parent_sale_id:'INTEGER', payout_rub:'REAL', comment:'TEXT' }
   };
   for (const [table, columns] of Object.entries(migrations)) {
@@ -39,6 +40,18 @@ db.ready = (async () => {
   if (!promoCols.has('activation_count')) await run('ALTER TABLE promos ADD COLUMN activation_count INTEGER DEFAULT 0');
   await run(`CREATE TABLE IF NOT EXISTS promo_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, promo_id INTEGER NOT NULL, user_id INTEGER NOT NULL, public_id INTEGER, nickname TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(promo_id,user_id))`);
   await run(`CREATE TABLE IF NOT EXISTS user_discounts (user_id INTEGER PRIMARY KEY, percent INTEGER NOT NULL, source TEXT DEFAULT 'admin', active INTEGER DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+  // Одноразовые купоны-скидки (промокоды). Сгорают после использования в продаже.
+  await run(`CREATE TABLE IF NOT EXISTS user_coupons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    promo_id INTEGER,
+    percent INTEGER NOT NULL,
+    source TEXT DEFAULT 'promo',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    used_at TEXT,
+    used_sale_id INTEGER
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_user_coupons_active ON user_coupons(user_id, used_at)');
   const defaults = {
     stopped:'0', usdt_rate:'0', gram_rate:'0', reserve_total:'0', reserve_available:'0',
     banks:JSON.stringify(['Сбербанк','Т-Банк','ВТБ','Альфа-Банк','Газпромбанк','Россельхозбанк','Промсвязьбанк','Совкомбанк','Райффайзенбанк','Московский кредитный банк','Банк ДОМ.РФ','Уралсиб','Ак Барс Банк','Банк Санкт-Петербург','ОТП Банк','ЮниКредит Банк','Почта Банк','Озон Банк','Яндекс Банк','МТС Банк','Ренессанс Банк','Банк Зенит','Банк Россия','Синара Банк','Центр-инвест','Примсоцбанк','Кубань Кредит','Локо-Банк','Металлинвестбанк','Банк Левобережный','ББР Банк','Экспобанк','Точка','Модульбанк','Дальневосточный банк','Генбанк','Авангард','Банк Казани','Энерготрансбанк','Форштадт','Кредит Европа Банк','Банк Интеза','Банк Акцепт','Финсервис','Челиндбанк','Банк СГБ','Приморье','Кольцо Урала','Новикомбанк','Абсолют Банк','Банк Санкт-Петербург'])
@@ -48,6 +61,7 @@ db.ready = (async () => {
   for (const row of missingPublicIds) { let candidate; do { candidate = Math.floor(Math.random()*99999)+1; } while (await all('SELECT id FROM users WHERE public_id=?',[candidate]).then(x=>x.length)); await run('UPDATE users SET public_id=? WHERE id=?',[candidate,row.id]); }
   await run('DELETE FROM sessions WHERE expires < ?',[Date.now()]);
   await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nickname_nocase ON users(nickname COLLATE NOCASE)').catch(err=>console.warn('Не удалось создать индекс уникальности ников без учёта регистра:',err.message));
+  await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id) WHERE telegram_id IS NOT NULL').catch(err=>console.warn('Не удалось создать индекс telegram_id:',err.message));
   console.log('База BLUP готова; миграции завершены.');
 })();
 module.exports = db;
