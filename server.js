@@ -88,11 +88,14 @@ app.use('/api', (req, res, next) => {
 app.get('/api/status', (req, res) => getSetting('stopped', '0', (e, stopped) => res.json({ stopped: stopped === '1' && req.session.isAdmin !== true })));
 
 app.get('/api/auth/telegram/config', (req, res) => {
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME || '';
-  if (!botUsername || !(process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)) {
-    return res.status(503).json({ error: 'Telegram-вход не настроен' });
-  }
-  res.json({ botUsername });
+  const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return res.status(503).json({ error: 'Telegram-вход не настроен' });
+  
+  // Извлекаем числовой ID из токена (часть до двоеточия)
+  const botId = token.split(':')[0];
+  if (!botId || isNaN(botId)) return res.status(503).json({ error: 'Некорректный токен бота' });
+  
+  res.json({ botId });
 });
 
 app.get('/api/config', (req, res) => {
