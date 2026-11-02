@@ -85,19 +85,44 @@ function sendBlocked(res) { return res.status(403).json({ error: 'Аккаунт
 // Enforce IP/account bans on every API request, not only on login.
 app.use('/api', (req, res, next) => {
   const ip = ipOf(req);
-  db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (err, ban) => {
-    if (err) return res.status(500).json({ error: 'Ошибка проверки доступа' });
+  const checkIpBan = () => db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (err, ban) => {
+    if (err) {
+      // Log the underlying SQLite error: the previous version returned a generic
+      // message without logging, making this failure invisible in Amvera logs.
+      console.error('[IP-ban check] SQLite error:', err.message, 'DB_PATH:', process.env.DB_PATH || '(default)');
+      // Recover if the table is missing (for example, after switching DB files).
+      return db.run("CREATE TABLE IF NOT EXISTS ip_bans (ip TEXT PRIMARY KEY, reason TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP)", createErr => {
+        if (createErr) {
+          console.error('[IP-ban check] Could not ensure ip_bans table:', createErr.message);
+          return res.status(500).json({ error: 'Ошибка проверки доступа' });
+        }
+        db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (retryErr, retryBan) => {
+          if (retryErr) {
+            console.error('[IP-ban check] Retry failed:', retryErr.message);
+            return res.status(500).json({ error: 'Ошибка проверки доступа' });
+          }
+          continueAfterBanCheck(retryBan);
+        });
+      });
+    }
+    continueAfterBanCheck(ban);
+  });
+  const continueAfterBanCheck = ban => {
     if (ban) { if (req.session) req.session.destroy(() => {}); return sendBlocked(res); }
     if (!req.session || !req.session.userId) return next();
     db.get('SELECT id,nickname,is_banned,session_version FROM users WHERE id=?', [req.session.userId], (e, user) => {
-      if (e) return res.status(500).json({ error: 'Ошибка проверки аккаунта' });
+      if (e) {
+        console.error('[Account check] SQLite error:', e.message);
+        return res.status(500).json({ error: 'Ошибка проверки аккаунта' });
+      }
       if (!user || user.is_banned || user.session_version !== req.session.sessionVersion) {
         return req.session.destroy(() => sendBlocked(res));
       }
       db.run('UPDATE users SET last_ip=?,last_seen=CURRENT_TIMESTAMP WHERE id=?', [ip, user.id]);
       next();
     });
-  });
+  };
+  checkIpBan();
 });
 
 // Режим техработ отображается на клиенте; API авторизации и регистрации остаются доступными.
