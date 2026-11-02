@@ -149,8 +149,8 @@ app.get('/api/me', (req, res) => res.json({ nickname: req.session.nickname || nu
 
 app.get('/api/history', (req, res) => {
   const query = req.session.userId
-    ? ['SELECT id,nickname,coin,network,operation_type,status,amount,created_at FROM sales WHERE user_id=? ORDER BY id DESC LIMIT 100', [req.session.userId]]
-    : ['SELECT id,nickname,coin,network,operation_type,status,amount,created_at FROM sales WHERE user_id IS NULL ORDER BY id DESC LIMIT 50', []];
+    ? ["SELECT id,nickname,coin,network,operation_type,status,amount,created_at FROM sales WHERE user_id=? AND operation_type='sell' ORDER BY id DESC LIMIT 100", [req.session.userId]]
+    : ["SELECT id,nickname,coin,network,operation_type,status,amount,created_at FROM sales WHERE user_id IS NULL AND operation_type='sell' ORDER BY id DESC LIMIT 50", []];
   db.all(query[0], query[1], (err, rows) => err ? res.status(500).json({ error: 'Не удалось загрузить историю' }) : res.json(rows || []));
 });
 
@@ -167,15 +167,6 @@ app.post('/api/sell',(req,res)=>{
  db.run(`INSERT INTO sales(user_id,nickname,coin,network,destination_wallet,operation_type,amount,memo,comment,phone,bank,payout_type,status) VALUES(?,?,?,?,?,'sell',?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,coin,network,BLUP_WALLETS[coin][network],amount,'',comment,payout,bank,payoutType],function(e){if(e)return res.status(500).json({error:'Не удалось создать заявку'});const item={id:this.lastID,nickname:req.session.nickname,coin,network,wallet:BLUP_WALLETS[coin][network],amount,comment,telegramUsername:tg,phone:payout,bank,payoutType,created_at:new Date().toISOString()};notifyAdmin(item).catch(()=>{});db.run('UPDATE users SET telegram_username=? WHERE id=?',[tg,req.session.userId]);res.json({ok:true,id:this.lastID});});
  });
 });
-app.post('/api/withdraw',(req,res)=>{
- if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
- const saleId=Number(req.body?.saleId), payoutType=String(req.body?.payoutType||'phone'), payout=String(req.body?.payoutValue||'').trim(), bank=String(req.body?.bank||'').trim();
- db.get("SELECT * FROM sales WHERE id=? AND user_id=? AND operation_type='sell' AND status='completed'",[saleId,req.session.userId],(e,sale)=>{
-  if(e||!sale)return res.status(400).json({error:'Вывод доступен только после одобрения продажи'});
-  const rateKey=sale.coin==='GRAM'?'gram_rate':'usdt_rate';getSetting(rateKey,'0',(err,rateRaw)=>{const rate=Number(rateRaw),usd=Number(req.body?.amount||sale.amount);if(err||!rate||!Number.isFinite(usd)||usd<=0||usd>sale.amount||!payout||payout.length>100||!bank||!['phone','card'].includes(payoutType))return res.status(400).json({error:'Проверьте сумму, курс и банковские реквизиты'});db.get('SELECT percent FROM user_discounts WHERE user_id=? AND active=1',[req.session.userId],(de,discountRow)=>{const discount= req.body?.applyDiscount===true && !de ? Number(discountRow?.percent||0) : 0;const rub=Number((usd*rate*(1+discount/100)).toFixed(2));db.run(`INSERT INTO sales(user_id,nickname,coin,network,operation_type,amount,payout_rub,phone,bank,payout_type,parent_sale_id,status) VALUES(?,?,?,?,'withdraw',?,?,?,?,?,?, 'pending')`,[req.session.userId,req.session.nickname,sale.coin,sale.network,usd,rub,payout,bank,payoutType,saleId],function(ins){if(ins)return res.status(500).json({error:'Не удалось создать заявку на вывод'});notifyAdmin({id:this.lastID,nickname:req.session.nickname,coin:sale.coin,network:sale.network,amount:usd,payoutRub:rub,phone:payout,bank,operation:'withdraw'}).catch(()=>{});res.json({ok:true,id:this.lastID,usd,rub,rate,discount});});});});
- });
-});
-app.get('/api/withdraw/eligible',(req,res)=>{if(!req.session.userId)return res.status(401).json({error:'Войдите'});db.all("SELECT id,coin,network,amount,created_at FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed' ORDER BY id DESC",[req.session.userId],(e,rows)=>{if(e)return res.status(500).json({error:'Ошибка'});db.get('SELECT percent FROM user_discounts WHERE user_id=? AND active=1',[req.session.userId],(de,d)=>res.json((rows||[]).map(x=>({...x,discountPercent:d?.percent||0}))));});});
 app.get('/api/promos',(req,res)=>db.all('SELECT code,description,reward_type,reward_value FROM promos WHERE active=1 ORDER BY id DESC',(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
 app.post('/api/promos/apply',(req,res)=>{
  if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
@@ -215,9 +206,9 @@ app.get('/api/admin/me', (req, res) => res.json({ isAdmin: req.session.isAdmin =
 app.get('/api/admin/overview', adminOnly, (req, res) => {
   db.get('SELECT COUNT(*) AS users, SUM(CASE WHEN is_banned=1 THEN 1 ELSE 0 END) AS banned FROM users', [], (e, stats) => {
     if (e) return res.status(500).json({ error: 'Ошибка БД' });
-    db.get("SELECT COUNT(*) AS pending FROM sales WHERE status='pending'", [], (e2, pending) => {
+    db.get("SELECT COUNT(*) AS pending FROM sales WHERE status='pending' AND operation_type='sell'", [], (e2, pending) => {
       db.all('SELECT id,nickname,created_at,last_ip,last_seen,is_banned,ban_reason FROM users ORDER BY id DESC LIMIT 300', [], (e3, users) => {
-        db.all('SELECT id,user_id,nickname,coin,network,operation_type,amount,payout_rub,status,created_at,wallet,destination_wallet,phone,bank,memo,payout_type,comment,parent_sale_id FROM sales ORDER BY id DESC LIMIT 300', [], (e4, sales) => {
+        db.all("SELECT id,user_id,nickname,coin,network,operation_type,amount,payout_rub,status,created_at,wallet,destination_wallet,phone,bank,memo,payout_type,comment,parent_sale_id FROM sales WHERE operation_type='sell' ORDER BY id DESC LIMIT 300", [], (e4, sales) => {
           db.all('SELECT ip,reason,created_at FROM ip_bans ORDER BY created_at DESC', [], (e5, bans) => {
             db.all('SELECT user_id,nickname,ip,event,created_at FROM visits ORDER BY id DESC LIMIT 200', [], (e7, visits) => {
               if (e2 || e3 || e4 || e5 || e7) return res.status(500).json({ error: 'Ошибка загрузки панели' });
@@ -266,7 +257,7 @@ app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => {
 });
 // Remove only finalized requests; active requests are deliberately preserved.
 app.delete('/api/admin/sales', adminOnly, (req, res) => {
-  db.run("DELETE FROM sales WHERE status IN ('completed','rejected')", function(err) {
+  db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) {
     if (err) return res.status(500).json({ error: 'Не удалось очистить историю заявок' });
     res.json({ ok: true, deleted: this.changes });
   });
@@ -274,23 +265,11 @@ app.delete('/api/admin/sales', adminOnly, (req, res) => {
 
 app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
   const id = Number(req.params.id), status = String(req.body?.status || '');
-  if (!['pending','processing','completed','rejected'].includes(status)) return res.status(400).json({ error: 'Некорректный статус' });
-  db.get('SELECT * FROM sales WHERE id=?', [id], (err, sale) => {
-    if (err || !sale) return res.status(404).json({ error: 'Заявка не найдена' });
-    if (sale.operation_type === 'withdraw' && sale.status !== status) {
-      if (sale.status !== 'rejected' && status === 'rejected') {
-        db.run("UPDATE settings SET value=MIN(CAST((SELECT value FROM settings WHERE key='reserve_total') AS REAL), CAST(value AS REAL)+?) WHERE key='reserve_available'", [sale.amount || 0], e => {
-          if (e) return res.status(500).json({ error: 'Ошибка резерва' });
-          db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e2 => e2 ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
-        });
-      } else if (sale.status === 'rejected' && status !== 'rejected') {
-        db.run("UPDATE settings SET value=CAST(value AS REAL)-? WHERE key='reserve_available' AND CAST(value AS REAL)>=?", [sale.amount || 0, sale.amount || 0], function(e) {
-          if (e) return res.status(500).json({ error: 'Ошибка резерва' });
-          if (!this.changes) return res.status(400).json({ error: 'Недостаточно резерва, чтобы вернуть заявку в работу.' });
-          db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e2 => e2 ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
-        });
-      } else db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e => e ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
-    } else db.run('UPDATE sales SET status=? WHERE id=?', [status, id], e => e ? res.status(500).json({ error: 'Ошибка обновления' }) : res.json({ ok: true }));
+  if (!Number.isInteger(id) || id < 1 || !['pending','processing','completed','rejected'].includes(status)) return res.status(400).json({ error: 'Некорректные данные' });
+  db.run("UPDATE sales SET status=? WHERE id=? AND operation_type='sell'", [status, id], function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка обновления' });
+    if (!this.changes) return res.status(404).json({ error: 'Продажа не найдена' });
+    res.json({ ok: true });
   });
 });
 app.post('/api/admin/promos',adminOnly,(req,res)=>{
