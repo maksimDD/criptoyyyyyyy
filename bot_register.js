@@ -5,8 +5,8 @@ const TelegramBot = require('node-telegram-bot-api');
 // 2) REGISTER_BOT_TOKEN_2 + REGISTER_ADMIN_CHAT_2 (fallback to general pair 2)
 const destinations = [
   {
-    token: process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN,
-    chatId: process.env.REGISTER_ADMIN_CHAT || process.env.TELEGRAM_ADMIN_CHAT
+    token: 8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI || 8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g,
+    chatId: 7270019395 || 7646143249
   },
   {
     token: process.env.REGISTER_BOT_TOKEN_2 || process.env.TELEGRAM_BOT_TOKEN_2,
