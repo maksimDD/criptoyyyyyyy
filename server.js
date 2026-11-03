@@ -57,7 +57,7 @@ app.use(session({
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ==========================================
-// ОТСЛЕЖИВАНИЕ ОНЛАЙНА (БЕЗ МЕТРИКИ)
+// ОТСЛЕЖИВАНИЕ ОНЛАЙНА
 // ==========================================
 const onlineUsers = new Map();
 
@@ -449,7 +449,6 @@ app.post('/api/admin/users/:id/ban', adminOnly, (req, res) => {
   });
 });
 
-// НОВЫЙ МАРШРУТ: Удаление пользователя
 app.delete('/api/admin/users/:id', adminOnly, (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный ID' });
@@ -469,7 +468,6 @@ app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => {
   db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => err ? res.status(500).json({ error: 'Ошибка БД' }) : res.json({ ok: true }));
 });
 
-// НОВЫЙ МАРШРУТ: Очистка истории входов
 app.delete('/api/admin/visits', adminOnly, (req, res) => {
   db.run('DELETE FROM visits', function(err) {
     if (err) return res.status(500).json({ error: 'Ошибка очистки' });
