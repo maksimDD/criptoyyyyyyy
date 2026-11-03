@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const db = new sqlite3.Database(path.join(__dirname, 'data.db'));
+const dbPath = process.env.NODE_ENV === 'production' ? '/data/data.db' : path.join(__dirname, 'data.db');
+const db = new sqlite3.Database(dbPath);
 const run = (sql, params=[]) => new Promise((resolve,reject)=>db.run(sql,params,function(err){if(err)reject(err);else resolve(this);}));
 const all = (sql, params=[]) => new Promise((resolve,reject)=>db.all(sql,params,(err,rows)=>err?reject(err):resolve(rows)));
 
