@@ -177,6 +177,7 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .tg-login-btn{margin-top:6px;background:linear-gradient(112deg,#43c9c0,#3989b7 58%,#7168da)}
 .tg-btn-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.18);font-size:12px;margin-right:4px}
 
+/* Плашка онлайна как на скриншоте */
 .online-widget {
   display: inline-flex;
   align-items: center;
@@ -190,19 +191,57 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   backdrop-filter: blur(10px);
 }
 
+/* Рисуем идеальную иконку сигнала через CSS */
 .online-icon {
+  position: relative;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: pulse-icon 2s infinite;
-  filter: drop-shadow(0 0 6px rgba(92, 227, 164, 0.5));
 }
 
-.online-icon svg {
-  width: 24px;
-  height: 24px;
+.online-icon .dot {
+  width: 5px;
+  height: 5px;
+  background-color: #5ce3a4;
+  border-radius: 50%;
+  position: absolute;
+  z-index: 2;
 }
 
+.online-icon .wave {
+  position: absolute;
+  border: 2.5px solid #5ce3a4;
+  border-radius: 50%;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  right: 50%;
+}
+
+.online-icon .wave-1 {
+  width: 10px;
+  height: 10px;
+  margin-right: -3px;
+  animation: pulse-wave 2s infinite;
+}
+
+.online-icon .wave-2 {
+  width: 18px;
+  height: 18px;
+  margin-right: -5px;
+  animation: pulse-wave 2s infinite 0.2s;
+}
+
+.online-icon .wave-3 {
+  width: 26px;
+  height: 26px;
+  margin-right: -7px;
+  animation: pulse-wave 2s infinite 0.4s;
+}
+
+/* Текст */
 .online-text {
   display: flex;
   flex-direction: column;
@@ -226,15 +265,15 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   text-transform: uppercase;
 }
 
-@keyframes pulse-icon {
-  0% { opacity: 0.7; filter: drop-shadow(0 0 2px rgba(92, 227, 164, 0.3)); }
-  50% { opacity: 1; filter: drop-shadow(0 0 8px rgba(92, 227, 164, 0.8)); }
-  100% { opacity: 0.7; filter: drop-shadow(0 0 2px rgba(92, 227, 164, 0.3)); }
+@keyframes pulse-wave {
+  0% { transform: scale(0.95); opacity: 0.6; }
+  50% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 5px #5ce3a4); }
+  100% { transform: scale(0.95); opacity: 0.6; }
 }
 
 @media (max-width: 760px) {
   .online-widget { margin-left: auto; padding: 6px 10px; gap: 8px; margin-right: 10px; }
-  .online-icon svg { width: 18px; height: 18px; }
+  .online-icon { transform: scale(0.8); margin: -2px; }
   .online-text b { font-size: 14px; }
   .online-text span { font-size: 8px; }
 }
