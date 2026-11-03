@@ -45,7 +45,17 @@ app.use((req, res, next) => {
   onlineUsers.set(identifier, Date.now());
   next();
 });
-app.get('/api/online', (req, res) => { const now = Date.now(); let count = 0; onlineUsers.forEach((l, id) => { if (now - l < 300000) count++; else onlineUsers.delete(id); }); res.json({ online: count > 0 ? count : 1 }); });
+
+// Честный онлайн
+app.get('/api/online', (req, res) => {
+  const now = Date.now();
+  let count = 0;
+  onlineUsers.forEach((lastSeen, id) => {
+    if (now - lastSeen < 300000) count++;
+    else onlineUsers.delete(id);
+  });
+  res.json({ online: count }); // Возвращаем реальное число
+});
 
 const authAttempts = new Map();
 function rateLimit(key, max = 12, windowMs = 15 * 60 * 1000) { const now = Date.now(); const item = authAttempts.get(key); if (!item || item.until < now) { authAttempts.set(key, { count: 1, until: now + windowMs }); return false; } item.count += 1; return item.count > max; }
