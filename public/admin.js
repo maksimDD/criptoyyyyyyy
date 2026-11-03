@@ -381,3 +381,31 @@ document.addEventListener('click',async e=>{
     }
   });
 })();
+
+// Рефералы в админке
+document.getElementById('adminReferralsBtn')?.addEventListener('click', async () => {
+  const modal = document.getElementById('adminRefBackdrop');
+  if (modal) {
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  
+  try {
+    const r = await api('/api/admin/referrals');
+    document.getElementById('adminRefTable').innerHTML = r.map(x => `
+      <tr>
+        <td>${esc(x.nickname)} <small>#${x.public_id}</small></td>
+        <td style="color:#5ce3a4;">$${Number(x.balance).toFixed(2)}</td>
+        <td>${x.ref_count} чел.</td>
+      </tr>
+    `).join('') || '<tr><td colspan="3">Пусто</td></tr>';
+  } catch (e) { toast(e.message); }
+});
+
+document.getElementById('adminRefClose')?.addEventListener('click', () => {
+  const modal = document.getElementById('adminRefBackdrop');
+  if (modal) {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+});
