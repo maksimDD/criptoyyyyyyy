@@ -121,4 +121,78 @@ function initLinkTelegram() {
       linkTgBtn.disabled = false;
     }
   });
+
+  // === РЕФЕРАЛЬНАЯ СИСТЕМА В ПРОФИЛЕ ===
+const refBtn = document.getElementById('openRefBtn');
+if (refBtn) {
+  refBtn.addEventListener('click', async () => {
+    openModal('refBackdrop');
+    await loadReferralData();
+  });
+}
+
+if (document.getElementById('refClose')) {
+  document.getElementById('refClose').addEventListener('click', () => closeModal('refBackdrop'));
+}
+
+async function loadReferralData() {
+  try {
+    const r = await fetch('/api/referral');
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+
+    document.getElementById('refBalance').innerText = `$${Number(d.balance || 0).toFixed(2)}`;
+    
+    // Устанавливаем ссылку
+    const code = d.ref_code || '';
+    document.getElementById('refCodeInput').value = code;
+    document.getElementById('refLinkDisplay').innerText = code ? `https://blup-bluup.msk1.amvera.tech/ref/${code}` : 'Код не создан';
+
+    // Список рефералов
+    const list = document.getElementById('refList');
+    if (d.referrals.length === 0) {
+      list.innerHTML = '<p style="color:#8fa5b5; font-size:11px;">У тебя пока нет рефералов.</p>';
+    } else {
+      list.innerHTML = d.referrals.map(ref => `
+        <div style="display:flex; justify-content:space-between; background:#0c1026; padding:8px; border-radius:6px; font-size:12px;">
+          <span>${ref.nickname} <small style="color:#8fa5b5;">#${ref.public_id}</small></span>
+          <span style="color:#8fa5b5;">${new Date(ref.created_at).toLocaleDateString('ru-RU')}</span>
+        </div>
+      `).join('');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// Сохранение кода
+document.getElementById('saveRefCodeBtn')?.addEventListener('click', async () => {
+  const code = document.getElementById('refCodeInput').value.trim();
+  if (!code) return alert('Введите код');
+  try {
+    const r = await fetch('/api/referral/set-code', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    alert('Код сохранен!');
+    loadReferralData();
+  } catch (e) { alert(e.message); }
+});
+
+// Вывод рефки
+document.getElementById('refWithdrawBtn')?.addEventListener('click', async () => {
+  const amount = Number(document.getElementById('refWithdrawAmount').value);
+  const phone = document.getElementById('refWithdrawPhone').value;
+  const bank = document.getElementById('refWithdrawBank').value;
+
+  if (!amount || amount < 10) return alert('Мин. сумма $10');
+  if (!phone || !bank) return alert('Введите реквизиты');
+
+  try {
+    const r = await fetch('/api/referral/withdraw', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount, phone, bank }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    alert('Заявка на вывод создана!');
+    loadReferralData();
+  } catch (e) { alert(e.message); }
+});
 }
