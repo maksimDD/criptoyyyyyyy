@@ -78,7 +78,7 @@ function sendBlocked(res) { return res.status(403).json({ error: 'Аккаунт
 app.use('/api', (req, res, next) => {
   const ip = ipOf(req);
   db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (err, ban) => {
-    if (err) return res.status(500).json({ error: 'Ошибка проверки доступа' });
+    if (err) return res.status(500).json({ error: 'Ошибка проверки доступа: ' + err.message });
     if (ban) { if (req.session) req.session.destroy(() => {}); return sendBlocked(res); }
     if (!req.session || !req.session.userId) return next();
     db.get('SELECT id,nickname,is_banned,session_version FROM users WHERE id=?', [req.session.userId], (e, user) => {
