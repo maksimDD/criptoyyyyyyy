@@ -486,6 +486,25 @@ app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => { db.run('DELETE FR
 app.delete('/api/admin/visits', adminOnly, (req, res) => { db.run('DELETE FROM visits', function(err) { res.json({ ok: true, deleted: this.changes }); }); });
 app.delete('/api/admin/sales', adminOnly, (req, res) => { db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) { res.json({ ok: true, deleted: this.changes }); }); });
 
+app.delete('/api/admin/sales/:id', adminOnly, (req, res) => {
+  db.run('DELETE FROM sales WHERE id=?', [Number(req.params.id)], function(err) {
+    if (!this.changes) return res.status(404).json({ error: 'Не найдена' });
+    res.json({ ok: true });
+  });
+});
+
+app.get('/api/admin/get-user/:id', adminOnly, (req, res) => {
+  const id = Number(req.params.id);
+  db.get(`SELECT nickname, public_id, created_at, telegram_id, telegram_username, telegram_photo_url,
+            COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd,
+            COALESCE((SELECT percent FROM user_discounts WHERE user_id=u.id AND active=1),0) discount_percent
+          FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.id=? GROUP BY u.id`,
+    [id], (e,row) => {
+      if (e || !row) return res.status(404).json({error:'Не найден'});
+      res.json(row);
+    });
+});
+
 app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
   const id = Number(req.params.id), status = String(req.body?.status || '');
   db.run("UPDATE sales SET status=? WHERE id=? AND operation_type='sell'", [status, id], function(err) {
@@ -496,7 +515,6 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
         if (sale) {
           db.get('SELECT referred_by FROM users WHERE id=?', [sale.user_id], (e2, user) => {
             if (user && user.referred_by) {
-              // 2.5% от суммы продажи
               const bonus = sale.payout_rub * 0.025; 
               db.run('UPDATE user_referrals SET balance = balance + ? WHERE user_id=?', [bonus, user.referred_by]);
             }
