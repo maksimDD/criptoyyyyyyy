@@ -28,6 +28,19 @@ app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
 
+// Парсим куки
+app.use((req, res, next) => {
+  const cookieHeader = req.headers.cookie;
+  req.cookies = {};
+  if (cookieHeader) {
+    cookieHeader.split(';').forEach(cookie => {
+      const [name, ...rest] = cookie.trim().split('=');
+      req.cookies[name] = rest.join('=');
+    });
+  }
+  next();
+});
+
 class SQLiteSessionStore extends session.Store {
   get(sid, cb) { db.get('SELECT sess, expires FROM sessions WHERE sid=?', [sid], (err, row) => { if (err) return cb(err); if (!row) return cb(null, null); if (row.expires < Date.now()) return this.destroy(sid, () => cb(null, null)); try { cb(null, JSON.parse(row.sess)); } catch (e) { cb(e); } }); }
   set(sid, sess, cb = () => {}) { const expires = sess.cookie && sess.cookie.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 7 * 86400000; db.run('INSERT INTO sessions(sid,sess,expires) VALUES(?,?,?) ON CONFLICT(sid) DO UPDATE SET sess=excluded.sess, expires=excluded.expires', [sid, JSON.stringify(sess), expires], cb); }
@@ -54,7 +67,7 @@ app.get('/api/online', (req, res) => {
     if (now - lastSeen < 300000) count++;
     else onlineUsers.delete(id);
   });
-  res.json({ online: count }); // Возвращаем реальное число
+  res.json({ online: count });
 });
 
 const authAttempts = new Map();
@@ -92,10 +105,14 @@ app.get('/api/auth/telegram/config', (req, res) => {
   res.json({ botId }); 
 });
 
+// Регистрация через логин/пароль (с проверкой куки ref)
 app.post('/api/register', (req, res) => {
-  const ip = ipOf(req), nickname = String(req.body?.nickname || '').trim(), password = String(req.body?.password || ''), refCode = req.body?.ref;
+  const ip = ipOf(req), nickname = String(req.body?.nickname || '').trim(), password = String(req.body?.password || '');
+  const refCode = req.cookies?.ref || req.body?.ref; // берём из куки или из тела
+  
   if (rateLimit(`reg:${ip}`, 8)) return res.status(429).json({ error: 'Много попыток' });
   if (!/^[\p{L}\p{N}_-]{3,24}$/u.test(nickname) || password.length < 10) return res.status(400).json({ error: 'Ошибка в нике или пароле' });
+  
   db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (e, ban) => {
     if (ban) return sendBlocked(res);
     db.get('SELECT id FROM users WHERE nickname=? COLLATE NOCASE', [nickname], (err, existing) => {
@@ -112,11 +129,14 @@ app.post('/api/register', (req, res) => {
             req.session.userId = newUserId; req.session.nickname = nickname; req.session.sessionVersion = 0;
             logVisit({ id: newUserId, nickname }, ip, 'register');
             notifyNewUser({nickname, publicId}).catch(() => {});
+            
+            // Привязка реферера, если есть код
             if (refCode) {
               db.get('SELECT user_id FROM user_referrals WHERE ref_code=?', [refCode], (rErr, refRow) => {
                 if (refRow) db.run('UPDATE users SET referred_by=? WHERE id=?', [refRow.user_id, newUserId]);
               });
             }
+            
             req.session.save(() => res.json({ ok: true, nickname, publicId }));
           });
         });
@@ -142,9 +162,12 @@ app.post('/api/login', (req, res) => {
   });
 });
 
+// Вход через Telegram (с проверкой куки ref)
 app.post('/api/auth/telegram', (req, res) => {
   const ip = ipOf(req);
   const data = req.body || {};
+  const refCode = req.cookies?.ref; // Берем куку ref!
+  
   const tgToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Ошибка' });
   if (rateLimit(`tg:${ip}`, 20)) return res.status(429).json({ error: 'Много попыток' });
@@ -157,6 +180,7 @@ app.post('/api/auth/telegram', (req, res) => {
 
   db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (e, ban) => {
     if (ban) return sendBlocked(res);
+    
     const finishLogin = user => {
       if (!user || user.is_banned) return sendBlocked(res);
       req.session.regenerate(regErr => {
@@ -166,14 +190,17 @@ app.post('/api/auth/telegram', (req, res) => {
         req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
       });
     };
+    
     db.get('SELECT * FROM users WHERE telegram_id=?', [data.id], (err, byTg) => {
       if (byTg) {
         db.run(`UPDATE users SET telegram_username=?, last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?`, [data.username || null, ip, byTg.id]);
         return finishLogin(byTg);
       }
+      
       const baseNick = (data.username || `tg_${data.id}`).replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20) || `tg_${data.id}`;
       const randomHash = bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), 12);
       let publicId; const pickId = cb => { const n = Math.floor(Math.random()*99999)+1; db.get('SELECT id FROM users WHERE public_id=?',[n],(e,row)=>row?pickId(cb):cb(n)); };
+      
       pickId(pid => {
         publicId = pid;
         const tryInsert = (nick, cb) => {
@@ -183,11 +210,35 @@ app.post('/api/auth/telegram', (req, res) => {
               cb(null, { id: this.lastID, nickname: nick, session_version: 0, is_banned: 0 });
             });
         };
+        
         tryInsert(baseNick, (err1, user1) => {
-          if (!err1) { user1.isNew = true; user1.public_id = pid; return finishLogin(user1); }
+          if (!err1) { 
+            user1.isNew = true; 
+            user1.public_id = pid; 
+            
+            // Привязка реферера
+            if (refCode) {
+              db.get('SELECT user_id FROM user_referrals WHERE ref_code=?', [refCode], (rErr, refRow) => {
+                if (refRow) db.run('UPDATE users SET referred_by=? WHERE id=?', [refRow.user_id, user1.id]);
+              });
+            }
+            
+            return finishLogin(user1); 
+          }
+          
           tryInsert(`${baseNick}_${data.id}`.slice(0,24), (err2, user2) => {
             if (err2) return res.status(500).json({ error: 'Ошибка' });
-            user2.isNew = true; user2.public_id = pid; finishLogin(user2);
+            user2.isNew = true; 
+            user2.public_id = pid; 
+            
+            // Привязка реферера
+            if (refCode) {
+              db.get('SELECT user_id FROM user_referrals WHERE ref_code=?', [refCode], (rErr, refRow) => {
+                if (refRow) db.run('UPDATE users SET referred_by=? WHERE id=?', [refRow.user_id, user2.id]);
+              });
+            }
+            
+            finishLogin(user2);
           });
         });
       });
@@ -265,8 +316,14 @@ app.post('/api/sell',(req,res)=>{
  });
 });
 
+// Реферальная ссылка (устанавливает куку и редиректит)
 app.get('/ref/:code', (req, res) => {
-  res.send(`<script>document.cookie = "ref=${req.params.code}; max-age=" + (60*60*24*30) + "; path=/"; window.location.href = '/';</script>`);
+  res.send(`
+    <script>
+      document.cookie = "ref=${req.params.code}; max-age=" + (60*60*24*30) + "; path=/";
+      window.location.href = '/';
+    </script>
+  `);
 });
 
 // === РЕФЕРАЛЬНАЯ СИСТЕМА ===
