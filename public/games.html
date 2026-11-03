@@ -62,12 +62,12 @@
   .form-box button { width: 100%; padding: 15px; border: none; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
   .form-box p { margin-top: 15px; text-align: center; font-weight: 600; }
 
-  /* --- ИГРА (x50 / x100) --- */
+  /* --- ИГРА --- */
   .game-board { background: var(--panel); border-radius: 16px; padding: 30px; position: relative; display: none; flex-direction: column; align-items: center; border: 1px solid var(--line); }
   .game-board.active { display: flex; }
 
-  /* Стрелка сверху */
-  .arrow-top { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 16px solid var(--accent); filter: drop-shadow(0 0 5px var(--accent)); z-index: 10; }
+  /* Стрелка сверху (указатель) */
+  .arrow-top { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 20px solid var(--accent); filter: drop-shadow(0 0 8px var(--accent)); z-index: 10; }
 
   /* Контейнер для колеса */
   .wheel-container { position: relative; width: 100%; max-width: 700px; height: 380px; margin: 0 auto; display: flex; justify-content: center; align-items: flex-end; overflow: hidden; }
@@ -84,7 +84,7 @@
     z-index: 1;
   }
 
-  /* Черная маска внутри, чтобы скрыть фон картинки внутри круга */
+  /* Маска для внутренней части */
   .wheel-inner-mask {
     position: absolute;
     bottom: 0;
@@ -97,7 +97,7 @@
     z-index: 3;
   }
 
-  /* Таймер по центру (в красном квадрате) */
+  /* Таймер */
   .timer-panel {
     position: absolute;
     bottom: 40px;
@@ -142,10 +142,6 @@
   .bet-card[data-mult="50"] .bet-mult { color: #4bff8d; }
   .bet-card[data-mult="100"] .bet-mult { color: #ff4b4b; }
 
-  .main-btn { width: 100%; background: var(--accent); color: white; border: none; border-radius: 12px; padding: 16px; font-size: 16px; font-weight: 800; text-transform: uppercase; cursor: pointer; margin-top: 15px; transition: 0.2s; z-index: 5; }
-  .main-btn:hover:not(:disabled) { background: #2b7bf3; }
-  .main-btn:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
-
   @media (max-width: 768px) {
     .bet-grid { grid-template-columns: repeat(2, 1fr); }
     .info-grid { grid-template-columns: 1fr; }
@@ -171,7 +167,6 @@
     </div>
   </header>
 
-  <!-- ЛОББИ (БЕЗ ХЕША) -->
   <div id="lobbyView">
     <div class="nav-tabs">
       <button class="active" data-tab="games">Игры</button>
@@ -211,19 +206,14 @@
     </div>
   </div>
 
-  <!-- ИГРА (ОТКРЫВАЕТСЯ ПО ХЕШУ #x50 ИЛИ #x100) -->
   <div class="game-board" id="gameView">
     
     <div class="arrow-top"></div>
 
     <div class="wheel-container">
-      <!-- Картинка колеса (ссылки с Hotskins) -->
       <div class="wheel-image" id="wheelImage"></div>
-
-      <!-- Маска, чтобы закрыть середину -->
       <div class="wheel-inner-mask"></div>
 
-      <!-- Таймер ровно по центру -->
       <div class="timer-panel" id="timerPanel">
         <div class="timer-label">НАЧАЛО ЧЕРЕЗ</div>
         <div class="timer-digits">
@@ -244,16 +234,13 @@
     </div>
 
     <div class="bet-grid" id="betGrid"></div>
-    <button class="main-btn" id="playBtn">СДЕЛАТЬ СТАВКУ</button>
   </div>
 </div>
 
 <script>
-  // КОНФИГУРАЦИЯ
   const gameConfig = {
     x50: {
       title: "Игра x50",
-      // Прямая ссылка на картинку с Hotskins
       image: "https://hotskins30.ai/storage/images/x50/whell-dark.webp",
       multipliers: [
         { val: 2, color: '#3d8aff' }, { val: 3, color: '#ffb84b' }, 
@@ -262,7 +249,6 @@
     },
     x100: {
       title: "Игра x100",
-      // Прямая ссылка на картинку с Hotskins
       image: "https://hotskins30.ai/storage/images/x100/whell-dark.webp",
       multipliers: [
         { val: 2, color: '#3d8aff' }, { val: 3, color: '#ffb84b' }, 
@@ -275,18 +261,18 @@
 
   let currentGame = 'x50';
   let balance = 0;
-  let selectedMult = 2;
   let isSpinning = false;
   let isBettingOpen = false;
   let timerInt = null;
   let timeLeft = 20;
+  
+  // Переменные для ставок, которые сделаны в текущем раунде
+  let currentBets = [];
 
   const bgElement = document.getElementById('wheelImage');
-  const playBtn = document.getElementById('playBtn');
   const betGrid = document.getElementById('betGrid');
   const timerPanel = document.getElementById('timerPanel');
 
-  // --- ВКЛАДКИ В ЛОББИ ---
   document.querySelectorAll('.nav-tabs button').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
@@ -324,7 +310,6 @@
     } catch (e) { st.innerText = e.message; st.style.color = '#ff4b4b'; }
   }
 
-  // --- РОУТИНГ ---
   function handleHash() {
     const hash = window.location.hash.replace('#', '');
     if (hash === 'x50' || hash === 'x100') {
@@ -333,33 +318,29 @@
       document.getElementById('gameView').classList.add('active');
       document.getElementById('headerTitle').innerText = gameConfig[currentGame].title;
       document.getElementById('gameView').style.display = 'flex';
-      
-      // Устанавливаем картинку колеса
       bgElement.style.backgroundImage = `url('${gameConfig[currentGame].image}')`;
-      
       initGame();
     } else {
       document.getElementById('lobbyView').style.display = 'block';
       document.getElementById('gameView').classList.remove('active');
       document.getElementById('gameView').style.display = 'none';
       document.getElementById('headerTitle').innerText = 'BLUP Games';
+      if (timerInt) clearInterval(timerInt);
     }
   }
 
   window.addEventListener('hashchange', handleHash);
 
-  // --- ИГРА ---
   function initGame() {
     renderButtons();
+    currentBets = [];
     startRoundTimer();
-    isSpinning = false;
-    isBettingOpen = false;
   }
 
   function renderButtons() {
     const mults = gameConfig[currentGame].multipliers;
     betGrid.innerHTML = mults.map(m => `
-      <div class="bet-card ${m.val === selectedMult ? 'selected' : ''}" data-mult="${m.val}">
+      <div class="bet-card" data-mult="${m.val}">
         <div class="bet-header">
           <span class="bet-mult">x${m.val}</span>
           <span style="color:${m.color}">⬇</span>
@@ -372,11 +353,23 @@
     `).join('');
 
     document.querySelectorAll('.bet-card').forEach(card => {
-      card.addEventListener('click', () => {
-        if (!isBettingOpen) return;
-        selectedMult = Number(card.dataset.mult);
-        document.querySelectorAll('.bet-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
+      card.addEventListener('click', async () => {
+        if (!isBettingOpen) return alert('Ставки на этот раунд закрыты. Ждите следующего.');
+        
+        const mult = Number(card.dataset.mult);
+        const bet = Number(document.getElementById('betInput').value);
+        
+        if (bet < 1) return alert('Мин. ставка $1');
+        if (bet > balance) return alert('Недостаточно средств на балансе!');
+
+        // Списываем визуально сразу
+        balance -= bet;
+        document.getElementById('balDisplay').innerText = balance.toFixed(2);
+        currentBets.push({ mult, bet });
+        
+        // Подсвечиваем кнопку, на которую нажали
+        card.style.borderColor = '#4bff9f';
+        card.style.background = '#1e2640';
       });
     });
   }
@@ -386,7 +379,6 @@
     timeLeft = 20;
     isBettingOpen = true;
     isSpinning = false;
-    playBtn.disabled = false;
     timerPanel.style.opacity = '1';
     updateTimerDisplay();
 
@@ -411,21 +403,27 @@
     if (!isBettingOpen) return;
     isBettingOpen = false;
     isSpinning = true;
-    playBtn.disabled = true;
-    playBtn.innerText = 'ОЖИДАНИЕ...';
     timerPanel.style.opacity = '0';
 
-    const bet = Number(document.getElementById('betInput').value);
-    if (bet > balance) {
+    // Сбрасываем подсветку кнопок
+    document.querySelectorAll('.bet-card').forEach(c => {
+      c.style.borderColor = '';
+      c.style.background = '';
+    });
+
+    // Если ставок не было, просто крутим визуал и начинаем заново
+    if (currentBets.length === 0) {
       animateSpin(null);
       return;
     }
 
     try {
+      // Отправляем первую ставку на сервер (для простоты)
+      const primaryBet = currentBets[0];
       const r = await fetch('/api/games/bet', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ game: currentGame, amount: bet, multiplier: selectedMult })
+        body: JSON.stringify({ game: currentGame, amount: primaryBet.bet, multiplier: primaryBet.mult })
       });
       const data = await r.json();
       animateSpin(data);
@@ -436,25 +434,40 @@
   }
 
   function animateSpin(result) {
-    // Крутим картинку колеса
-    const randomDeg = Math.floor(Math.random() * 360) + 1440;
+    // Делаем 5 полных оборотов + случайный угол
+    const randomDeg = Math.floor(Math.random() * 360) + 1800;
+    
+    // Крутим картинку
     bgElement.style.transition = 'transform 5s cubic-bezier(0.1, 0.7, 0.1, 1)';
     bgElement.style.transform = `rotate(${randomDeg}deg)`;
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      // Колесо остановилось
       if (result) {
         balance = result.newBalance;
         document.getElementById('balDisplay').innerText = balance.toFixed(2);
-        addHistory(selectedMult);
-        if (result.win) alert(`🎉 ВЫИГРЫШ! Выпал x${selectedMult}. Вы получили $${result.winAmount}`);
-        else alert(`😔 Вы проиграли.`);
+        
+        // Добавляем в историю только те ставки, которые совпали с выигрышем
+        const winMult = currentBets[0].mult; // Для визуала берем первую ставку
+        addHistory(winMult);
+
+        if (result.win) {
+          alert(`🎉 ВЫИГРЫШ! Выпал x${winMult}. Вы получили $${result.winAmount}`);
+        } else {
+          alert(`😔 Вы проиграли.`);
+        }
       }
-      playBtn.innerText = 'СДЕЛАТЬ СТАВКУ';
+
+      // Сбрасываем колесо
       setTimeout(() => {
         bgElement.style.transition = 'none';
         bgElement.style.transform = 'rotate(0deg)';
+        
+        // Очищаем текущие ставки и запускаем новый таймер
+        currentBets = [];
         startRoundTimer();
       }, 500);
+      
     }, 5000);
   }
 
@@ -480,15 +493,6 @@
     } catch {}
   }
 
-  playBtn.addEventListener('click', () => {
-    if (!isBettingOpen) return;
-    if (Number(document.getElementById('betInput').value) > balance) {
-      return alert('Недостаточно средств на балансе!');
-    }
-    spinWheel();
-  });
-
-  // Старт
   loadBalance();
   handleHash();
 </script>
