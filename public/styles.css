@@ -176,3 +176,26 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 /* Telegram login button (single-button auth) */
 .tg-login-btn{margin-top:6px;background:linear-gradient(112deg,#43c9c0,#3989b7 58%,#7168da)}
 .tg-btn-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.18);font-size:12px;margin-right:4px}
+
+.online-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border: 1px solid rgba(101, 230, 174, 0.2);
+  border-radius: 99px; background: rgba(18, 34, 48, 0.6);
+  color: #8fa8b4; font-size: 10px; font-weight: 700;
+  margin-left: 15px; backdrop-filter: blur(10px);
+}
+.online-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #53e6b0; box-shadow: 0 0 10px #53e6b0;
+  animation: pulse-online 2s infinite;
+}
+@keyframes pulse-online {
+  0% { box-shadow: 0 0 0 0 rgba(83, 230, 176, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(83, 230, 176, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(83, 230, 176, 0); }
+}
+#onlineCount { color: #c8fff7; }
+@media (max-width: 760px) {
+  .online-badge { margin-left: auto; margin-right: 10px; font-size: 9px; padding: 5px 9px; }
+  .online-dot { width: 6px; height: 6px; }
+}
