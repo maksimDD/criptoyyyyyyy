@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLUP Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  :root { --bg: #070b12; --panel: #0d1520; --line: rgba(130,185,205,.16); --cyan: #65e6dc; }
+  body { background: var(--bg); color: #edf8fb; font-family: Manrope, sans-serif; margin: 0; padding: 20px; }
+  .games-wrap { max-width: 1200px; margin: 0 auto; }
+  .games-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .games-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+  .games-tabs button { background: #111d2b; border: 1px solid var(--line); color: #8fa5b5; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 800; transition: 0.2s; }
+  .games-tabs button.active { background: #65e6dc; color: #070b12; border-color: #65e6dc; }
+  .game-panel { display: none; }
+  .game-panel.active { display: block; }
+  
+  /* Стили для пополнения */
+  .deposit-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 30px; text-align: center; max-width: 500px; margin: 0 auto; }
+  .deposit-panel h2 { margin-top: 0; color: #fff; }
+  .deposit-panel input { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid var(--line); background: #08131e; color: #fff; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; }
+  .deposit-panel button { width: 100%; padding: 15px; border-radius: 10px; border: none; background: linear-gradient(112deg,#43c9c0,#3989b7 58%,#7168da); color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
+  
+  /* Стили для промокода */
+  .promo-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 30px; text-align: center; max-width: 500px; margin: 0 auto; }
+  .promo-panel input { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid var(--line); background: #08131e; color: #fff; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; }
+  .promo-panel button { width: 100%; padding: 15px; border-radius: 10px; border: none; background: #65e6dc; color: #070b12; font-weight: 800; font-size: 16px; cursor: pointer; }
+
+  /* Стили для игр */
+  .game-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+  .game-wheel-area { position: relative; width: 100%; height: 300px; background: #0a1420; border-radius: 16px; overflow: hidden; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 20px; }
+  .wheel { width: 500px; height: 250px; border-radius: 500px 500px 0 0; border: 10px solid #1a2638; position: relative; overflow: hidden; }
+  .wheel-segments { position: absolute; inset: 0; }
+  .wheel-segment { position: absolute; bottom: 0; left: 50%; width: 4px; height: 250px; transform-origin: bottom center; }
+  .wheel-pointer { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; color: #fff; z-index: 10; }
+  .wheel-center { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #172536; border: 2px solid #2a3d55; padding: 10px 20px; border-radius: 12px; text-align: center; z-index: 5; }
+  .wheel-center span { display: block; font-size: 10px; color: #8fa5b5; margin-bottom: 5px; }
+  .wheel-center b { font-size: 24px; color: #fff; }
+  
+  .bet-controls { display: flex; gap: 15px; align-items: center; margin-top: 20px; }
+  .bet-input { flex: 1; background: #08131e; border: 1px solid var(--line); padding: 15px; border-radius: 10px; color: #fff; font-size: 18px; font-weight: 800; }
+  .mult-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
+  .mult-btn { background: #172536; border: 1px solid var(--line); padding: 15px; border-radius: 10px; color: #fff; font-weight: 800; cursor: pointer; transition: 0.2s; text-align: center; }
+  .mult-btn:hover { background: #22354a; }
+  .mult-btn.x2 { border-color: #4b9fff; color: #4b9fff; }
+  .mult-btn.x3 { border-color: #ffb84b; color: #ffb84b; }
+  .mult-btn.x5 { border-color: #ff4b4b; color: #ff4b4b; }
+  .mult-btn.x10 { border-color: #4bff9f; color: #4bff9f; }
+  .mult-btn.x15 { border-color: #9f4bff; color: #9f4bff; }
+  .mult-btn.x20 { border-color: #ff7b4b; color: #ff7b4b; }
+  .mult-btn.x50 { border-color: #4bff8d; color: #4bff8d; }
+  .mult-btn.x100 { border-color: #ff4b4b; color: #ff4b4b; }
+  
+  .balance-badge { background: #172536; padding: 10px 20px; border-radius: 10px; font-weight: 800; font-size: 18px; color: #c5f36b; }
+</style>
+</head>
+<body>
+<div class="games-wrap">
+  <div class="games-header">
+    <div style="font-size: 24px; font-weight: 900;">BLUP <span style="color: #65e6dc;">Games</span></div>
+    <div class="balance-badge">Баланс: $<span id="gameBalance">0</span></div>
+    <a href="/" class="btn btn-ghost btn-small">На главную</a>
+  </div>
+
+  <div class="games-tabs">
+    <button class="active" data-tab="deposit">Пополнить</button>
+    <button data-tab="promo">Промокод</button>
+    <button data-tab="x50">Игра x50</button>
+    <button data-tab="x100">Игра x100</button>
+  </div>
+
+  <!-- Пополнение -->
+  <div class="game-panel active" id="panel-deposit">
+    <div class="deposit-panel">
+      <h2>Пополнение баланса (Демо)</h2>
+      <p style="color: #8fa5b5; font-size: 14px; margin-bottom: 20px;">Выберите сумму для зачисления на игровой счет</p>
+      <input type="number" id="depositAmount" placeholder="Сумма в $" min="1" max="1000" value="100">
+      <button id="btnDeposit">Пополнить</button>
+    </div>
+  </div>
+
+  <!-- Промокод -->
+  <div class="game-panel" id="panel-promo">
+    <div class="promo-panel">
+      <h2>Активация промокода</h2>
+      <p style="color: #8fa5b5; font-size: 14px; margin-bottom: 20px;">Введите код, чтобы получить бонус на игровой баланс</p>
+      <input type="text" id="promoCode" placeholder="Введите промокод" maxlength="24">
+      <button id="btnPromo">Применить</button>
+      <p id="promoResult" style="margin-top: 15px; font-weight: 800;"></p>
+    </div>
+  </div>
+
+  <!-- Игра x50 -->
+  <div class="game-panel" id="panel-x50">
+    <div class="game-card">
+      <div class="game-wheel-area">
+        <div class="wheel-pointer">▼</div>
+        <div class="wheel" id="wheel-x50">
+          <div class="wheel-segments" id="segments-x50"></div>
+          <div class="wheel-center">
+            <span>СТАВКА</span>
+            <b id="currentBet-x50">$0</b>
+          </div>
+        </div>
+      </div>
+      <div class="bet-controls">
+        <input type="number" class="bet-input" id="betAmount-x50" placeholder="Сумма ставки" min="1" value="10">
+        <button class="btn btn-primary" id="spinBtn-x50" style="padding: 15px 30px;">Крутить</button>
+      </div>
+      <div class="mult-buttons">
+        <div class="mult-btn x2" data-game="x50" data-mult="2">x2</div>
+        <div class="mult-btn x3" data-game="x50" data-mult="3">x3</div>
+        <div class="mult-btn x5" data-game="x50" data-mult="5">x5</div>
+        <div class="mult-btn x50" data-game="x50" data-mult="50">x50</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Игра x100 -->
+  <div class="game-panel" id="panel-x100">
+    <div class="game-card">
+      <div class="game-wheel-area">
+        <div class="wheel-pointer">▼</div>
+        <div class="wheel" id="wheel-x100">
+          <div class="wheel-segments" id="segments-x100"></div>
+          <div class="wheel-center">
+            <span>СТАВКА</span>
+            <b id="currentBet-x100">$0</b>
+          </div>
+        </div>
+      </div>
+      <div class="bet-controls">
+        <input type="number" class="bet-input" id="betAmount-x100" placeholder="Сумма ставки" min="1" value="10">
+        <button class="btn btn-primary" id="spinBtn-x100" style="padding: 15px 30px;">Крутить</button>
+      </div>
+      <div class="mult-buttons">
+        <div class="mult-btn x2" data-game="x100" data-mult="2">x2</div>
+        <div class="mult-btn x3" data-game="x100" data-mult="3">x3</div>
+        <div class="mult-btn x5" data-game="x100" data-mult="5">x5</div>
+        <div class="mult-btn x10" data-game="x100" data-mult="10">x10</div>
+        <div class="mult-btn x15" data-game="x100" data-mult="15">x15</div>
+        <div class="mult-btn x20" data-game="x100" data-mult="20">x20</div>
+        <div class="mult-btn x100" data-game="x100" data-mult="100">x100</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Глобальные переменные
+  let balance = 0;
+  let selectedMultiplier = 2;
+  let selectedGame = 'x50';
+
+  const updateBalanceUI = (newBal) => {
+    balance = newBal;
+    document.getElementById('gameBalance').innerText = balance.toFixed(2);
+  };
+
+  // Загрузка баланса
+  const loadBalance = async () => {
+    try {
+      const r = await fetch('/api/games/balance');
+      const d = await r.json();
+      if (r.ok) updateBalanceUI(d.balance);
+    } catch {}
+  };
+  loadBalance();
+
+  // Переключение вкладок
+  document.querySelectorAll('.games-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.games-tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.game-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Пополнение
+  document.getElementById('btnDeposit').addEventListener('click', async () => {
+    const amount = Number(document.getElementById('depositAmount').value);
+    if (!amount || amount <= 0) return alert('Введите сумму');
+    try {
+      const r = await fetch('/api/games/deposit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      alert(`Баланс пополнен на $${amount}`);
+      loadBalance();
+    } catch (e) { alert(e.message); }
+  });
+
+  // Активация промокода
+  document.getElementById('btnPromo').addEventListener('click', async () => {
+    const code = document.getElementById('promoCode').value;
+    const resEl = document.getElementById('promoResult');
+    resEl.innerText = 'Проверяем...';
+    resEl.style.color = '#fff';
+    try {
+      const r = await fetch('/api/games/promo', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      resEl.innerText = `Успешно! Начислено $${d.bonus}`;
+      resEl.style.color = '#5ce3a4';
+      loadBalance();
+    } catch (e) {
+      resEl.innerText = e.message;
+      resEl.style.color = '#ff9aaf';
+    }
+  });
+
+  // Выбор множителя
+  document.querySelectorAll('.mult-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mult-btn').forEach(b => b.style.borderColor = 'var(--line)');
+      btn.style.borderColor = '#fff';
+      selectedMultiplier = Number(btn.dataset.mult);
+      selectedGame = btn.dataset.game;
+    });
+  });
+
+  // Логика игры (Кручение)
+  const setupGame = (gameId) => {
+    const spinBtn = document.getElementById(`spinBtn-${gameId}`);
+    const betInput = document.getElementById(`betAmount-${gameId}`);
+    const currentBetDisplay = document.getElementById(`currentBet-${gameId}`);
+    const wheel = document.getElementById(`wheel-${gameId}`);
+
+    betInput.addEventListener('input', () => currentBetDisplay.innerText = '$' + (Number(betInput.value) || 0));
+
+    spinBtn.addEventListener('click', async () => {
+      const bet = Number(betInput.value);
+      if (bet < 1) return alert('Ставка должна быть больше 0');
+      if (bet > balance) return alert('Недостаточно средств');
+      if (selectedGame !== gameId) return alert('Выберите множитель для этой игры');
+
+      spinBtn.disabled = true;
+      spinBtn.innerText = 'Вращение...';
+
+      try {
+        const r = await fetch('/api/games/bet', { 
+          method: 'POST', 
+          headers: {'Content-Type':'application/json'}, 
+          body: JSON.stringify({ game: gameId, amount: bet, multiplier: selectedMultiplier }) 
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+
+        // Анимация вращения
+        const randomDeg = Math.floor(Math.random() * 360) + 3600;
+        wheel.style.transition = 'transform 3s cubic-bezier(0.25, 1, 0.5, 1)';
+        wheel.style.transform = `rotate(${randomDeg}deg)`;
+
+        setTimeout(() => {
+          updateBalanceUI(d.newBalance);
+          if (d.win) {
+            alert(`Вы выиграли x${selectedMultiplier}! Ваш выигрыш: $${d.winAmount}`);
+          } else {
+            alert('Вы проиграли');
+          }
+          spinBtn.disabled = false;
+          spinBtn.innerText = 'Крутить';
+          
+          // Сброс угла для следующего вращения
+          setTimeout(() => {
+            wheel.style.transition = 'none';
+            wheel.style.transform = `rotate(0deg)`;
+          }, 500);
+          
+        }, 3000);
+
+      } catch (e) {
+        alert(e.message);
+        spinBtn.disabled = false;
+        spinBtn.innerText = 'Крутить';
+      }
+    });
+  };
+
+  setupGame('x50');
+  setupGame('x100');
+</script>
+</body>
+</html>
