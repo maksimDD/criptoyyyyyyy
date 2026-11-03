@@ -76,7 +76,10 @@ app.get('/api/config', (req, res) => { db.all('SELECT key,value FROM settings WH
 app.get('/api/auth/telegram/config', (req, res) => { const token = process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN; if (!token) return res.status(503).json({ error: 'Telegram Login не настроен: задайте TELEGRAM_LOGIN_BOT_TOKEN' }); const botId = token.split(':')[0]; if (!/^\d+$/.test(botId || '')) return res.status(503).json({ error: 'Некорректный токен Telegram Login' }); res.json({ botId, botUsername: (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '') }); });
 
 app.post('/api/register', (req, res) => {
-  const ip = ipOf(req), nickname = String(req.body?.nickname || '').trim(), password = String(req.body?.password || ''), refCode = req.body?.ref;
+  const ip = ipOf(req), nickname = String(req.body?.nickname || '').trim(), password = String(req.body?.password || '');
+  const cookieRef = String(req.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith('ref='));
+  let refCode = String(req.body?.ref || (cookieRef ? decodeURIComponent(cookieRef.slice(4)) : '')).trim();
+  if (!/^[a-f0-9]{8,32}$/i.test(refCode) && !/^[a-zA-Z0-9_]{3,20}$/.test(refCode)) refCode = '';
   if (rateLimit(`reg:${ip}`, 8)) return res.status(429).json({ error: 'Много попыток' });
   if (!/^[\p{L}\p{N}_-]{3,24}$/u.test(nickname) || password.length < 10) return res.status(400).json({ error: 'Ошибка в нике или пароле' });
   db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (e, ban) => {
@@ -87,22 +90,26 @@ app.post('/api/register', (req, res) => {
       let publicId; const pickId = cb => { const n=Math.floor(Math.random()*99999)+1; db.get('SELECT id FROM users WHERE public_id=?',[n],(e,row)=>row?pickId(cb):cb(n)); }; 
       pickId(publicIdValue => { 
         publicId=publicIdValue; 
-        db.run('INSERT INTO users(nickname,password_hash,last_ip,last_seen,public_id) VALUES(?,?,?,CURRENT_TIMESTAMP,?)', [nickname, hash, ip, publicId], function(insertErr) {
-          if (insertErr) return res.status(500).json({ error: 'Ошибка БД' });
-          const newUserId = this.lastID;
-          req.session.regenerate(regErr => {
-            if (regErr) return res.status(500).json({ error: 'Ошибка сессии' });
-            req.session.userId = newUserId; req.session.nickname = nickname; req.session.sessionVersion = 0;
-            logVisit({ id: newUserId, nickname }, ip, 'register');
-            notifyNewUser({nickname, publicId}).catch(() => {});
-            if (refCode) {
-              db.get('SELECT user_id FROM user_referrals WHERE ref_code=?', [refCode], (rErr, refRow) => {
-                if (refRow) db.run('UPDATE users SET referred_by=? WHERE id=?', [refRow.user_id, newUserId]);
+        const createUser = referrerId => {
+          db.run('INSERT INTO users(nickname,password_hash,last_ip,last_seen,public_id,referred_by) VALUES(?,?,?,CURRENT_TIMESTAMP,?,?)',
+            [nickname, hash, ip, publicId, referrerId || null], function(insertErr) {
+              if (insertErr) return res.status(500).json({ error: 'Ошибка БД' });
+              const newUserId = this.lastID;
+              req.session.regenerate(regErr => {
+                if (regErr) return res.status(500).json({ error: 'Ошибка сессии' });
+                req.session.userId = newUserId; req.session.nickname = nickname; req.session.sessionVersion = 0;
+                logVisit({ id: newUserId, nickname }, ip, 'register');
+                notifyNewUser({nickname, publicId}).catch(() => {});
+                req.session.save(() => res.json({ ok: true, nickname, publicId, referred: Boolean(referrerId) }));
               });
-            }
-            req.session.save(() => res.json({ ok: true, nickname, publicId }));
+            });
+        };
+        if (refCode) {
+          db.get('SELECT user_id FROM user_referrals WHERE ref_code=?', [refCode], (rErr, refRow) => {
+            const referrerId = refRow ? refRow.user_id : null;
+            createUser(referrerId);
           });
-        });
+        } else createUser(null);
       });
     });
   });
@@ -249,7 +256,10 @@ app.post('/api/sell',(req,res)=>{
 });
 
 app.get('/ref/:code', (req, res) => {
-  res.send(`<script>document.cookie = "ref=${req.params.code}; max-age=" + (60*60*24*30) + "; path=/"; window.location.href = '/';</script>`);
+  const code = String(req.params.code || '');
+  if (!/^[a-zA-Z0-9_]{3,32}$/.test(code)) return res.redirect('/');
+  res.setHeader('Set-Cookie', `ref=${encodeURIComponent(code)}; Max-Age=2592000; Path=/; SameSite=Lax; Secure`);
+  return res.redirect('/');
 });
 
 // === РЕФЕРАЛЬНАЯ СИСТЕМА ===
@@ -264,7 +274,7 @@ app.get('/api/referral', (req, res) => {
       COALESCE((SELECT SUM(c.commission_usd) FROM referral_commissions c JOIN sales sx ON sx.id=c.sale_id WHERE sx.user_id=u.id),0) earned_usd
       FROM users u LEFT JOIN sales s ON s.user_id=u.id AND s.operation_type='sell' AND s.status='completed'
       WHERE u.referred_by=? GROUP BY u.id ORDER BY u.created_at DESC`, [req.session.userId], (e, refs) => {
-      res.json({ ref_code: ref.ref_code, balance: Number(ref.balance || 0), referrals: refs || [] });
+      res.json({ ref_code: ref.ref_code, balance: Number(ref.balance || 0), commission_percent: 2.5, referrals: refs || [] });
     }));
   });
 });
@@ -375,9 +385,10 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
         if (!user?.referred_by) return res.json({ ok: true });
         db.get('SELECT value FROM settings WHERE key=?', [sale.coin === 'GRAM' ? 'gram_rate' : 'usdt_rate'], (rateErr, rateRow) => {
           const rate = Number(rateRow?.value || 0);
-          const commissionUsd = Number((Number(sale.amount || 0) * 0.025).toFixed(8));
-          const commissionRub = Number((Number(sale.payout_rub || (Number(sale.amount || 0) * rate)) * 0.025).toFixed(2));
-          db.run('INSERT OR IGNORE INTO referral_commissions(sale_id,referrer_id,sale_amount_usd,sale_amount_rub,commission_usd,commission_rub) VALUES(?,?,?,?,?,?)', [id,user.referred_by,Number(sale.amount||0),Number(sale.payout_rub||0),commissionUsd,commissionRub], function(commErr) {
+          const saleRub = Number(sale.payout_rub || (Number(sale.amount || 0) * rate));
+          const commissionRub = Number((saleRub * 0.025).toFixed(2));
+          const commissionUsd = rate > 0 ? Number((commissionRub / rate).toFixed(8)) : 0;
+          db.run('INSERT OR IGNORE INTO referral_commissions(sale_id,referrer_id,sale_amount_usd,sale_amount_rub,commission_usd,commission_rub) VALUES(?,?,?,?,?,?)', [id,user.referred_by,Number(sale.amount||0),saleRub,commissionUsd,commissionRub], function(commErr) {
             if (commErr) return res.status(500).json({ error: 'Не удалось начислить реферальный бонус' });
             if (this.changes) db.run('UPDATE user_referrals SET balance=balance+? WHERE user_id=?', [commissionUsd,user.referred_by], e2 => res.json({ ok: true, referralBonusUsd: commissionUsd }));
             else res.json({ ok: true });
