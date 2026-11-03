@@ -311,8 +311,13 @@ document.addEventListener('click', async e => {
     const content = document.getElementById('adminPromoViewContent');
     if (!modal || !content) return;
 
-    const actStr = promo.activators || '';
-    const actList = actStr ? actStr.split('\n').map(s => s.split(':')) : [];
+    c    const actStr = promo.activators || '';
+    const actList = actStr ? actStr.split('\n').map(s => {
+      const parts = s.split(':');
+      const publicId = parts[0];
+      const nick = parts.slice(1).join(':');
+      return { publicId, nick };
+    }) : [];
 
     content.innerHTML = `
       <h2>${esc(promo.code)}</h2>
@@ -321,21 +326,14 @@ document.addEventListener('click', async e => {
       <div style="margin-bottom: 10px;"><b>Статус:</b> ${promo.active ? 'Активен' : 'Выключен'}</div>
       <h3 style="margin-top:20px;">Кто активировал:</h3>
       <div style="display:flex; flex-direction:column; gap:8px;">
-        ${actList.length ? actList.map(([id, nick]) => `
-          <a href="/user/${id}" target="_blank" style="display:flex; align-items:center; justify-content:space-between; background:#101322; padding:8px; border-radius:6px; text-decoration:none; color:#fff;">
-            <span>${esc(nick)} <small style="color:#7785b3;">#${esc(id)}</small></span>
+        ${actList.length ? actList.map(({ publicId, nick }) => `
+          <a href="/user/${publicId}" target="_blank" style="display:flex; align-items:center; justify-content:space-between; background:#101322; padding:8px; border-radius:6px; text-decoration:none; color:#fff;">
+            <span>${esc(nick)} <small style="color:#7785b3;">#${esc(publicId)}</small></span>
             <span style="color:#3d8aff; font-size:10px;">Открыть профиль ↗</span>
           </a>
         `).join('') : '<p style="color:#8fa5b3;">Пока никто не активировал.</p>'}
       </div>
     `;
-    
-    modal.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  } catch (err) {
-    toast(err.message);
-  }
-});
 
 // Сворачивание таблиц
 document.getElementById('toggleUsersBtn')?.addEventListener('click', () => {
