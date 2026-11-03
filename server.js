@@ -372,12 +372,14 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
   const id = Number(req.params.id), status = String(req.body?.status || '');
   db.run("UPDATE sales SET status=? WHERE id=? AND operation_type='sell'", [status, id], function(err) {
     if (!this.changes) return res.status(404).json({ error: 'Не найдена' });
+    
     if (status === 'completed') {
       db.get('SELECT user_id, payout_rub FROM sales WHERE id=?', [id], (e, sale) => {
         if (sale) {
           db.get('SELECT referred_by FROM users WHERE id=?', [sale.user_id], (e2, user) => {
             if (user && user.referred_by) {
-              const bonus = sale.payout_rub * 0.10;
+              // ТУТ БЫЛО 0.10 (10%), СТАЛО 0.02 (2%)
+              const bonus = sale.payout_rub * 0.02; 
               db.run('UPDATE user_referrals SET balance = balance + ? WHERE user_id=?', [bonus, user.referred_by]);
             }
           });
