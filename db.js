@@ -3,7 +3,8 @@ const path = require('path');
 const fs = require('fs');
 
 // Определяем путь к базе данных
-const dbDir = process.env.NODE_ENV === 'production' ? '/data' : __dirname;
+// Жестко указываем системную папку /data для Amvera
+const dbDir = '/data';
 const dbPath = path.join(dbDir, 'data.db');
 
 // Если папки /data нет (например, при первом запуске на Amvera), создаем её
