@@ -1,6 +1,29 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const dbPath = process.env.NODE_ENV === 'production' ? '/data/data.db' : path.join(__dirname, 'data.db');
+const fs = require('fs');
+
+// Определяем путь к базе данных
+const dbDir = process.env.NODE_ENV === 'production' ? '/data' : __dirname;
+const dbPath = path.join(dbDir, 'data.db');
+
+// Если папки /data нет (например, при первом запуске на Amvera), создаем её
+if (!fs.existsSync(dbDir)) {
+  try {
+    fs.mkdirSync(dbDir, { recursive: true });
+    console.log(`Папка для БД успешно создана: ${dbDir}`);
+  } catch (err) {
+    console.error(`ОШИБКА: Не удалось создать папку ${dbDir}. Проверьте права доступа.`, err);
+  }
+}
+
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('ОШИБКА ПОДКЛЮЧЕНИЯ К БАЗЕ ДАННЫХ:', err.message);
+  } else {
+    console.log(`База данных подключена по пути: ${dbPath}`);
+  }
+});
+
 const db = new sqlite3.Database(dbPath);
 const run = (sql, params=[]) => new Promise((resolve,reject)=>db.run(sql,params,function(err){if(err)reject(err);else resolve(this);}));
 const all = (sql, params=[]) => new Promise((resolve,reject)=>db.all(sql,params,(err,rows)=>err?reject(err):resolve(rows)));
