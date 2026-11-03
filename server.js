@@ -74,7 +74,6 @@ app.use('/api', (req, res, next) => {
 app.get('/api/status', (req, res) => getSetting('stopped', '0', (e, stopped) => res.json({ stopped: stopped === '1' && req.session.isAdmin !== true })));
 app.get('/api/config', (req, res) => { db.all('SELECT key,value FROM settings WHERE key IN (\'usdt_rate\',\'gram_rate\',\'reserve_total\',\'reserve_available\',\'banks\')', [], (err, rows) => { if (err) return res.status(500).json({ error: 'Ошибка' }); const s = Object.fromEntries(rows.map(x => [x.key, x.value])); let banks = []; try { banks = JSON.parse(s.banks || '[]'); } catch {} res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks, wallets: BLUP_WALLETS }); }); });
 
-// Конфиг для Telegram-входа (используем первый токен)
 app.get('/api/auth/telegram/config', (req, res) => { 
   const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI'; 
   if (!token) return res.status(503).json({ error: 'Нет токена' }); 
@@ -136,7 +135,7 @@ app.post('/api/login', (req, res) => {
 app.post('/api/auth/telegram', (req, res) => {
   const ip = ipOf(req);
   const data = req.body || {};
-  const tgToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI'; // Изменил имя переменной
+  const tgToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Ошибка' });
   if (rateLimit(`tg:${ip}`, 20)) return res.status(429).json({ error: 'Много попыток' });
   if (Math.floor(Date.now()/1000) - Number(data.auth_date) > 300) return res.status(400).json({ error: 'Устарело' });
@@ -189,7 +188,7 @@ app.post('/api/auth/telegram', (req, res) => {
 app.post('/api/auth/link-telegram', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Войдите' });
   const data = req.body || {};
-  const linkToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI'; // Изменил имя переменной
+  const linkToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Ошибка' });
   if (Math.floor(Date.now()/1000) - Number(data.auth_date) > 300) return res.status(400).json({ error: 'Устарело' });
   
@@ -303,6 +302,35 @@ app.post('/api/referral/withdraw', (req, res) => {
   });
 });
 
+// === ПРОМОКОДЫ ===
+app.get('/api/promos',(req,res)=>db.all('SELECT code,description,reward_type,reward_value FROM promos WHERE active=1 ORDER BY id DESC',(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
+
+app.post('/api/promos/apply',(req,res)=>{
+ if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
+ const code=String(req.body?.code||'').trim();
+ db.get('SELECT id,code,description,reward_type,reward_value,activation_limit,activation_count FROM promos WHERE code=? COLLATE NOCASE AND active=1',[code],(e,promo)=>{
+  if(e||!promo)return res.status(404).json({error:'Промокод не найден или неактивен'});
+  if(promo.activation_limit>0&&promo.activation_count>=promo.activation_limit)return res.status(409).json({error:'Лимит активаций исчерпан'});
+  db.get('SELECT id,public_id,nickname FROM users WHERE id=?',[req.session.userId],(ue,user)=>{
+   if(ue||!user)return res.status(400).json({error:'Пользователь не найден'});
+   db.run('INSERT INTO promo_redemptions(promo_id,user_id,public_id,nickname) VALUES(?,?,?,?)',[promo.id,user.id,user.public_id,user.nickname],function(re){
+    if(re)return res.status(409).json({error:re.message.includes('UNIQUE')?'Ты уже активировал этот промокод':'Не удалось активировать'});
+    db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?',[promo.id]);
+    if(promo.reward_type==='percent'&&[1,3].includes(Number(promo.reward_value))){
+      db.run('INSERT INTO user_coupons(user_id,promo_id,percent,source) VALUES(?,?,?,?)',[user.id,promo.id,Number(promo.reward_value),'promo'],ce=>{
+        if(ce)return res.status(500).json({error:'Не удалось выдать купон'});
+        notifyAdmin({operation:'promo',nickname:user.nickname,publicId:user.public_id,promoCode:promo.code}).catch(()=>{});
+        res.json({ok:true,promo:{code:promo.code,description:promo.description,reward_type:promo.reward_type,reward_value:promo.reward_value}});
+      });
+    } else {
+      notifyAdmin({operation:'promo',nickname:user.nickname,publicId:user.public_id,promoCode:promo.code}).catch(()=>{});
+      res.json({ok:true,promo:{code:promo.code,description:promo.description,reward_type:promo.reward_type,reward_value:promo.reward_value}});
+    }
+   });
+  });
+ });
+});
+
 // === АДМИНКА ===
 app.post('/api/admin/login', (req, res) => {
   const ip = ipOf(req);
@@ -378,7 +406,6 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
         if (sale) {
           db.get('SELECT referred_by FROM users WHERE id=?', [sale.user_id], (e2, user) => {
             if (user && user.referred_by) {
-              // ТУТ БЫЛО 0.10 (10%), СТАЛО 0.02 (2%)
               const bonus = sale.payout_rub * 0.02; 
               db.run('UPDATE user_referrals SET balance = balance + ? WHERE user_id=?', [bonus, user.referred_by]);
             }
