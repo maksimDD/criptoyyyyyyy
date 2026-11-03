@@ -139,7 +139,7 @@ app.post('/api/auth/telegram', (req, res) => {
 
   db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (e, ban) => {
     if (ban) return sendBlocked(res);
-     const finishLogin = user => {
+         const finishLogin = user => {
       if (!user || user.is_banned) return sendBlocked(res);
       req.session.regenerate(regErr => {
         if (regErr) return res.status(500).json({ error: 'Не удалось создать сессию' });
@@ -147,6 +147,17 @@ app.post('/api/auth/telegram', (req, res) => {
         req.session.nickname = user.nickname;
         req.session.sessionVersion = user.session_version || 0;
         logVisit(user, ip, 'login_telegram');
+        
+        // Отправка уведомления в Telegram, если это новый пользователь
+        if (user.isNew) {
+          notifyNewUser({
+            nickname: user.nickname,
+            publicId: user.public_id,
+            telegramId: data.id,
+            telegramUsername: data.username || 'нет юзернейма'
+          }).catch(() => {});
+        }
+
         req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
       });
     };
