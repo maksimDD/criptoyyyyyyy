@@ -88,6 +88,19 @@ db.ready = (async () => {
     await run('DELETE FROM sessions WHERE expires < ?',[Date.now()]);
     await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nickname_nocase ON users(nickname COLLATE NOCASE)').catch(err=>console.warn('Не удалось создать индекс уникальности ников:',err.message));
     await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id) WHERE telegram_id IS NOT NULL').catch(err=>console.warn('Не удалось создать индекс telegram_id:',err.message));
+
+  // Таблицы для мини-игр /games
+  await run(`CREATE TABLE IF NOT EXISTS game_balance (user_id INTEGER PRIMARY KEY, balance REAL DEFAULT 0)`);
+  await run(`CREATE TABLE IF NOT EXISTS game_bets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    game TEXT,          -- 'x50' или 'x100'
+    amount REAL,        -- ставка
+    multiplier REAL,    -- выигрышный коэффициент (x2, x3, x100)
+    win_amount REAL,    -- сколько выиграл
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+    
     console.log('База BLUP готова; миграции завершены.');
   } catch (e) {
     console.error('КРИТИЧЕСКАЯ ОШИБКА ИНИЦИАЛИЗАЦИИ БД:', e);
