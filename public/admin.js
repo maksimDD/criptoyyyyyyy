@@ -78,7 +78,8 @@ async function load(){
         <td><small>${esc(x.network||'—')} · ${esc(x.bank||'—')}</small><small>${esc(x.wallet||'—')}</small><small>Кошелёк BLUP: ${esc(x.destination_wallet||'—')}</small><small>${esc('Реквизиты выплаты')}: ${esc(x.phone||'—')}</small>${x.memo?`<small>MEMO: ${esc(x.memo)}</small>`:''}${x.comment?`<small>Комментарий: ${esc(x.comment)}</small>`:''}</td>
         <td>${date(x.created_at)}</td>
         <td><span class="status-pill ${x.status==='completed'?'completed':x.status==='rejected'?'rejected':''}">${esc(statusLabel(x.status))}</span></td>
-        <td><select class="status-select" data-sale="${x.id}"><option value="pending" ${x.status==='pending'?'selected':''}>Ожидает</option><option value="processing" ${x.status==='processing'?'selected':''}>В работе</option><option value="completed" ${x.status==='completed'?'selected':''}>Выполнена</option><option value="rejected" ${x.status==='rejected'?'selected':''}>Отклонена</option></select></td>
+        <td><select class="status-select" data-sale="${x.id}"><option value="pending" ${x.status==='pending'?'selected':''}>Ожидает</option><option value="processing" ${x.status==='processing'?'selected':''}>В работе</option><option value="completed" ${x.status==='completed'?'selected':''}>Выполнена</option><option value="rejected" ${x.status==='rejected'?'selected':''}>Отклонена</option></select>
+        ${x.status === 'rejected' ? `<button class="table-action danger" data-del-sale="${x.id}" style="margin-top:5px; width:100%;">Удалить</button>` : ''}</td>
       </tr>
     `).join(''):'<tr><td colspan="6" class="empty-cell">Продаж пока нет</td></tr>';
 
@@ -208,7 +209,7 @@ document.addEventListener('change',async e=>{
   }catch(err){toast(err.message);}
 });
 
-// Удаление отклонённой заявки
+// Удаление отдельной заявки
 document.addEventListener('click', async e => {
   const delBtn = e.target.closest('[data-del-sale]');
   if (delBtn) {
@@ -243,6 +244,7 @@ async function loadPromos(){
           <small>${esc(x.description||x.reward_type)} · активаций ${x.activation_count||0}${x.activation_limit?'/'+x.activation_limit:' / без лимита'} · ${x.active?'Активен':'Выключен'}</small>
           <small>Кто активировал (ID:ник): ${esc(x.activators||'пока никто')}</small>
         </span>
+        <button data-view-promo="${x.id}" style="background:#3d8aff; color:#fff; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; margin-right:5px;">Открыть</button>
         <button data-promo-toggle="${x.id}">${x.active?'Отключить':'Включить'}</button>
       </div>
     `).join('')||'<div class="empty-cell">Промокодов пока нет</div>';
@@ -292,6 +294,67 @@ document.addEventListener('click',async e=>{
     await api(`/api/admin/promos/${b.dataset.promoToggle}/toggle`,{method:'POST',body:'{}'});
     loadPromos();
   }catch(err){toast(err.message);}
+});
+
+// Просмотр промокода в модалке
+document.addEventListener('click', async e => {
+  const promoBtn = e.target.closest('[data-view-promo]');
+  if (!promoBtn) return;
+  
+  const promoId = promoBtn.dataset.viewPromo;
+  try {
+    const rows = await api('/api/admin/promos');
+    const promo = rows.find(x => x.id === Number(promoId));
+    if (!promo) return;
+
+    const modal = document.getElementById('adminPromoViewBackdrop');
+    const content = document.getElementById('adminPromoViewContent');
+    if (!modal || !content) return;
+
+    const actStr = promo.activators || '';
+    const actList = actStr ? actStr.split('\n').map(s => s.split(':')) : [];
+
+    content.innerHTML = `
+      <h2>${esc(promo.code)}</h2>
+      <p class="modal-desc">${esc(promo.description||promo.reward_type)}</p>
+      <div style="margin-bottom: 10px;"><b>Активаций:</b> ${promo.activation_count||0}${promo.activation_limit?'/'+promo.activation_limit:''}</div>
+      <div style="margin-bottom: 10px;"><b>Статус:</b> ${promo.active ? 'Активен' : 'Выключен'}</div>
+      <h3 style="margin-top:20px;">Кто активировал:</h3>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${actList.length ? actList.map(([id, nick]) => `
+          <a href="/user/${id}" target="_blank" style="display:flex; align-items:center; justify-content:space-between; background:#101322; padding:8px; border-radius:6px; text-decoration:none; color:#fff;">
+            <span>${esc(nick)} <small style="color:#7785b3;">#${esc(id)}</small></span>
+            <span style="color:#3d8aff; font-size:10px;">Открыть профиль ↗</span>
+          </a>
+        `).join('') : '<p style="color:#8fa5b3;">Пока никто не активировал.</p>'}
+      </div>
+    `;
+    
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+// Сворачивание таблиц
+document.getElementById('toggleUsersBtn')?.addEventListener('click', () => {
+  const c = document.getElementById('usersTableContainer');
+  const b = document.getElementById('toggleUsersBtn');
+  if (c.style.display === 'none') { c.style.display = 'block'; b.textContent = 'Свернуть ▲'; }
+  else { c.style.display = 'none'; b.textContent = 'Развернуть ▼'; }
+});
+document.getElementById('toggleSalesBtn')?.addEventListener('click', () => {
+  const c = document.getElementById('salesTableContainer');
+  const b = document.getElementById('toggleSalesBtn');
+  if (c.style.display === 'none') { c.style.display = 'block'; b.textContent = 'Свернуть ▲'; }
+  else { c.style.display = 'none'; b.textContent = 'Развернуть ▼'; }
+});
+document.getElementById('toggleVisitsBtn')?.addEventListener('click', () => {
+  const c = document.getElementById('visitsTableContainer');
+  const b = document.getElementById('toggleVisitsBtn');
+  if (c.style.display === 'none') { c.style.display = 'block'; b.textContent = 'Свернуть ▲'; }
+  else { c.style.display = 'none'; b.textContent = 'Развернуть ▼'; }
 });
 
 (function initBlupSelects() {
@@ -401,7 +464,14 @@ document.addEventListener('click',async e=>{
   });
 })();
 
-// Рефералы в админке
+document.getElementById('adminRefClose')?.addEventListener('click', () => {
+  const modal = document.getElementById('adminRefBackdrop');
+  if (modal) {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+});
+
 document.getElementById('adminReferralsBtn')?.addEventListener('click', async () => {
   const modal = document.getElementById('adminRefBackdrop');
   if (modal) {
@@ -421,15 +491,7 @@ document.getElementById('adminReferralsBtn')?.addEventListener('click', async ()
   } catch (e) { toast(e.message); }
 });
 
-document.getElementById('adminRefClose')?.addEventListener('click', () => {
-  const modal = document.getElementById('adminRefBackdrop');
-  if (modal) {
-    modal.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-});
-
-// === ОТЗЫВЫ В АДМИНКЕ ===
+// Отзывы в админке
 document.getElementById('adminReviewsBtn')?.addEventListener('click', () => {
   const modal = document.getElementById('adminReviewsBackdrop');
   if (modal) {
@@ -473,4 +535,3 @@ document.getElementById('adminReviewForm')?.addEventListener('submit', async (e)
     toast(err.message);
   }
 });
-
