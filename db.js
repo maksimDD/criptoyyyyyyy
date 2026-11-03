@@ -56,22 +56,13 @@ db.ready = (async () => {
     await run(`CREATE TABLE IF NOT EXISTS user_coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, promo_id INTEGER, percent INTEGER NOT NULL, source TEXT DEFAULT 'promo', created_at TEXT DEFAULT CURRENT_TIMESTAMP, used_at TEXT, used_sale_id INTEGER)`);
     await run('CREATE INDEX IF NOT EXISTS idx_user_coupons_active ON user_coupons(user_id, used_at)');
     
+    // Таблицы для мини-игр
     await run(`CREATE TABLE IF NOT EXISTS game_balance (user_id INTEGER PRIMARY KEY, balance REAL DEFAULT 0)`);
     await run(`CREATE TABLE IF NOT EXISTS game_bets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, game TEXT, amount REAL, multiplier REAL, win_amount REAL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
 
+    // Реферальная система
     await run(`CREATE TABLE IF NOT EXISTS user_referrals (user_id INTEGER PRIMARY KEY, referrer_id INTEGER, ref_code TEXT UNIQUE, balance REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS referral_withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount REAL, phone TEXT, bank TEXT, status TEXT DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-    await run(`CREATE TABLE IF NOT EXISTS referral_earnings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, sale_id INTEGER, amount_usd REAL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-
-    await run(`CREATE TABLE IF NOT EXISTS reviews (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      nickname TEXT,
-      amount REAL,
-      text TEXT,
-      rating INTEGER,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )`);
 
     const defaults = {
       stopped:'0', usdt_rate:'0', gram_rate:'0', reserve_total:'0', reserve_available:'0',
