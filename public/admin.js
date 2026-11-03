@@ -5,47 +5,274 @@ function toast(s){const e=$('#adminToast');e.textContent=s;e.classList.add('show
 async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Ошибка');return d;}
 function showDashboard(){ $('#adminLoginView').classList.add('hidden');$('#adminDashboard').classList.remove('hidden');$('#adminLogout').classList.remove('hidden');load(); }
 async function check(){try{const d=await api('/api/admin/me');if(d.isAdmin)showDashboard()}catch{}}
-$('#adminLoginForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;$('#adminLoginError').textContent='Проверка…';try{const password=new FormData(form).get('password');await api('/api/admin/login',{method:'POST',body:JSON.stringify({password})});form.reset();showDashboard()}catch(err){$('#adminLoginError').textContent=err.message}});
-$('#adminLogout').addEventListener('click',async()=>{try{await api('/api/admin/logout',{method:'POST'});location.reload()}catch(e){toast(e.message)}});
-$('#refreshAdmin').addEventListener('click',load);
-$('#clearSales').addEventListener('click',async()=>{
- if(!confirm('Удалить все выполненные и отклонённые продажи? Продажи «Ожидает» и «В работе» останутся.'))return;
- try{const d=await api('/api/admin/sales',{method:'DELETE'});toast(`Удалено заявок: ${d.deleted}`);load()}
- catch(e){toast(e.message)}
+
+$('#adminLoginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  $('#adminLoginError').textContent='Проверка…';
+  try{
+    const password=new FormData(form).get('password');
+    await api('/api/admin/login',{method:'POST',body:JSON.stringify({password})});
+    form.reset();
+    showDashboard();
+  }catch(err){
+    $('#adminLoginError').textContent=err.message;
+  }
 });
 
-async function load(){try{const d=await api('/api/admin/overview');const s=d.settings||{};$('#statUsers').textContent=d.stats.users;$('#statPending').textContent=d.stats.pending;$('#statBanned').textContent=d.stats.banned;$('#statReserve').textContent='$'+Number(s.reserve_available||0).toLocaleString('ru-RU');$('#statReserveTotal').textContent='из $'+Number(s.reserve_total||0).toLocaleString('ru-RU');
- const f=$('#settingsForm');f.usdtRate.value=s.usdt_rate||0;f.gramRate.value=s.gram_rate||0;f.reserveTotal.value=s.reserve_total||0;f.reserveAvailable.value=s.reserve_available||0;try{f.banks.value=JSON.parse(s.banks||'[]').join('\n')}catch{f.banks.value=''}const maintenance=$('#maintenanceToggle');if(maintenance)maintenance.checked=s.stopped==='1';const state=$('#serviceState');if(state){state.innerHTML=s.stopped==='1'?'<i></i> САЙТ НА ТЕХРАБОТАХ':'<i></i> СИСТЕМА АКТИВНА';state.classList.toggle('maintenance',s.stopped==='1');}
- $('#usersTable').innerHTML=d.users.length?d.users.map(u=>`<tr><td><b>${esc(u.nickname)}</b><small>#${u.id} · ${date(u.created_at)}</small></td><td>${esc(u.last_ip||'—')}</td><td>${date(u.last_seen)}</td><td><span class="status-pill ${u.is_banned?'banned':''}">${u.is_banned?'Заблокирован':'Активен'}</span></td><td style="display:flex;gap:4px;"><button class="table-action ${u.is_banned?'':'danger'}" data-user="${u.id}" data-banned="${u.is_banned?0:1}">${u.is_banned?'Разблок.':'Блок'}</button><button class="table-action danger" data-del-user="${u.id}" title="Удалить">✕</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty-cell">Пользователей пока нет</td></tr>';
- $('#ipBanList').innerHTML=d.ipBans.length?d.ipBans.map(b=>`<div class="ban-item"><span><b>${esc(b.ip)}</b><small>${esc(b.reason||'Без причины')} · ${date(b.created_at)}</small></span><button data-unban="${esc(b.ip)}">Снять блокировку</button></div>`).join(''):'<div class="empty-cell">Заблокированных IP нет</div>';
- }catch(e){toast(e.message);if(e.message.includes('Доступ'))location.reload()}}
+$('#adminLogout').addEventListener('click',async()=>{
+  try{await api('/api/admin/logout',{method:'POST'});location.reload();}catch(e){toast(e.message);}
+});
+
+$('#refreshAdmin').addEventListener('click',load);
+
+$('#clearSales').addEventListener('click',async()=>{
+ if(!confirm('Удалить все выполненные и отклонённые продажи? Продажи «Ожидает» и «В работе» останутся.'))return;
+ try{const d=await api('/api/admin/sales',{method:'DELETE'});toast(`Удалено заявок: ${d.deleted}`);load();}
+ catch(e){toast(e.message);}
+});
+
+async function load(){
+  try{
+    const d=await api('/api/admin/overview');
+    const s=d.settings||{};
+    
+    $('#statUsers').textContent=d.stats.users;
+    $('#statPending').textContent=d.stats.pending;
+    $('#statBanned').textContent=d.stats.banned;
+    $('#statReserve').textContent='$'+Number(s.reserve_available||0).toLocaleString('ru-RU');
+    $('#statReserveTotal').textContent='из $'+Number(s.reserve_total||0).toLocaleString('ru-RU');
+    
+    const f=$('#settingsForm');
+    f.usdtRate.value=s.usdt_rate||0;
+    f.gramRate.value=s.gram_rate||0;
+    f.reserveTotal.value=s.reserve_total||0;
+    f.reserveAvailable.value=s.reserve_available||0;
+    try{f.banks.value=JSON.parse(s.banks||'[]').join('\n')}catch{f.banks.value=''}
+    
+    const maintenance=$('#maintenanceToggle');
+    if(maintenance)maintenance.checked=s.stopped==='1';
+    const state=$('#serviceState');
+    if(state){
+      state.innerHTML=s.stopped==='1'?'<i></i> САЙТ НА ТЕХРАБОТАХ':'<i></i> СИСТЕМА АКТИВНА';
+      state.classList.toggle('maintenance',s.stopped==='1');
+    }
+
+    // ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ (добавлена кнопка удаления)
+    $('#usersTable').innerHTML=d.users.length?d.users.map(u=>`
+      <tr>
+        <td><b>${esc(u.nickname)}</b><small>#${u.id} · ${date(u.created_at)}</small></td>
+        <td>${esc(u.last_ip||'—')}</td>
+        <td>${date(u.last_seen)}</td>
+        <td><span class="status-pill ${u.is_banned?'banned':''}">${u.is_banned?'Заблокирован':'Активен'}</span></td>
+        <td style="display:flex;gap:4px;">
+          <button class="table-action ${u.is_banned?'':'danger'}" data-user="${u.id}" data-banned="${u.is_banned?0:1}">${u.is_banned?'Разблок.':'Блок'}</button>
+          <button class="table-action danger" data-del-user="${u.id}" title="Удалить" style="background:#731f31;">✕</button>
+        </td>
+      </tr>
+    `).join(''):'<tr><td colspan="5" class="empty-cell">Пользователей пока нет</td></tr>';
+
+    // ТАБЛИЦА ВХОДОВ (добавлена кнопка очистки)
+    const visitsHead = $('#visitsTable').closest('.admin-card-head');
+    if (visitsHead && !visitsHead.querySelector('.clear-visits-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-outline btn-small clear-visits-btn';
+      btn.textContent = 'Очистить историю';
+      btn.onclick = async () => {
+        if(!confirm('Удалить всю историю входов навсегда?')) return;
+        try { await api('/api/admin/visits', {method:'DELETE'}); toast('История очищена'); load(); } catch(e){ toast(e.message); }
+      };
+      visitsHead.appendChild(btn);
+    }
+    $('#visitsTable').innerHTML=(d.visits||[]).length?d.visits.map(v=>`
+      <tr>
+        <td><b>${esc(v.nickname||'—')}</b><small>#${v.user_id||'—'}</small></td>
+        <td>${esc(v.event==='register'?'Регистрация':v.event==='login'?'Вход':v.event)}</td>
+        <td>${esc(v.ip||'—')}</td>
+        <td>${date(v.created_at)}</td>
+      </tr>
+    `).join(''):'<tr><td colspan="4" class="empty-cell">История входов пока пуста</td></tr>';
+
+    $('#ipBanList').innerHTML=d.ipBans.length?d.ipBans.map(b=>`<div class="ban-item"><span><b>${esc(b.ip)}</b><small>${esc(b.reason||'Без причины')} · ${date(b.created_at)}</small></span><button data-unban="${esc(b.ip)}">Снять блокировку</button></div>`).join(''):'<div class="empty-cell">Заблокированных IP нет</div>';
+    
+    loadPromos();
+  } catch(e){
+    toast(e.message);
+    if(e.message.includes('Доступ')) location.reload();
+  }
+}
+
 function statusLabel(s){return ({pending:'Ожидает',processing:'В работе',completed:'Выполнена',rejected:'Отклонена'})[s]||s}
-$('#maintenanceToggle').addEventListener('change',async e=>{const toggle=e.currentTarget;toggle.disabled=true;$('#maintenanceMessage').textContent='Применяем…';try{await api('/api/admin/maintenance',{method:'POST',body:JSON.stringify({stopped:toggle.checked})});$('#maintenanceMessage').textContent=toggle.checked?'Сайт закрыт для посетителей.':'Сайт снова открыт.';load()}catch(err){toggle.checked=!toggle.checked;$('#maintenanceMessage').textContent=err.message}finally{toggle.disabled=false}});
-$('#settingsForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget;const data={usdtRate:f.usdtRate.value,gramRate:f.gramRate.value,reserveTotal:f.reserveTotal.value,reserveAvailable:f.reserveAvailable.value,banks:f.banks.value.split('\n').map(x=>x.trim()).filter(Boolean),};$('#settingsMessage').textContent='Сохраняем…';try{await api('/api/admin/settings',{method:'POST',body:JSON.stringify(data)});$('#settingsMessage').textContent='Настройки сохранены.';toast('Настройки обновлены');load()}catch(err){$('#settingsMessage').textContent=err.message}});
-$('#ipBanForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);$('#ipBanMessage').textContent='';try{await api('/api/admin/ip-ban',{method:'POST',body:JSON.stringify({ip:f.get('ip'),reason:f.get('reason')})});form.reset();toast('IP заблокирован');load()}catch(err){$('#ipBanMessage').textContent=err.message}});
-document.addEventListener('click',async e=>{const u=e.target.closest('[data-user]');if(u){const id=u.dataset.user,banned=u.dataset.banned==='1';const reason=banned?prompt('Причина блокировки (необязательно):')||'Нарушение правил':'';if(!confirm(banned?'Заблокировать аккаунт и последний IP?':'Разблокировать аккаунт?'))return;try{await api(`/api/admin/users/${id}/ban`,{method:'POST',body:JSON.stringify({banned,reason})});toast(banned?'Аккаунт заблокирован':'Аккаунт разблокирован');load()}catch(err){toast(err.message)}}const b=e.target.closest('[data-unban]');if(b){try{await api(`/api/admin/ip-ban/${encodeURIComponent(b.dataset.unban)}`,{method:'DELETE'});toast('IP разблокирован');load()}catch(err){toast(err.message)}}});
-document.addEventListener('change',async e=>{const s=e.target.closest('[data-sale]');if(!s)return;try{await api(`/api/admin/sales/${s.dataset.sale}/status`,{method:'POST',body:JSON.stringify({status:s.value})});toast('Статус заявки обновлён');load()}catch(err){toast(err.message)}});
+
+$('#maintenanceToggle').addEventListener('change',async e=>{
+  const toggle=e.currentTarget;
+  toggle.disabled=true;
+  $('#maintenanceMessage').textContent='Применяем…';
+  try{
+    await api('/api/admin/maintenance',{method:'POST',body:JSON.stringify({stopped:toggle.checked})});
+    $('#maintenanceMessage').textContent=toggle.checked?'Сайт закрыт для посетителей.':'Сайт снова открыт.';
+    load();
+  }catch(err){
+    toggle.checked=!toggle.checked;
+    $('#maintenanceMessage').textContent=err.message;
+  }finally{
+    toggle.disabled=false;
+  }
+});
+
+$('#settingsForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const f=e.currentTarget;
+  const data={
+    usdtRate:f.usdtRate.value,
+    gramRate:f.gramRate.value,
+    reserveTotal:f.reserveTotal.value,
+    reserveAvailable:f.reserveAvailable.value,
+    banks:f.banks.value.split('\n').map(x=>x.trim()).filter(Boolean),
+  };
+  $('#settingsMessage').textContent='Сохраняем…';
+  try{
+    await api('/api/admin/settings',{method:'POST',body:JSON.stringify(data)});
+    $('#settingsMessage').textContent='Настройки сохранены.';
+    toast('Настройки обновлены');
+    load();
+  }catch(err){
+    $('#settingsMessage').textContent=err.message;
+  }
+});
+
+$('#ipBanForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const f=new FormData(form);
+  $('#ipBanMessage').textContent='';
+  try{
+    await api('/api/admin/ip-ban',{method:'POST',body:JSON.stringify({ip:f.get('ip'),reason:f.get('reason')})});
+    form.reset();
+    toast('IP заблокирован');
+    load();
+  }catch(err){
+    $('#ipBanMessage').textContent=err.message;
+  }
+});
+
+// ОБРАБОТЧИК КНОПОК В ТАБЛИЦАХ
+document.addEventListener('click',async e=>{
+  // Блокировка/разблокировка
+  const u=e.target.closest('[data-user]');
+  if(u){
+    const id=u.dataset.user,banned=u.dataset.banned==='1';
+    const reason=banned?prompt('Причина блокировки (необязательно):')||'Нарушение правил':'';
+    if(!confirm(banned?'Заблокировать аккаунт и последний IP?':'Разблокировать аккаунт?'))return;
+    try{
+      await api(`/api/admin/users/${id}/ban`,{method:'POST',body:JSON.stringify({banned,reason})});
+      toast(banned?'Аккаунт заблокирован':'Аккаунт разблокирован');
+      load();
+    }catch(err){toast(err.message);}
+  }
+
+  // Удаление пользователя
+  const delBtn = e.target.closest('[data-del-user]');
+  if (delBtn) {
+    if (!confirm('Удалить этот аккаунт навсегда? Все его заявки останутся в базе, но доступ будет потерян.')) return;
+    try {
+      await api(`/api/admin/users/${delBtn.dataset.delUser}`, { method: 'DELETE' });
+      toast('Аккаунт удален');
+      load();
+    } catch (err) { toast(err.message); }
+  }
+
+  // Снятие блокировки IP
+  const b=e.target.closest('[data-unban]');
+  if(b){
+    try{
+      await api(`/api/admin/ip-ban/${encodeURIComponent(b.dataset.unban)}`,{method:'DELETE'});
+      toast('IP разблокирован');
+      load();
+    }catch(err){toast(err.message);}
+  }
+});
+
+document.addEventListener('change',async e=>{
+  const s=e.target.closest('[data-sale]');
+  if(!s)return;
+  try{
+    await api(`/api/admin/sales/${s.dataset.sale}/status`,{method:'POST',body:JSON.stringify({status:s.value})});
+    toast('Статус заявки обновлён');
+    load();
+  }catch(err){toast(err.message);}
+});
+
 check();
 
-async function loadPromos(){try{const rows=await api('/api/admin/promos');$('#promoAdminList').innerHTML=rows.map(x=>`<div class="ban-item"><span><b>${esc(x.code)}</b><small>${esc(x.description||x.reward_type)} · активаций ${x.activation_count||0}${x.activation_limit?'/'+x.activation_limit:' / без лимита'} · ${x.active?'Активен':'Выключен'}</small><small>Кто активировал (ID:ник): ${esc(x.activators||'пока никто')}</small></span><button data-promo-toggle="${x.id}">${x.active?'Отключить':'Включить'}</button></div>`).join('')||'<div class="empty-cell">Промокодов пока нет</div>'}catch(e){toast(e.message)}}
-$('#promoAdminForm').addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/admin/promos',{method:'POST',body:JSON.stringify({code:f.get('code'),rewardType:f.get('rewardType'),activationLimit:f.get('activationLimit'),description:f.get('description')})});e.currentTarget.reset();
- 
- // Сброс кастомного селекта
- const sel = e.currentTarget.querySelector('.blup-select');
- if (sel) {
-   const first = sel.querySelector('li[role="option"]');
-   sel.dataset.value = first.dataset.value;
-   sel.querySelector('input[type="hidden"]').value = first.dataset.value;
-   sel.querySelector('.blup-select-label').textContent = first.querySelector('.opt-text b').textContent;
-   sel.querySelector('.blup-select-icon').textContent = first.dataset.icon || '';
-   sel.querySelectorAll('li').forEach(li => li.classList.toggle('is-selected', li === first));
- }
+// ==========================================
+// ПРОМОКОДЫ
+// ==========================================
+async function loadPromos(){
+  try{
+    const rows=await api('/api/admin/promos');
+    $('#promoAdminList').innerHTML=rows.map(x=>`
+      <div class="ban-item">
+        <span>
+          <b>${esc(x.code)}</b>
+          <small>${esc(x.description||x.reward_type)} · активаций ${x.activation_count||0}${x.activation_limit?'/'+x.activation_limit:' / без лимита'} · ${x.active?'Активен':'Выключен'}</small>
+          <small>Кто активировал (ID:ник): ${esc(x.activators||'пока никто')}</small>
+        </span>
+        <button data-promo-toggle="${x.id}">${x.active?'Отключить':'Включить'}</button>
+      </div>
+    `).join('')||'<div class="empty-cell">Промокодов пока нет</div>';
+  }catch(e){toast(e.message);}
+}
 
- toast('Промокод создан');loadPromos()}catch(err){toast(err.message)}});
-$('#discountGrantForm').addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api(`/api/admin/users/${f.get('userId')}/discount`,{method:'POST',body:JSON.stringify({percent:Number(f.get('percent'))})});toast('Скидка пользователя обновлена')}catch(err){toast(err.message)}});
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-promo-toggle]');if(!b)return;try{await api(`/api/admin/promos/${b.dataset.promoToggle}/toggle`,{method:'POST',body:'{}'});loadPromos()}catch(err){toast(err.message)}});
+$('#promoAdminForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const f=new FormData(e.currentTarget);
+  try{
+    await api('/api/admin/promos',{method:'POST',body:JSON.stringify({
+      code:f.get('code'),
+      rewardType:f.get('rewardType'),
+      activationLimit:f.get('activationLimit'),
+      description:f.get('description')
+    })});
+    e.currentTarget.reset();
+    
+    // Сброс кастомного селекта
+    const sel = e.currentTarget.querySelector('.blup-select');
+    if (sel) {
+      const first = sel.querySelector('li[role="option"]');
+      sel.dataset.value = first.dataset.value;
+      sel.querySelector('input[type="hidden"]').value = first.dataset.value;
+      sel.querySelector('.blup-select-label').textContent = first.querySelector('.opt-text b').textContent;
+      sel.querySelector('.blup-select-icon').textContent = first.dataset.icon || '';
+      sel.querySelectorAll('li').forEach(li => li.classList.toggle('is-selected', li === first));
+    }
 
-/* ===== BLUP custom select (admin) ===== */
+    toast('Промокод создан');
+    loadPromos();
+  }catch(err){toast(err.message);}
+});
+
+$('#discountGrantForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const f=new FormData(e.currentTarget);
+  try{
+    await api(`/api/admin/users/${f.get('userId')}/discount`,{method:'POST',body:JSON.stringify({percent:Number(f.get('percent'))})});
+    toast('Скидка пользователя обновлена');
+  }catch(err){toast(err.message);}
+});
+
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-promo-toggle]');
+  if(!b)return;
+  try{
+    await api(`/api/admin/promos/${b.dataset.promoToggle}/toggle`,{method:'POST',body:'{}'});
+    loadPromos();
+  }catch(err){toast(err.message);}
+});
+
+// ==========================================
+// КАСТОМНЫЕ СЕЛЕКТЫ
+// ==========================================
 (function initBlupSelects() {
   const selects = document.querySelectorAll('.blup-select');
   if (!selects.length) return;
