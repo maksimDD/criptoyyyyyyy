@@ -63,6 +63,7 @@ db.ready = (async () => {
     // Реферальная система (ОБЯЗАТЕЛЬНО ДОЛЖНЫ БЫТЬ)
     await run(`CREATE TABLE IF NOT EXISTS user_referrals (user_id INTEGER PRIMARY KEY, referrer_id INTEGER, ref_code TEXT UNIQUE, balance REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS referral_withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount REAL, phone TEXT, bank TEXT, status TEXT DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    await run(`CREATE TABLE IF NOT EXISTS referral_earnings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, sale_id INTEGER, amount_usd REAL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
 
     // Таблица отзывов
     await run(`CREATE TABLE IF NOT EXISTS reviews (
