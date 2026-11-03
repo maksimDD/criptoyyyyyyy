@@ -35,12 +35,12 @@
     <nav class="nav" id="nav">
       <a class="nav-link active" href="#home">Главная</a>
       <a class="nav-link" href="#promos" id="promosNav">Промокоды</a>
+      <a class="nav-link" href="#reviews" id="reviewsNav">Отзывы</a>
       <a class="nav-link" href="#features">Возможности</a>
       <a class="nav-link" href="#advantages">Преимущества</a>
       <a class="nav-link" href="#how">Как это работает</a>
       <a class="nav-link" href="#faq">FAQ</a>
       <a class="nav-link" href="#contacts">Контакты</a>
-      <a class="nav-link" href="#reviews">Отзывы</a>
     </nav>
     <div class="header-actions">
       <a class="btn btn-ghost btn-small" id="profileBtn" href="/profile">Профиль</a>
@@ -145,16 +145,6 @@
         </div>
       </div>
     </section>
-<section class="section-wrap section-block" id="reviews">
-  <div class="section-heading">
-    <div><div class="eyebrow">МНЕНИЯ КЛИЕНТОВ</div><h2>Отзывы <span>BLUP</span></h2></div>
-    <p>Реальные отзывы наших пользователей после успешных сделок.</p>
-  </div>
-  <div id="reviewsContainer" class="reviews-grid">
-    <p style="color: #8fa5b5;">Загрузка отзывов...</p>
-  </div>
-</section>
-    
   </main>
 
   <footer class="footer section-wrap">
@@ -175,7 +165,7 @@
     </section>
   </div>
 
-    <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
+  <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
     <section class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <button class="modal-close" id="authClose" aria-label="Закрыть">×</button>
       <div class="modal-eyebrow">BLUP / АККАУНТ</div>
@@ -214,6 +204,19 @@
         <button class="btn btn-primary btn-submit full" type="submit">Применить <span>→</span></button>
         <p id="promoMessage" class="form-message full"></p>
       </form>
+    </section>
+  </div>
+
+  <!-- МОДАЛКА: ОТЗЫВЫ -->
+  <div class="modal-backdrop" id="reviewsBackdrop" aria-hidden="true">
+    <section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="reviewsTitle" style="width: min(700px, 100%);">
+      <button class="modal-close" id="reviewsClose" aria-label="Закрыть">×</button>
+      <div class="modal-eyebrow">BLUP / ОТЗЫВЫ</div>
+      <h2 id="reviewsTitle">Отзывы клиентов</h2>
+      <p class="modal-desc">Реальные отзывы наших пользователей после успешных сделок.</p>
+      <div id="reviewsModalContent" class="reviews-grid-modal" style="max-height: 450px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px;">
+        <p style="color: #8fa5b5;">Загрузка...</p>
+      </div>
     </section>
   </div>
   
@@ -279,39 +282,85 @@
   
   <div class="toast" id="toast"></div>
   <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
+  
+  <!-- Скрипт загрузки отзывов -->
   <script>
-  (async function loadReviews() {
-    try {
-      const res = await fetch('/api/reviews');
-      const data = await res.json();
-      const container = document.getElementById('reviewsContainer');
-      
-      if (!data.length) {
-        container.innerHTML = '<p style="color: #8fa5b5;">Пока нет отзывов.</p>';
-        return;
+    document.addEventListener('DOMContentLoaded', () => {
+      const reviewsNav = document.getElementById('reviewsNav');
+      if (reviewsNav) {
+        reviewsNav.addEventListener('click', async (e) => {
+          e.preventDefault();
+          document.getElementById('nav').classList.remove('open');
+          // Открываем модалку
+          const modal = document.getElementById('reviewsBackdrop');
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+
+          // Загружаем отзывы
+          const container = document.getElementById('reviewsModalContent');
+          container.innerHTML = '<p style="color: #8fa5b5;">Загрузка...</p>';
+          
+          try {
+            const res = await fetch('/api/reviews');
+            const data = await res.json();
+            
+            if (!data || data.length === 0) {
+              container.innerHTML = '<p style="color: #8fa5b5; text-align: center; padding: 20px;">Пока нет отзывов.</p>';
+              return;
+            }
+
+            container.innerHTML = data.map(r => {
+              const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+              return `
+                <div style="background: #101322; border: 1px solid #2a3347; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 8px;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                      <b style="display: block; font-size: 13px; color: #fff;">${r.nickname}</b>
+                      ${r.amount ? `<small style="color: #7785b3; font-size: 10px;">Продал на ${Number(r.amount).toLocaleString('ru-RU')} ₽</small>` : ''}
+                    </div>
+                    <div style="color: #ffb84b; font-size: 14px; letter-spacing: 1px;">${stars}</div>
+                  </div>
+                  <p style="font-size: 12px; line-height: 1.5; color: #d9e9ed;">"${r.text}"</p>
+                  <div style="font-size: 9px; color: #7785b3; text-align: right;">${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
+                </div>
+              `;
+            }).join('');
+          } catch (err) {
+            container.innerHTML = '<p style="color: #ff9aaf;">Ошибка загрузки отзывов.</p>';
+          }
+        });
       }
 
-      container.innerHTML = data.map(r => {
-        const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
-        return `
-          <div class="review-card">
-            <div class="review-header">
-              <div>
-                <b>${r.nickname}</b>
-                <small>${r.amount ? `Продал на ${r.amount} ₽` : ''}</small>
-              </div>
-              <div class="review-stars">${stars}</div>
-            </div>
-            <p class="review-text">"${r.text}"</p>
-            <div class="review-date">${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
-          </div>
-        `;
-      }).join('');
-    } catch (e) {
-      document.getElementById('reviewsContainer').innerHTML = '<p>Ошибка загрузки отзывов.</p>';
-    }
-  })();
-</script>
+      // Закрытие модалки
+      const reviewsClose = document.getElementById('reviewsClose');
+      if (reviewsClose) {
+        reviewsClose.addEventListener('click', () => {
+          const modal = document.getElementById('reviewsBackdrop');
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+          if (!document.querySelector('.modal-backdrop.open')) {
+            document.body.style.overflow = '';
+          }
+        });
+      }
+      
+      // Закрытие по клику на фон
+      const reviewsBackdrop = document.getElementById('reviewsBackdrop');
+      if (reviewsBackdrop) {
+        reviewsBackdrop.addEventListener('click', (e) => {
+          if (e.target === reviewsBackdrop) {
+            reviewsBackdrop.classList.remove('open');
+            reviewsBackdrop.setAttribute('aria-hidden', 'true');
+            if (!document.querySelector('.modal-backdrop.open')) {
+              document.body.style.overflow = '';
+            }
+          }
+        });
+      }
+    });
+  </script>
+  
   <script src="/app.js"></script>
 </body>
 </html>
