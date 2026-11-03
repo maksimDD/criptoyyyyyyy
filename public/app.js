@@ -283,3 +283,45 @@ async function refreshOnline() {
 }
 refreshOnline();
 setInterval(refreshOnline, 60000); // Обновляем раз в минуту
+
+// ==========================================
+// ЛОГИКА ВХОДА (ЛОГИН/ПАРОЛЬ И TG)
+// ==========================================
+let authMode = 'login';
+
+const tabLogin = $('#tabLogin');
+const tabRegister = $('#tabRegister');
+const authForm = $('#authForm');
+
+function setAuthMode(mode) {
+  authMode = mode;
+  if (tabLogin) tabLogin.classList.toggle('selected', mode === 'login');
+  if (tabRegister) tabRegister.classList.toggle('selected', mode === 'register');
+  if ($('#authTitle')) $('#authTitle').textContent = mode === 'login' ? 'Вход в аккаунт' : 'Создать аккаунт';
+  if ($('#authSubmit')) $('#authSubmit').innerHTML = (mode === 'login' ? 'Войти' : 'Зарегистрироваться') + ' <span>↗</span>';
+  if ($('#passwordHint')) $('#passwordHint').textContent = mode === 'register' ? 'Для нового аккаунта пароль должен быть не короче 10 символов.' : '';
+  if ($('#authMessage')) $('#authMessage').textContent = '';
+  if (authForm) authForm.querySelector('[name="password"]').minLength = mode === 'register' ? 10 : 4;
+}
+
+if (tabLogin) tabLogin.addEventListener('click', () => setAuthMode('login'));
+if (tabRegister) tabRegister.addEventListener('click', () => setAuthMode('register'));
+
+if (authForm) {
+  authForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    if ($('#authMessage')) $('#authMessage').textContent = 'Проверяем данные…';
+    try {
+      const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
+      await api(endpoint, { method: 'POST', body: JSON.stringify(Object.fromEntries(f.entries())) });
+      closeModal('authBackdrop');
+      await refreshUser();
+      toast(authMode === 'login' ? 'Ты вошёл в аккаунт' : 'Аккаунт создан');
+      form.reset();
+    } catch (err) {
+      if ($('#authMessage')) $('#authMessage').textContent = err.message;
+    }
+  });
+}
