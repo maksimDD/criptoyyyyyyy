@@ -325,3 +325,54 @@ if (authForm) {
     }
   });
 }
+
+// ==========================================
+// ОТЗЫВЫ (МОДАЛКА)
+// ==========================================
+const reviewsNav = $('#reviewsNav');
+if (reviewsNav) {
+  reviewsNav.addEventListener('click', (e) => {
+    e.preventDefault();
+    $('#nav').classList.remove('open'); // Закрываем мобильное меню
+    openModal('reviewsBackdrop');
+    loadReviews();
+  });
+}
+
+if ($('#reviewsClose')) {
+  $('#reviewsClose').addEventListener('click', () => closeModal('reviewsBackdrop'));
+}
+
+async function loadReviews() {
+  const container = $('#reviewsModalContent');
+  if (!container) return;
+  
+  try {
+    const res = await fetch('/api/reviews');
+    const data = await res.json();
+    
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p style="color: #8fa5b5; text-align: center; padding: 20px;">Пока нет отзывов.</p>';
+      return;
+    }
+
+    container.innerHTML = data.map(r => {
+      const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+      return `
+        <div class="review-card">
+          <div class="review-header">
+            <div>
+              <b>${escapeHtml(r.nickname)}</b>
+              ${r.amount ? `<small>Продал на ${Number(r.amount).toLocaleString('ru-RU')} ₽</small>` : ''}
+            </div>
+            <div class="review-stars">${stars}</div>
+          </div>
+          <p class="review-text">"${escapeHtml(r.text)}"</p>
+          <div class="review-date">${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = '<p style="color: #ff9aaf;">Ошибка загрузки отзывов.</p>';
+  }
+}
