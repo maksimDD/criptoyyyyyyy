@@ -251,3 +251,40 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .legal-text p {
   margin-bottom: 12px;
 }
+
+/* Красивый и тонкий скроллбар для всего сайта */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1); 
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(101, 230, 220, 0.3); /* Полупрозрачный бирюзовый цвет */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(101, 230, 220, 0.6); /* Ярче при наведении */
+}
+
+/* Для модальных окон делаем скроллбар еще тоньше и темнее */
+.modal::-webkit-scrollbar {
+  width: 4px;
+}
+
+.modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal::-webkit-scrollbar-thumb {
+  background: rgba(101, 230, 220, 0.2);
+}
+
+.modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(101, 230, 220, 0.5);
+}
