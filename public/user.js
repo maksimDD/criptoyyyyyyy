@@ -37,7 +37,6 @@ const userId = window.location.pathname.split('/').pop();
     $('#p-sold').textContent = Number(p.sold_usd || 0).toFixed(2) + ' USD';
     $('#p-discount').textContent = Number(p.discount_percent || 0) > 0 ? p.discount_percent + '%' : 'нет';
     
-    // Скрываем кнопку привязки, т.к. это админский просмотр
     const linkTgBtn = $('#linkTgBtn');
     if (linkTgBtn) linkTgBtn.style.display = 'none';
     
