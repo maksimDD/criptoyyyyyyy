@@ -6,17 +6,33 @@ async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{...(op
 function showDashboard(){ $('#adminLoginView').classList.add('hidden');$('#adminDashboard').classList.remove('hidden');$('#adminLogout').classList.remove('hidden');load(); }
 async function check(){try{const d=await api('/api/admin/me');if(d.isAdmin)showDashboard()}catch{}}
 
-$('#adminLoginForm').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const form=e.currentTarget;
-  $('#adminLoginError').textContent='Проверка…';
-  try{
-    const password=new FormData(form).get('password');
-    await api('/api/admin/login',{method:'POST',body:JSON.stringify({password})});
+// Вход в админку
+document.getElementById('adminLoginBtn')?.addEventListener('click', async () => {
+  const form = document.getElementById('adminLoginForm');
+  const password = form.querySelector('[name="password"]').value;
+  const errEl = document.getElementById('adminLoginError');
+  
+  if (!password) {
+    errEl.textContent = 'Введите пароль';
+    return;
+  }
+
+  errEl.textContent = 'Проверка...';
+  
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Неверный пароль');
+    
     form.reset();
     showDashboard();
-  }catch(err){
-    $('#adminLoginError').textContent=err.message;
+  } catch (e) {
+    errEl.textContent = e.message;
   }
 });
 
@@ -311,7 +327,7 @@ document.addEventListener('click', async e => {
     const content = document.getElementById('adminPromoViewContent');
     if (!modal || !content) return;
 
-    c    const actStr = promo.activators || '';
+    const actStr = promo.activators || '';
     const actList = actStr ? actStr.split('\n').map(s => {
       const parts = s.split(':');
       const publicId = parts[0];
@@ -334,6 +350,13 @@ document.addEventListener('click', async e => {
         `).join('') : '<p style="color:#8fa5b3;">Пока никто не активировал.</p>'}
       </div>
     `;
+    
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } catch (err) {
+    toast(err.message);
+  }
+});
 
 // Сворачивание таблиц
 document.getElementById('toggleUsersBtn')?.addEventListener('click', () => {
