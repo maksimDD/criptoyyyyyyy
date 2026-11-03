@@ -157,12 +157,12 @@
   .cell.crown { background: #1c3a24; border-color: var(--green); }
   .cell.disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* Нижние кнопки */
+  /* Нижние кнопки (без кнопки Забрать) */
   .bottom-actions {
     display: flex;
     gap: 10px;
     width: 100%;
-    max-width: 500px;
+    max-width: 400px;
   }
   .bottom-actions button {
     flex: 1;
@@ -309,11 +309,11 @@
 
         <div class="grid-container" id="grid"></div>
 
+        <!-- Нижние кнопки (без кнопки Забрать) -->
         <div class="bottom-actions">
           <button id="prevCoeffBtn" disabled>←</button>
           <button id="currCoeffBtn" disabled>1.000x</button>
           <button id="nextCoeffBtn" disabled>1.000x</button>
-          <button id="takeWinBottomBtn" disabled>Забрать</button>
           <button id="nextRoundBtn" disabled>→</button>
         </div>
       </div>
@@ -336,7 +336,6 @@
   const grid = document.getElementById('grid');
   const mainActionBtn = document.getElementById('mainActionBtn');
   const autoBtn = document.getElementById('autoBtn');
-  const takeWinBottomBtn = document.getElementById('takeWinBottomBtn');
 
   document.querySelectorAll('.nav-tabs button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -407,32 +406,36 @@
       cell.innerText = '🔥';
     });
 
-    // Кнопки
     mainActionBtn.innerText = 'Играть';
     mainActionBtn.classList.remove('take');
     mainActionBtn.disabled = false;
     autoBtn.disabled = false;
     
-    // Нижние кнопки
-    takeWinBottomBtn.disabled = true;
     document.getElementById('currCoeffBtn').innerText = '1.000x';
     document.getElementById('nextCoeffBtn').innerText = '1.000x';
 
-    // Скрываем плашки
     document.getElementById('crownsCountBox').style.display = 'none';
     document.getElementById('minesCountBox').style.display = 'none';
     
-    // Возвращаем выбору мин активность
     document.querySelectorAll('.mine-btn').forEach(b => b.disabled = false);
   }
 
-  // Кнопка Играть / Забрать (Главная)
+  // Кнопка Играть / Забрать
   mainActionBtn.addEventListener('click', () => {
     if (isGameActive) {
-      // Если игра идет, кнопка работает как "Забрать"
-      takeWin();
+      // Забрать
+      if (openedCellsCount === 0) return; // Нельзя забрать, если ничего не открыто
+      clearInterval(autoPlayInterval);
+      const bet = Number(document.getElementById('betAmount').value);
+      const win = Math.floor(bet * currentMultiplier);
+      balance += win;
+      balDisplay.innerText = balance.toFixed(2);
+      alert(`Вы забрали выигрыш: $${win}`);
+      revealAllCells();
+      isGameActive = false;
+      setTimeout(() => resetGameState(), 1500);
     } else {
-      // Если игры нет, запускаем
+      // Начать
       const bet = Number(document.getElementById('betAmount').value);
       if (bet < 1) return alert('Мин. ставка $1');
       if (bet > balance) return alert('Недостаточно средств на балансе!');
@@ -450,15 +453,14 @@
       openedCellsCount = 0;
       currentMultiplier = 1.0;
       
-      // Меняем кнопку на "Забрать"
+      // Меняем кнопку на "Забрать" (но она будет неактивна до первого клика)
       mainActionBtn.innerText = 'Забрать';
       mainActionBtn.classList.add('take');
+      mainActionBtn.disabled = true; 
       
-      // Блокируем настройки
       document.querySelectorAll('.mine-btn').forEach(b => b.disabled = true);
       autoBtn.disabled = false;
       
-      // Показываем плашки
       document.getElementById('crownsCountBox').style.display = 'block';
       document.getElementById('minesCountBox').style.display = 'block';
       document.getElementById('crownsCount').innerText = '0';
@@ -467,23 +469,6 @@
       updateCoeffsUI();
     }
   });
-
-  // Кнопка Забрать внизу
-  takeWinBottomBtn.addEventListener('click', takeWin);
-
-  function takeWin() {
-    if (!isGameActive || openedCellsCount === 0) return;
-    
-    clearInterval(autoPlayInterval);
-    const bet = Number(document.getElementById('betAmount').value);
-    const win = Math.floor(bet * currentMultiplier);
-    balance += win;
-    balDisplay.innerText = balance.toFixed(2);
-    alert(`Вы забрали выигрыш: $${win}`);
-    revealAllCells();
-    isGameActive = false;
-    setTimeout(() => resetGameState(), 1500);
-  }
 
   // Авто-выбор
   autoBtn.addEventListener('click', () => {
@@ -510,7 +495,7 @@
       const randomCell = closedCells[Math.floor(Math.random() * closedCells.length)];
       const index = Number(randomCell.dataset.index);
       handleCellClick(index);
-    }, 500); // Клик каждые 0.5 сек
+    }, 500);
   });
 
   function handleCellClick(index) {
@@ -532,9 +517,9 @@
       calculateMultiplier();
       updateCoeffsUI();
       
-      // Как только открыли первую ячейку, активируем кнопку забрать
-      if (openedCellsCount > 0) {
-        takeWinBottomBtn.disabled = false;
+      // Активируем кнопку "Забрать" после первого клика
+      if (openedCellsCount > 0 && mainActionBtn.classList.contains('take')) {
+        mainActionBtn.disabled = false;
       }
     }
   }
