@@ -49,11 +49,14 @@
         <small>Telegram ID</small>
         <b id="p-tg-id">—</b>
       </div>
-            <div class="profile-item" id="tgLinkBlock">
-        <small>Telegram</small>
-        <b id="p-tg-username">не привязан</b>
-        <button id="linkTgBtn" class="btn btn-outline btn-small" style="margin-top: 10px; width: 100%;">Привязать Telegram</button>
+      
+      <!-- Блок для привязки Telegram -->
+      <div class="profile-item" id="tgLinkBlock">
+        <small>Статус Telegram</small>
+        <b id="p-tg-status" style="font-size: 12px; margin-bottom: 8px;">не привязан</b>
+        <button id="linkTgBtn" class="btn btn-outline btn-small" style="width: 100%;">Привязать Telegram</button>
       </div>
+
       <div class="profile-item">
         <small>Постоянная скидка</small>
         <b id="p-discount">—</b>
@@ -81,6 +84,8 @@
   </section>
 </main>
 
+<!-- Скрипт Telegram для работы привязки -->
+<script async src="https://telegram.org/js/telegram-widget.js?22"></script>
 <script src="/profile.js"></script>
 </body>
 </html>
