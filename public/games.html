@@ -69,11 +69,11 @@
   /* Стрелка сверху */
   .arrow-top { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 16px solid var(--accent); filter: drop-shadow(0 0 5px var(--accent)); z-index: 10; }
 
-  /* Контейнер для колеса и таймера */
+  /* Контейнер для колеса */
   .wheel-container { position: relative; width: 100%; max-width: 700px; height: 380px; margin: 0 auto; display: flex; justify-content: center; align-items: flex-end; overflow: hidden; }
   
-  /* Фоновое изображение колеса */
-  .wheel-bg {
+  /* Изображение колеса (твоя картинка) */
+  .wheel-image {
     position: absolute;
     bottom: 0;
     width: 100%;
@@ -82,17 +82,6 @@
     background-position: center bottom;
     background-size: contain;
     z-index: 1;
-  }
-
-  /* Слой с цветными полосками (крутится) */
-  .wheel-spinner {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    transition: transform 5s cubic-bezier(0.1, 0.7, 0.1, 1);
-    transform-origin: center bottom;
   }
 
   /* Черная маска внутри, чтобы скрыть фон картинки внутри круга */
@@ -111,7 +100,7 @@
   /* Таймер по центру (в красном квадрате) */
   .timer-panel {
     position: absolute;
-    bottom: 40px; /* Отступ снизу */
+    bottom: 40px;
     left: 50%;
     transform: translateX(-50%);
     background: #252c3f;
@@ -228,13 +217,8 @@
     <div class="arrow-top"></div>
 
     <div class="wheel-container">
-      <!-- Фоновое изображение колеса (твои картинки) -->
-      <div class="wheel-bg" id="wheelBg"></div>
-      
-      <!-- Вращающийся слой с цветными делениями (динамический SVG) -->
-      <svg class="wheel-spinner" id="wheelSpinner" viewBox="0 0 500 250">
-        <!-- Генерируется JS -->
-      </svg>
+      <!-- Картинка колеса (ссылки с Hotskins) -->
+      <div class="wheel-image" id="wheelImage"></div>
 
       <!-- Маска, чтобы закрыть середину -->
       <div class="wheel-inner-mask"></div>
@@ -269,14 +253,8 @@
   const gameConfig = {
     x50: {
       title: "Игра x50",
-      image: "/storage/images/x50/whell-dark.webp",
-      // Цвета как на фото (темные, желтые, красные, зеленые)
-      segments: [
-        '#2a3347', '#2a3347', '#d98e00', '#2a3347', '#d94040', '#2a3347', 
-        '#2a3347', '#2a3347', '#d98e00', '#2a3347', '#d94040', '#2a3347',
-        '#2a3347', '#2a3347', '#d98e00', '#2a3347', '#d94040', '#2a3347',
-        '#2a3347', '#2a3347', '#d98e00', '#2a3347', '#4bff8d', '#2a3347'
-      ],
+      // Прямая ссылка на картинку с Hotskins
+      image: "https://hotskins30.ai/storage/images/x50/whell-dark.webp",
       multipliers: [
         { val: 2, color: '#3d8aff' }, { val: 3, color: '#ffb84b' }, 
         { val: 5, color: '#ff4b4b' }, { val: 50, color: '#4bff8d' }
@@ -284,14 +262,8 @@
     },
     x100: {
       title: "Игра x100",
-      image: "/storage/images/x100/whell-dark.webp",
-      // Цвета как на фото (синие, фиолетовые, оранжевые, желтые, зеленые, красные)
-      segments: [
-        '#3d8aff', '#9f4bff', '#ff7b4b', '#ffb84b', '#4bff9f', '#ff4b4b',
-        '#3d8aff', '#9f4bff', '#ff7b4b', '#ffb84b', '#4bff9f', '#ff4b4b',
-        '#3d8aff', '#9f4bff', '#ff7b4b', '#ffb84b', '#4bff9f', '#ff4b4b',
-        '#3d8aff', '#9f4bff', '#ff7b4b', '#ffb84b', '#4bff9f', '#ff4b4b'
-      ],
+      // Прямая ссылка на картинку с Hotskins
+      image: "https://hotskins30.ai/storage/images/x100/whell-dark.webp",
       multipliers: [
         { val: 2, color: '#3d8aff' }, { val: 3, color: '#ffb84b' }, 
         { val: 5, color: '#ff4b4b' }, { val: 10, color: '#4bff9f' },
@@ -309,8 +281,7 @@
   let timerInt = null;
   let timeLeft = 20;
 
-  const spinner = document.getElementById('wheelSpinner');
-  const bgElement = document.getElementById('wheelBg');
+  const bgElement = document.getElementById('wheelImage');
   const playBtn = document.getElementById('playBtn');
   const betGrid = document.getElementById('betGrid');
   const timerPanel = document.getElementById('timerPanel');
@@ -363,8 +334,8 @@
       document.getElementById('headerTitle').innerText = gameConfig[currentGame].title;
       document.getElementById('gameView').style.display = 'flex';
       
-      // Устанавливаем фон колеса
-      bgElement.style.backgroundImage = `url(${gameConfig[currentGame].image})`;
+      // Устанавливаем картинку колеса
+      bgElement.style.backgroundImage = `url('${gameConfig[currentGame].image}')`;
       
       initGame();
     } else {
@@ -379,39 +350,10 @@
 
   // --- ИГРА ---
   function initGame() {
-    drawWheel();
     renderButtons();
     startRoundTimer();
     isSpinning = false;
     isBettingOpen = false;
-  }
-
-  // Отрисовка цветных сегментов, которые будут крутиться ПОВЕРХ фоновой картинки
-  function drawWheel() {
-    spinner.innerHTML = '';
-    const colors = gameConfig[currentGame].segments;
-    const numSegments = colors.length;
-    const radius = 230; // Радиус полоски
-    const cx = 250, cy = 250;
-
-    for (let i = 0; i < numSegments; i++) {
-      const startAngle = Math.PI + (i * Math.PI / numSegments);
-      const endAngle = Math.PI + ((i + 1) * Math.PI / numSegments);
-
-      const x1 = cx + radius * Math.cos(startAngle);
-      const y1 = cy + radius * Math.sin(startAngle);
-      const x2 = cx + radius * Math.cos(endAngle);
-      const y2 = cy + radius * Math.sin(endAngle);
-
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`);
-      path.setAttribute('stroke', colors[i]);
-      path.setAttribute('stroke-width', '16'); // Толщина полоски
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke-dasharray', '8 2'); // Зазор между полосками
-      
-      spinner.appendChild(path);
-    }
   }
 
   function renderButtons() {
@@ -494,9 +436,10 @@
   }
 
   function animateSpin(result) {
+    // Крутим картинку колеса
     const randomDeg = Math.floor(Math.random() * 360) + 1440;
-    spinner.style.transition = 'transform 5s cubic-bezier(0.1, 0.7, 0.1, 1)';
-    spinner.style.transform = `rotate(${randomDeg}deg)`;
+    bgElement.style.transition = 'transform 5s cubic-bezier(0.1, 0.7, 0.1, 1)';
+    bgElement.style.transform = `rotate(${randomDeg}deg)`;
 
     setTimeout(() => {
       if (result) {
@@ -508,8 +451,8 @@
       }
       playBtn.innerText = 'СДЕЛАТЬ СТАВКУ';
       setTimeout(() => {
-        spinner.style.transition = 'none';
-        spinner.style.transform = 'rotate(0deg)';
+        bgElement.style.transition = 'none';
+        bgElement.style.transform = 'rotate(0deg)';
         startRoundTimer();
       }, 500);
     }, 5000);
