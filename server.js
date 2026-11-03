@@ -571,7 +571,7 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
 });
 app.post('/api/admin/promos',adminOnly,(req,res)=>{
  const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||''),value=Number(req.body?.rewardValue||0),description=String(req.body?.description||'').slice(0,200),limit=Math.max(0,Math.floor(Number(req.body?.activationLimit||0)));
- const allowed={sell_discount_1:['percent',1,'Скидка 1% на продажу'],sell_discount_3:['percent',3,'Скидка 3% на продажу'],deposit_150:['deposit_kb',150,'Депозит 150р на кб'],deposit_300:['deposit_jab',300,'Депозит 300р на жабу']};
+const allowed={sell_discount_1:['percent',1,'Скидка 1% на продажу'],sell_discount_3:['percent',3,'Скидка 3% на продажу'],deposit_150:['deposit_kb',150,'Депозит 150р на кб'],deposit_300:['deposit_jab',300,'Депозит 300р на жабу'],games_deposit_25:['games_deposit_25',25,'+25% к депозиту на Games']};
  const preset=allowed[type];if(!/^[A-Z0-9_-]{3,24}$/.test(code)||!preset||!Number.isFinite(limit)||limit>1000000)return res.status(400).json({error:'Проверьте данные промокода'});
  db.run('INSERT INTO promos(code,reward_type,reward_value,description,activation_limit) VALUES(?,?,?,?,?)',[code,preset[0],preset[1],description||preset[2],limit],e=>e?res.status(409).json({error:'Такой промокод уже существует'}):res.json({ok:true}));
 });
