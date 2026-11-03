@@ -185,13 +185,17 @@ async function showHistory(){
 if ($('#historyBtn')) $('#historyBtn').addEventListener('click',showHistory);
 if ($('#historyCardBtn')) $('#historyCardBtn').addEventListener('click',showHistory);
 
-[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop']].forEach(([btn,id])=>{
+[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop'],['termsClose','termsBackdrop'],['privacyClose','privacyBackdrop']].forEach(([btn,id])=>{
   if($('#'+btn)) $('#'+btn).addEventListener('click',()=>closeModal(id));
 });
 
 $$('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)closeModal(b.id)}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.modal-backdrop.open').forEach(m=>closeModal(m.id))});
 $$('[data-placeholder]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();toast('Контакт или документ будет добавлен перед запуском сервиса.')}));
+
+// Открытие юридических модалок
+if ($('#footerTerms')) $('#footerTerms').addEventListener('click', (e) => { e.preventDefault(); openModal('termsBackdrop'); });
+if ($('#footerPrivacy')) $('#footerPrivacy').addEventListener('click', (e) => { e.preventDefault(); openModal('privacyBackdrop'); });
 
 if ($('#promoApplyForm')) {
   $('#promoApplyForm').addEventListener('submit',async e=>{
@@ -271,7 +275,7 @@ if (tgLoginBtn) {
 
 async function refreshOnline() {
   try {
-    const r = await fetch('/api/real-online'); // <--- Измените здесь
+    const r = await fetch('/api/real-online');
     const d = await r.json();
     const countEl = $('#onlineCount');
     if (countEl) countEl.textContent = d.online || 0;
