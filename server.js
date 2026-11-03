@@ -336,6 +336,15 @@ app.post('/api/sell',(req,res)=>{
  });
 });
 
+app.get('/ref/:code', (req, res) => {
+  res.send(`
+    <script>
+      document.cookie = "ref=${req.params.code}; max-age=" + (60*60*24*30) + "; path=/";
+      window.location.href = '/';
+    </script>
+  `);
+});
+
 app.get('/api/promos',(req,res)=>db.all('SELECT code,description,reward_type,reward_value FROM promos WHERE active=1 ORDER BY id DESC',(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
 app.post('/api/promos/apply',(req,res)=>{
  if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
