@@ -21,22 +21,36 @@ function moscowTime(value){
 async function notifyAdmin(item){
   if (!botInstances.length) return;
   
-  const isWithdraw = item.operation === 'withdraw';
   let text = '';
   
   if (item.operation === 'promo') {
     text = `🎟️ АКТИВАЦИЯ ПРОМОКОДА\n👤 Ник: ${item.nickname||'—'}\n🆔 ID: ${item.publicId||'—'}\n🏷️ Код: ${item.promoCode||'—'}\n🕐 Время МСК: ${moscowTime()}`;
+  } else if (item.operation === 'withdraw') {
+    text = `💸 ЗАПРОС НА ВЫВОД\n👤 Пользователь: ${item.nickname||'—'}\n💵 Сумма: ${item.amount||'—'} USD\n💴 К выплате: ${item.payoutRub||'—'} RUB\n📱 Реквизиты: ${item.phone||'—'}\n🏦 Банк: ${item.bank||'—'}\n🕐 Время МСК: ${moscowTime(item.created_at)}`;
+  } else if (item.operation === 'ref_withdraw') {
+    text = `🪙 Вывод с реф системы\n👤 Пользователь: ${item.nickname||'—'}\n🕐 Время МСК: ${moscowTime()}\n💵 Сумма: ${item.amount||'—'} USD\n💳 Тип выплаты: ${item.payoutType === 'card' ? 'Банковская карта' : 'Телефон / СБП'}\n📱 Реквизиты выплаты: ${item.phone||'—'}\n🏦 Банк: ${item.bank||'—'}`;
   } else {
-    const lines = [isWithdraw?'💸 ЗАПРОС НА ВЫВОД':'🪙 НОВАЯ ПРОДАЖА', `👤 Имя пользователя: ${item.nickname||'—'}`, `🪙 Монета: ${item.coin||'—'}`, `🌐 Сеть: ${item.network||'—'}`, `🕐 Время МСК: ${moscowTime(item.created_at)}`];
-    if (isWithdraw) {
-      lines.push(`💵 Сумма: ${item.amount||'—'} USD`, `💴 К выплате: ${item.payoutRub||'—'} RUB`, `📱 Реквизиты: ${item.phone||'—'}`, `🏦 Банк: ${item.bank||'—'}`);
-    } else {
-      lines.push(`💵 Сумма: ${item.amount||'—'} USD`, `💱 Курс: ${item.rate||'—'} RUB за 1 ${item.coin||''}`, `💴 К выплате: ${item.payoutRub||'—'} RUB`, ...(item.discountPercent?[`🎟️ Применена скидка: ${item.discountPercent}%`]:[]), `📥 Кошелёк BLUP: ${item.wallet||'—'}`, `💳 Тип выплаты: ${item.payoutType==='card'?'Банковская карта':'Телефон / СБП'}`, `📱 Реквизиты выплаты: ${item.phone||'—'}`, `🏦 Банк: ${item.bank||'—'}`, `📝 Комментарий: ${item.comment||'—'}`, `✈️ Telegram: @${item.telegramUsername||'—'}`, `🧾 Заявка: #${item.id||'—'}`);
-    }
+    const lines = [
+      '🪙 НОВАЯ ПРОДАЖА',
+      `👤 Имя пользователя: ${item.nickname||'—'}`,
+      `🪙 Монета: ${item.coin||'—'}`,
+      `🌐 Сеть: ${item.network||'—'}`,
+      `🕐 Время МСК: ${moscowTime(item.created_at)}`,
+      `💵 Сумма: ${item.amount||'—'} USD`,
+      `💱 Курс: ${item.rate||'—'} RUB за 1 ${item.coin||''}`,
+      `💴 К выплате: ${item.payoutRub||'—'} RUB`,
+      ...(item.discountPercent?[`🎟️ Применена скидка: ${item.discountPercent}%`]:[]),
+      `📥 Кошелёк BLUP: ${item.wallet||'—'}`,
+      `💳 Тип выплаты: ${item.payoutType==='card'?'Банковская карта':'Телефон / СБП'}`,
+      `📱 Реквизиты выплаты: ${item.phone||'—'}`,
+      `🏦 Банк: ${item.bank||'—'}`,
+      `📝 Комментарий: ${item.comment||'—'}`,
+      `✈️ Telegram: @${item.telegramUsername||'—'}`,
+      `🧾 Заявка: #${item.id||'—'}`
+    ];
     text = lines.join('\n');
   }
 
-  // Отправляем во все боты
   for (const inst of botInstances) {
     try {
       await inst.bot.sendMessage(inst.chatId, text);
