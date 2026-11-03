@@ -60,9 +60,6 @@ refreshMaintenance();
 setInterval(refreshMaintenance,10000);
 setInterval(refreshUser,15000);
 
-// ==========================================
-// ОПЕРАЦИИ (ПРОДАЖА)
-// ==========================================
 let operationType='sell';
 const operationFields=$('#operationFields');
 function labelInput(label,name,placeholder,type='text',full=false,required=true){return `<label class="${full?'full':''}">${label}<input name="${name}" type="${type}" placeholder="${placeholder}" ${required?'required':''} ${type==='number'?'min="0.01" step="0.01"':''}></label>`;}
@@ -74,18 +71,15 @@ function walletPanel(coin,network){const address=walletFor(coin,network);return 
 
 function renderOperationFields(){
  if(!operationFields) return;
- // TRC20 первый в списке!
  operationFields.innerHTML=`${labelSelect('Криптовалюта','coin',[{value:'USDT',label:'USDT — Tether'},{value:'GRAM',label:'GRAM'}])}<div id="networkField">${labelSelect('Сеть USDT','network',['TRC20','BEP20','ERC20','TON','SPL'].map(x=>({value:x,label:x})))}</div><div id="platformWallet">${walletPanel('USDT','TRC20')}</div>${labelInput('Сумма для продажи (USD)','amount','Например, 100','number',true)}<div id="rubPreview" class="field-note full">Итого к выплате: укажи сумму и курс</div><div id="discountOffer" class="field-note full hidden"></div>${labelSelect('Куда отправить выплату','payoutType',[{value:'phone',label:'На номер телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text',true)}${labelSelect('Банк получателя','bank',bankOptions(),true)}${labelInput('Telegram username','telegramUsername','Например, @username','text',true)}${labelInput('Комментарий к продаже','comment','Комментарий (необязательно)','text',true,false)}<p class="field-note full">Проверь адрес и сеть, отправь криптовалюту на кошелёк BLUP. Укажи реквизиты для выплаты. После отправки заявки администратор проверит поступление и вручную отправит рубли. Не вводи CVV, PIN или SMS-коды.</p>`;
  const coin=operationFields.querySelector('[name="coin"]');
  function updateWallet(){const net=coin.value==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'TRC20');$('#platformWallet').innerHTML=walletPanel(coin.value,net);}
- // TRC20 первый в списке!
  function networkWrap(){const gram=coin.value==='GRAM';$('#networkField').innerHTML=gram?'<div class="static-field"><span>Сеть</span><b>TON</b></div>':labelSelect('Сеть USDT','network',['TRC20','BEP20','ERC20','TON','SPL'].map(x=>({value:x,label:x})));updateWallet();}
  coin.addEventListener('change',networkWrap);operationFields.addEventListener('change',e=>{if(e.target.name==='network')updateWallet();});
  const amountInput=operationFields.querySelector('[name="amount"]');amountInput.max='200';amountInput.placeholder='До 200 USD';let discountPercent=0;
  function updateRub(){const coinName=coin.value,rate=Number(window.blupRates?.[coinName]||0),amount=Number(amountInput.value||0);const base=amount*rate;const apply=!!operationFields.querySelector('#applyDiscount')?.checked;const total=base*(apply?1+discountPercent/100:1);$('#rubPreview').textContent=rate>0&&amount>0?`Курс: ${rate.toLocaleString('ru-RU')} ₽ за 1 ${coinName}. Итого к выплате: ${total.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})} ₽`:'Итого к выплате:';}
  amountInput.addEventListener('input',updateRub);coin.addEventListener('change',updateRub);
  
- // Скидка: берём максимум из постоянной (админ) и одноразовых купонов.
  if($('#userName').textContent){
    api('/api/profile').then(profile=>{
      const manual=Number(profile.discount_percent||0);
@@ -162,9 +156,6 @@ if ($('#operationForm')) {
   });
 }
 
-// ==========================================
-// АВТОРИЗАЦИЯ И ИСТОРИЯ
-// ==========================================
 if (loginBtn) {
   loginBtn.addEventListener('click', () => { openModal('authBackdrop'); if($('#authMessage')) $('#authMessage').textContent=''; });
 }
@@ -195,7 +186,6 @@ $$('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.modal-backdrop.open').forEach(m=>closeModal(m.id))});
 $$('[data-placeholder]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();toast('Контакт или документ будет добавлен перед запуском сервиса.')}));
 
-// Открытие юридических модалок
 if ($('#footerTerms')) $('#footerTerms').addEventListener('click', (e) => { e.preventDefault(); openModal('termsBackdrop'); });
 if ($('#footerPrivacy')) $('#footerPrivacy').addEventListener('click', (e) => { e.preventDefault(); openModal('privacyBackdrop'); });
 
@@ -222,16 +212,12 @@ if ($('#logoutBtn')) {
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function formatDate(v){if(!v)return '—';const d=new Date(v.replace(' ','T')+'Z');return isNaN(d)?escapeHtml(v):d.toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'})}
 
-// ==========================================
-// ВХОД ЧЕРЕЗ TELEGRAM (ОДНА КНОПКА)
-// ==========================================
 const tgLoginBtn = $('#tgLoginBtn');
 if (tgLoginBtn) {
   tgLoginBtn.addEventListener('click', async () => {
     const msgEl = $('#authMessage');
     if (msgEl) msgEl.textContent = 'Загрузка Telegram…';
 
-    // Ждём появления объекта Telegram (до 5 секунд)
     let waited = 0;
     while ((!window.Telegram || !window.Telegram.Login) && waited < 5000) {
       await new Promise(r => setTimeout(r, 100));
@@ -275,21 +261,17 @@ if (tgLoginBtn) {
   });
 }
 
-// Онлайн
 async function refreshOnline() {
   try {
     const r = await fetch('/api/online');
     const d = await r.json();
     const countEl = $('#onlineCount');
-    if (countEl) countEl.textContent = d.online; // Без принудительной 1
+    if (countEl) countEl.textContent = d.online;
   } catch {}
 }
 refreshOnline();
 setInterval(refreshOnline, 10000);
 
-// ==========================================
-// ЛОГИКА ВХОДА (ЛОГИН/ПАРОЛЬ И TG)
-// ==========================================
 let authMode = 'login';
 
 const tabLogin = $('#tabLogin');
@@ -329,14 +311,11 @@ if (authForm) {
   });
 }
 
-// ==========================================
-// ОТЗЫВЫ (МОДАЛКА)
-// ==========================================
 const reviewsNav = $('#reviewsNav');
 if (reviewsNav) {
   reviewsNav.addEventListener('click', (e) => {
     e.preventDefault();
-    $('#nav').classList.remove('open'); // Закрываем мобильное меню
+    $('#nav').classList.remove('open');
     openModal('reviewsBackdrop');
     loadReviews();
   });
