@@ -271,7 +271,7 @@ if (tgLoginBtn) {
 
 async function refreshOnline() {
   try {
-    const r = await fetch('/api/real-online');
+    const r = await fetch('/api/real-online'); // <--- Измените здесь
     const d = await r.json();
     const countEl = $('#onlineCount');
     if (countEl) countEl.textContent = d.online || 0;
