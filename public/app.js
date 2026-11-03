@@ -271,11 +271,11 @@ if (tgLoginBtn) {
 
 async function refreshOnline() {
   try {
-    const r = await fetch('/api/online');
+    const r = await fetch('/api/real-online');
     const d = await r.json();
     const countEl = $('#onlineCount');
-    if (countEl) countEl.textContent = d.online;
+    if (countEl) countEl.textContent = d.online || 0;
   } catch {}
 }
 refreshOnline();
-setInterval(refreshOnline, 15000);
+setInterval(refreshOnline, 60000); // Обновляем раз в минуту
