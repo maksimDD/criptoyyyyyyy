@@ -164,16 +164,32 @@
     </section>
   </div>
 
-  <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
+    <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
     <section class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <button class="modal-close" id="authClose" aria-label="Закрыть">×</button>
       <div class="modal-eyebrow">BLUP / АККАУНТ</div>
       <h2 id="authTitle">Вход в аккаунт</h2>
-      <p class="modal-desc">Войди через Telegram, чтобы пользоваться возможностями сервиса.</p>
-      <button class="btn btn-primary btn-submit tg-login-btn" type="button" id="tgLoginBtn">
-        <span class="tg-btn-icon">✈</span> Войти через Telegram <span>↗</span>
-      </button>
-      <p class="form-message" id="authMessage"></p>
+      <p class="modal-desc">Войди по логину и паролю или используй Telegram.</p>
+      
+      <div class="auth-tabs" style="margin-bottom: 15px;">
+        <button class="selected" id="tabLogin" data-mode="login">Вход</button>
+        <button id="tabRegister" data-mode="register">Регистрация</button>
+      </div>
+
+      <form id="authForm">
+        <label>Никнейм<input name="nickname" minlength="3" required placeholder="Твой никнейм" autocomplete="username"></label>
+        <label>Пароль<input name="password" type="password" minlength="4" required placeholder="Пароль" autocomplete="current-password"></label>
+        <small class="auth-password-hint" id="passwordHint">Используйте пароль не короче 10 символов.</small>
+        <p class="form-message" id="authMessage"></p>
+        <button class="btn btn-primary btn-submit" type="submit" id="authSubmit">Войти <span>↗</span></button>
+      </form>
+
+      <div class="tg-login-wrap" style="margin-top: 20px;">
+        <div class="tg-divider"><span>или</span></div>
+        <button class="btn btn-primary btn-submit tg-login-btn" type="button" id="tgLoginBtn" style="background: linear-gradient(112deg,#2AABEE,#229ED9);">
+          <span class="tg-btn-icon">✈</span> Войти через Telegram
+        </button>
+      </div>
     </section>
   </div>
 
