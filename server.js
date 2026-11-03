@@ -452,14 +452,16 @@ app.delete('/api/admin/sales/:id', adminOnly, (req, res) => {
   });
 });
 
-app.get('/api/admin/get-user/:id', adminOnly, (req, res) => {
+app.get('/api/user/:id', (req, res) => {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({error:'Неверный ID'});
+  
   db.get(`SELECT nickname, public_id, created_at, telegram_id, telegram_username, telegram_photo_url,
             COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd,
             COALESCE((SELECT percent FROM user_discounts WHERE user_id=u.id AND active=1),0) discount_percent
           FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.id=? GROUP BY u.id`,
     [id], (e,row) => {
-      if (e || !row) return res.status(404).json({error:'Не найден'});
+      if (e || !row) return res.status(404).json({error:'Профиль не найден'});
       res.json(row);
     });
 });
