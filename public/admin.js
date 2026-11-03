@@ -58,7 +58,7 @@ async function load(){
       state.classList.toggle('maintenance',s.stopped==='1');
     }
 
-    // ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ (добавлена кнопка удаления)
+    // 1. ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ
     $('#usersTable').innerHTML=d.users.length?d.users.map(u=>`
       <tr>
         <td><b>${esc(u.nickname)}</b><small>#${u.id} · ${date(u.created_at)}</small></td>
@@ -72,7 +72,19 @@ async function load(){
       </tr>
     `).join(''):'<tr><td colspan="5" class="empty-cell">Пользователей пока нет</td></tr>';
 
-    // ТАБЛИЦА ВХОДОВ (добавлена кнопка очистки)
+    // 2. ТАБЛИЦА ЗАЯВОК (ПРОДАЖ)
+    $('#salesTable').innerHTML=d.sales.length?d.sales.map(x=>`
+      <tr>
+        <td><b>#${x.id} · ${esc(x.nickname||'—')}</b><small>${date(x.created_at)}</small></td>
+        <td>${esc('Продажа')} · ${esc(x.coin)} · ${Number(x.amount||0)} USD${x.payout_rub?` / ${Number(x.payout_rub).toFixed(2)} RUB`:''}</td>
+        <td><small>${esc(x.network||'—')} · ${esc(x.bank||'—')}</small><small>${esc(x.wallet||'—')}</small><small>Кошелёк BLUP: ${esc(x.destination_wallet||'—')}</small><small>${esc('Реквизиты выплаты')}: ${esc(x.phone||'—')}</small>${x.memo?`<small>MEMO: ${esc(x.memo)}</small>`:''}${x.comment?`<small>Комментарий: ${esc(x.comment)}</small>`:''}</td>
+        <td>${date(x.created_at)}</td>
+        <td><span class="status-pill ${x.status==='completed'?'completed':x.status==='rejected'?'rejected':''}">${esc(statusLabel(x.status))}</span></td>
+        <td><select class="status-select" data-sale="${x.id}"><option value="pending" ${x.status==='pending'?'selected':''}>Ожидает</option><option value="processing" ${x.status==='processing'?'selected':''}>В работе</option><option value="completed" ${x.status==='completed'?'selected':''}>Выполнена</option><option value="rejected" ${x.status==='rejected'?'selected':''}>Отклонена</option></select></td>
+      </tr>
+    `).join(''):'<tr><td colspan="6" class="empty-cell">Продаж пока нет</td></tr>';
+
+    // 3. ТАБЛИЦА ИСТОРИИ ВХОДОВ (с кнопкой очистки)
     const visitsHead = $('#visitsTable').closest('.admin-card-head');
     if (visitsHead && !visitsHead.querySelector('.clear-visits-btn')) {
       const btn = document.createElement('button');
@@ -93,6 +105,7 @@ async function load(){
       </tr>
     `).join(''):'<tr><td colspan="4" class="empty-cell">История входов пока пуста</td></tr>';
 
+    // 4. БЛОКИРОВКИ IP
     $('#ipBanList').innerHTML=d.ipBans.length?d.ipBans.map(b=>`<div class="ban-item"><span><b>${esc(b.ip)}</b><small>${esc(b.reason||'Без причины')} · ${date(b.created_at)}</small></span><button data-unban="${esc(b.ip)}">Снять блокировку</button></div>`).join(''):'<div class="empty-cell">Заблокированных IP нет</div>';
     
     loadPromos();
@@ -156,9 +169,7 @@ $('#ipBanForm').addEventListener('submit',async e=>{
   }
 });
 
-// ОБРАБОТЧИК КНОПОК В ТАБЛИЦАХ
 document.addEventListener('click',async e=>{
-  // Блокировка/разблокировка
   const u=e.target.closest('[data-user]');
   if(u){
     const id=u.dataset.user,banned=u.dataset.banned==='1';
@@ -171,7 +182,6 @@ document.addEventListener('click',async e=>{
     }catch(err){toast(err.message);}
   }
 
-  // Удаление пользователя
   const delBtn = e.target.closest('[data-del-user]');
   if (delBtn) {
     if (!confirm('Удалить этот аккаунт навсегда? Все его заявки останутся в базе, но доступ будет потерян.')) return;
@@ -182,7 +192,6 @@ document.addEventListener('click',async e=>{
     } catch (err) { toast(err.message); }
   }
 
-  // Снятие блокировки IP
   const b=e.target.closest('[data-unban]');
   if(b){
     try{
@@ -205,9 +214,6 @@ document.addEventListener('change',async e=>{
 
 check();
 
-// ==========================================
-// ПРОМОКОДЫ
-// ==========================================
 async function loadPromos(){
   try{
     const rows=await api('/api/admin/promos');
@@ -236,7 +242,6 @@ $('#promoAdminForm').addEventListener('submit',async e=>{
     })});
     e.currentTarget.reset();
     
-    // Сброс кастомного селекта
     const sel = e.currentTarget.querySelector('.blup-select');
     if (sel) {
       const first = sel.querySelector('li[role="option"]');
@@ -270,9 +275,6 @@ document.addEventListener('click',async e=>{
   }catch(err){toast(err.message);}
 });
 
-// ==========================================
-// КАСТОМНЫЕ СЕЛЕКТЫ
-// ==========================================
 (function initBlupSelects() {
   const selects = document.querySelectorAll('.blup-select');
   if (!selects.length) return;
