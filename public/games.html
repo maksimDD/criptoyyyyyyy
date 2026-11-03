@@ -62,7 +62,7 @@
   .form-box button { width: 100%; padding: 15px; border: none; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
   .form-box p { margin-top: 15px; text-align: center; font-weight: 600; }
 
-  /* --- ИГРА (КАК НА Hotskins) --- */
+  /* --- ИГРА (Hotskins-style) --- */
   .game-board { background: var(--panel); border-radius: 16px; padding: 30px; position: relative; display: none; flex-direction: column; align-items: center; border: 1px solid var(--line); }
   .game-board.active { display: flex; }
 
@@ -94,7 +94,7 @@
     opacity: 0.3;
   }
 
-  /* Колесо */
+  /* Колесо (используем картинки Hotskins) */
   .wheel-container { position: relative; width: 100%; max-width: 700px; height: 380px; margin: 0 auto; display: flex; justify-content: center; align-items: flex-end; overflow: hidden; }
   
   .wheel-spinner {
@@ -122,7 +122,7 @@
     z-index: 3;
   }
 
-  /* Таймер (в красном квадрате) */
+  /* Таймер */
   .timer-panel {
     position: absolute;
     bottom: 40px;
@@ -180,7 +180,6 @@
 <body>
 
 <div class="app">
-  
   <header class="header">
     <div class="header-left">
       <a href="/games" class="logo" style="text-decoration:none;">B</a>
@@ -192,7 +191,6 @@
     </div>
   </header>
 
-  <!-- ЛОББИ -->
   <div id="lobbyView">
     <div class="nav-tabs">
       <button class="active" data-tab="games">Игры</button>
@@ -202,14 +200,8 @@
 
     <div class="panel-content active" id="tab-games">
       <div class="game-list">
-        <a href="#x50" class="game-card">
-          <h2>Игра x50</h2>
-          <p>Множители: x2, x3, x5, x50</p>
-        </a>
-        <a href="#x100" class="game-card">
-          <h2>Игра x100</h2>
-          <p>Множители: x2, x3, x5, x10, x15, x20, x100</p>
-        </a>
+        <a href="#x50" class="game-card"><h2>Игра x50</h2><p>Множители: x2, x3, x5, x50</p></a>
+        <a href="#x100" class="game-card"><h2>Игра x100</h2><p>Множители: x2, x3, x5, x10, x15, x20, x100</p></a>
       </div>
     </div>
 
@@ -232,9 +224,7 @@
     </div>
   </div>
 
-  <!-- ИГРА -->
   <div class="game-board" id="gameView">
-    
     <div class="wheel-arrows">
       <div class="arrow-top"></div>
       <div class="arrow-bottom"></div>
@@ -267,13 +257,16 @@
 </div>
 
 <script>
+  // ТОЧНЫЕ ДАННЫЕ КАК НА Hotskins
   const gameConfig = {
     x50: {
       title: "Игра x50",
       image: "https://hotskins30.ai/storage/images/x50/whell-dark.webp",
       multipliers: [
-        { val: 2, color: '#3d8aff' }, { val: 3, color: '#ffb84b' }, 
-        { val: 5, color: '#ff4b4b' }, { val: 50, color: '#4bff8d' }
+        { val: 2, color: '#3d8aff' }, 
+        { val: 3, color: '#ffb84b' }, 
+        { val: 5, color: '#ff4b4b' }, 
+        { val: 50, color: '#4bff8d' }
       ]
     },
     x100: {
@@ -300,6 +293,7 @@
   const betGrid = document.getElementById('betGrid');
   const timerPanel = document.getElementById('timerPanel');
 
+  // Вкладки
   document.querySelectorAll('.nav-tabs button').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
@@ -309,6 +303,7 @@
     });
   });
 
+  // Пополнение
   async function doDeposit() {
     const amt = Number(document.getElementById('depositAmount').value);
     const st = document.getElementById('depositStatus');
@@ -323,6 +318,7 @@
     } catch (e) { st.innerText = e.message; st.style.color = '#ff4b4b'; }
   }
 
+  // Промокод
   async function doPromo() {
     const code = document.getElementById('promoCode').value;
     const st = document.getElementById('promoStatus');
@@ -337,6 +333,7 @@
     } catch (e) { st.innerText = e.message; st.style.color = '#ff4b4b'; }
   }
 
+  // Роутинг
   function handleHash() {
     const hash = window.location.hash.replace('#', '');
     if (hash === 'x50' || hash === 'x100') {
@@ -436,10 +433,13 @@
     });
 
     if (currentBets.length === 0) {
+      // Если никто не ставил, колесо крутится для видимости и не дает выигрыша
       animateSpin(null);
       return;
     }
 
+    // Имитация запроса к серверу (замени на реальный, если нужно)
+    // Отправляем первую попавшуюся ставку, чтобы сервер проверил
     try {
       const primaryBet = currentBets[0];
       const r = await fetch('/api/games/bet', {
@@ -456,6 +456,7 @@
   }
 
   function animateSpin(result) {
+    // Делаем оборот и останавливаемся
     const randomDeg = Math.floor(Math.random() * 360) + 1440;
     bgElement.style.transition = 'transform 5s cubic-bezier(0.1, 0.7, 0.1, 1)';
     bgElement.style.transform = `rotate(${randomDeg}deg)`;
