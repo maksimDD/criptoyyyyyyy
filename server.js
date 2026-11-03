@@ -316,6 +316,84 @@ app.get('/api/history', (req, res) => {
   db.all(query[0], query[1], (err, rows) => err ? res.status(500).json({ error: 'Не удалось загрузить историю' }) : res.json(rows || []));
 });
 
+// ==========================================
+// ИГРЫ / GAMES
+// ==========================================
+app.get('/api/games/balance', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
+  db.get('SELECT balance FROM game_balance WHERE user_id=?', [req.session.userId], (err, row) => {
+    if (err) return res.status(500).json({ error: 'Ошибка БД' });
+    if (!row) {
+      db.run('INSERT INTO game_balance(user_id, balance) VALUES(?, 100)', [req.session.userId]); // Бонус 100 при первом входе
+      return res.json({ balance: 100 });
+    }
+    res.json({ balance: row.balance });
+  });
+});
+
+app.post('/api/games/deposit', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
+  const amount = Number(req.body?.amount);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 1000) return res.status(400).json({ error: 'Сумма от 1 до 1000' });
+  db.run('INSERT INTO game_balance(user_id, balance) VALUES(?, ?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + excluded.balance', [req.session.userId, amount], err => {
+    if (err) return res.status(500).json({ error: 'Ошибка БД' });
+    res.json({ ok: true });
+  });
+});
+
+app.post('/api/games/bet', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
+  const { game, amount, multiplier } = req.body || {};
+  const bet = Number(amount);
+  const mult = Number(multiplier);
+  const gameType = String(game);
+  
+  if (!Number.isFinite(bet) || bet <= 0 || !['x50', 'x100'].includes(gameType) || ![2,3,5,10,15,20,50,100].includes(mult)) {
+    return res.status(400).json({ error: 'Некорректные данные ставки' });
+  }
+
+  db.get('SELECT balance FROM game_balance WHERE user_id=?', [req.session.userId], (err, row) => {
+    if (err || !row) return res.status(500).json({ error: 'Ошибка БД' });
+    if (row.balance < bet) return res.status(400).json({ error: 'Недостаточно средств' });
+
+    // Логика выигрыша (рандом). Для демо: чем выше множитель, тем меньше шанс.
+    const winChance = 100 / mult; 
+    const isWin = Math.random() * 100 < winChance;
+    const winAmount = isWin ? bet * mult : 0;
+    const newBalance = row.balance - bet + winAmount;
+
+    db.run('UPDATE game_balance SET balance=? WHERE user_id=?', [newBalance, req.session.userId]);
+    db.run('INSERT INTO game_bets(user_id, game, amount, multiplier, win_amount) VALUES(?,?,?,?,?)', 
+      [req.session.userId, gameType, bet, mult, winAmount], (insErr) => {
+      if (insErr) return res.status(500).json({ error: 'Ошибка записи ставки' });
+      res.json({ ok: true, win: isWin, winAmount, newBalance });
+    });
+  });
+});
+
+app.post('/api/games/promo', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  
+  db.get('SELECT id, reward_type, reward_value, activation_limit, activation_count FROM promos WHERE code=? COLLATE NOCASE AND active=1', [code], (e, promo) => {
+    if (e || !promo) return res.status(404).json({ error: 'Промокод не найден или неактивен' });
+    if (promo.reward_type !== 'games_deposit_25') return res.status(400).json({ error: 'Этот промокод не для игр' });
+    if (promo.activation_limit > 0 && promo.activation_count >= promo.activation_limit) return res.status(409).json({ error: 'Лимит активаций исчерпан' });
+
+    db.get('SELECT id FROM promo_redemptions WHERE promo_id=? AND user_id=?', [promo.id, req.session.userId], (err, redeemed) => {
+      if (redeemed) return res.status(409).json({ error: 'Ты уже активировал этот промокод' });
+      
+      // Выдаем бонус
+      db.run('INSERT INTO promo_redemptions(promo_id,user_id,public_id,nickname) VALUES(?,?,?,?)', [promo.id, req.session.userId, req.session.publicId || 0, req.session.nickname], (re) => {
+        if (re) return res.status(500).json({ error: 'Ошибка активации' });
+        db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?', [promo.id]);
+        db.run('INSERT INTO game_balance(user_id, balance) VALUES(?, 25) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 25', [req.session.userId]);
+        res.json({ ok: true, bonus: 25 });
+      });
+    });
+  });
+});
+
 app.get('/api/profile', (req,res) => {
   if(!req.session.userId) return res.status(401).json({error:'Войдите в аккаунт'});
   db.get(`SELECT u.nickname,u.public_id,u.created_at,u.telegram_id,u.telegram_username,u.telegram_first_name,u.telegram_last_name,u.telegram_photo_url,
