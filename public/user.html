@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#070b12">
+<title>BLUP — Профиль</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/profile.css">
+</head>
+<body class="profile-body">
+<div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+<header class="header">
+  <a class="brand" href="/" aria-label="BLUP — главная"><span class="brand-orb"></span><span>BLUP</span></a>
+  <nav class="nav" id="nav">
+    <a class="nav-link" href="/">Главная</a>
+    <a class="nav-link active" href="/profile">Профиль</a>
+  </nav>
+  <div class="header-actions">
+    <a class="btn btn-ghost btn-small" href="/">На сайт ↗</a>
+    <button class="btn btn-outline btn-small" id="p-logout">Выйти</button>
+  </div>
+</header>
+
+<main class="profile-shell">
+  <div class="profile-error" id="p-error"></div>
+
+  <section class="profile-card">
+    <div class="profile-head">
+      <div class="profile-avatar-wrap">
+        <img id="p-avatar" class="profile-avatar" alt="Аватар Telegram" referrerpolicy="no-referrer">
+        <div id="p-avatar-fallback" class="profile-avatar-fallback" style="display:none">B</div>
+      </div>
+      <div class="profile-head-info">
+        <span class="profile-eyebrow">BLUP / PROFILE</span>
+        <h1 id="p-nick">Загрузка…</h1>
+        <div class="profile-meta">
+          <span id="p-public-id" class="pill">#—</span>
+          <span id="p-tg-username" class="pill pill-tg">@—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-grid">
+      <div class="profile-item">
+        <small>Telegram ID</small>
+        <b id="p-tg-id">—</b>
+      </div>
+      
+      <div class="profile-item" id="tgLinkBlock">
+        <small>Статус Telegram</small>
+        <b id="p-tg-status" style="font-size: 12px; margin-bottom: 8px;">не привязан</b>
+        <button id="linkTgBtn" class="btn btn-outline btn-small" style="width: 100%;">Привязать Telegram</button>
+      </div>
+
+      <div class="profile-item">
+        <small>Постоянная скидка</small>
+        <b id="p-discount">—</b>
+      </div>
+      <div class="profile-item">
+        <small>Продано (completed)</small>
+        <b id="p-sold">—</b>
+      </div>
+      <div class="profile-item">
+        <small>На сайте с</small>
+        <b id="p-created">—</b>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/user.js"></script>
+</body>
+</html>
