@@ -57,12 +57,12 @@ app.use(session({
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ==========================================
-// ОТСЛЕЖИВАНИЕ ОНЛАЙНА
+// ОТСЛЕЖИВАНИЕ ОНЛАЙНА (БЕЗ МЕТРИКИ)
 // ==========================================
 const onlineUsers = new Map();
 
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/online') || req.path.startsWith('/api/real-online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) {
+  if (req.path.startsWith('/api/online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) {
     return next();
   }
   const identifier = req.session?.userId ? `user_${req.session.userId}` : `ip_${ipOf(req)}`;
@@ -84,33 +84,6 @@ app.get('/api/online', (req, res) => {
   });
 
   res.json({ online: count > 0 ? count : 1 });
-});
-
-app.get('/api/real-online', async (req, res) => {
-  const token = process.env.YM_TOKEN || 'y0__wgBEPmQic8HGJXETiDj_ILRGTCcj7yMCC7MDSzW1KfoJBhureZsU9l-5ONs'; 
-  const counterId = 114041862;
-
-  if (!token) return res.status(500).json({ error: 'Токен Метрики не настроен' });
-
-  try {
-    const url = `https://api-metrika.yandex.net/stat/v1/data?ids=${counterId}&metrics=ym:s:users&date1=today&date2=today&dimensions=ym:s:startOfMinute&limit=30&sort=-ym:s:startOfMinute`;
-    
-    const response = await fetch(url, {
-      headers: { 'Authorization': `OAuth ${token}` }
-    });
-    
-    const data = await response.json();
-    
-    let online = 0;
-    if (data.data && data.data.length > 0) {
-      online = data.data[0].metrics[0];
-    }
-    
-    res.json({ online: online > 0 ? online : 1 });
-  } catch (e) {
-    console.error('Ошибка запроса к API Метрики:', e.message);
-    res.json({ online: 1 });
-  }
 });
 // ==========================================
 
@@ -298,7 +271,6 @@ app.post('/api/auth/telegram', (req, res) => {
   });
 });
 
-// НОВЫЙ МАРШРУТ: Привязка Telegram к обычному аккаунту
 app.post('/api/auth/link-telegram', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
   const data = req.body || {};
@@ -355,7 +327,7 @@ app.get('/api/profile', (req,res) => {
       db.all('SELECT id,percent,created_at FROM user_coupons WHERE user_id=? AND used_at IS NULL ORDER BY id ASC',
         [req.session.userId], (e2, coupons) => {
           if (e2) return res.status(500).json({error:'Ошибка купонов'});
-          res.json({ ...row, coupons: coupons || [] });
+          res.json({ ...row, coupons: coupons || [], is_telegram: !!row.telegram_id });
         });
     });
 });
@@ -476,6 +448,18 @@ app.post('/api/admin/users/:id/ban', adminOnly, (req, res) => {
     });
   });
 });
+
+// НОВЫЙ МАРШРУТ: Удаление пользователя
+app.delete('/api/admin/users/:id', adminOnly, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Некорректный ID' });
+  db.run('DELETE FROM users WHERE id=?', [id], function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка удаления' });
+    if (!this.changes) return res.status(404).json({ error: 'Пользователь не найден' });
+    res.json({ ok: true });
+  });
+});
+
 app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
   const ip = String(req.body?.ip || '').trim(), reason = String(req.body?.reason || '').slice(0,200);
   if (!ip || ip.length > 64 || /[\s,;]/.test(ip)) return res.status(400).json({ error: 'Укажите корректный IP.' });
@@ -484,6 +468,15 @@ app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
 app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => {
   db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => err ? res.status(500).json({ error: 'Ошибка БД' }) : res.json({ ok: true }));
 });
+
+// НОВЫЙ МАРШРУТ: Очистка истории входов
+app.delete('/api/admin/visits', adminOnly, (req, res) => {
+  db.run('DELETE FROM visits', function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка очистки' });
+    res.json({ ok: true, deleted: this.changes });
+  });
+});
+
 app.delete('/api/admin/sales', adminOnly, (req, res) => {
   db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) {
     if (err) return res.status(500).json({ error: 'Не удалось очистить историю заявок' });
