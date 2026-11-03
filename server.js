@@ -329,14 +329,34 @@ app.get('/ref/:code', (req, res) => {
 // === РЕФЕРАЛЬНАЯ СИСТЕМА ===
 app.get('/api/referral', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Войдите' });
-  db.get('SELECT ref_code, balance FROM user_referrals WHERE user_id=?', [req.session.userId], (err, row) => {
-    if (!row) {
-      const refCode = crypto.randomBytes(4).toString('hex');
-      db.run('INSERT INTO user_referrals(user_id, ref_code) VALUES(?,?)', [req.session.userId, refCode]);
-      return res.json({ ref_code: refCode, balance: 0, referrals: [] });
-    }
-    db.all('SELECT nickname, public_id, created_at FROM users WHERE referred_by=?', [req.session.userId], (e, refs) => {
-      res.json({ ref_code: row.ref_code, balance: row.balance, referrals: refs || [] });
+  
+  // Загружаем курс USDT для пересчета рублей в доллары
+  db.get('SELECT value FROM settings WHERE key=?', ['usdt_rate'], (rErr, rateRow) => {
+    const usdtRate = Number(rateRow?.value || 0) || 1;
+    
+    db.get('SELECT ref_code, balance FROM user_referrals WHERE user_id=?', [req.session.userId], (err, row) => {
+      if (!row) {
+        const refCode = crypto.randomBytes(4).toString('hex');
+        db.run('INSERT INTO user_referrals(user_id, ref_code) VALUES(?,?)', [req.session.userId, refCode]);
+        return res.json({ ref_code: refCode, balance: 0, referrals: [] });
+      }
+      
+      // Получаем рефералов и их суммы продаж
+      db.all(`SELECT u.nickname, u.public_id, u.created_at, 
+                COALESCE(SUM(s.payout_rub), 0) as total_sold_rub
+              FROM users u 
+              LEFT JOIN sales s ON s.user_id = u.id AND s.status = 'completed'
+              WHERE u.referred_by=?
+              GROUP BY u.id`, [req.session.userId], (e, refs) => {
+        
+        // Пересчитываем рубли в доллары по курсу
+        const formattedRefs = refs.map(ref => ({
+          ...ref,
+          total_sold_usd: usdtRate > 0 ? (ref.total_sold_rub / usdtRate).toFixed(2) : 0
+        }));
+        
+        res.json({ ref_code: row.ref_code, balance: row.balance, referrals: formattedRefs });
+      });
     });
   });
 });
@@ -358,10 +378,13 @@ app.post('/api/referral/withdraw', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Войдите' });
   const amount = Number(req.body?.amount), phone = String(req.body?.phone || '').trim(), bank = String(req.body?.bank || '').trim();
   if (amount < 10 || !phone || !bank) return res.status(400).json({ error: 'Мин. $10, укажите реквизиты' });
+  
   db.get('SELECT balance FROM user_referrals WHERE user_id=?', [req.session.userId], (err, row) => {
     if (!row || row.balance < amount) return res.status(400).json({ error: 'Недостаточно средств' });
+    
     db.run('UPDATE user_referrals SET balance = balance - ? WHERE user_id=?', [amount, req.session.userId], (e1) => {
       db.run('INSERT INTO referral_withdrawals(user_id, amount, phone, bank) VALUES(?,?,?,?)', [req.session.userId, amount, phone, bank], (e2) => {
+        // Отправляем в ТГ с operation: 'ref_withdraw'
         notifyAdmin({ operation: 'ref_withdraw', nickname: req.session.nickname, amount, phone, bank }).catch(() => {});
         res.json({ ok: true });
       });
@@ -473,7 +496,8 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
         if (sale) {
           db.get('SELECT referred_by FROM users WHERE id=?', [sale.user_id], (e2, user) => {
             if (user && user.referred_by) {
-              const bonus = sale.payout_rub * 0.02; 
+              // 2.5% от суммы продажи
+              const bonus = sale.payout_rub * 0.025; 
               db.run('UPDATE user_referrals SET balance = balance + ? WHERE user_id=?', [bonus, user.referred_by]);
             }
           });
@@ -526,6 +550,10 @@ app.post('/api/admin/reviews', adminOnly, (req, res) => {
       res.json({ ok: true, id: this.lastID });
     }
   );
+});
+
+app.get('/user/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'user.html'));
 });
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
