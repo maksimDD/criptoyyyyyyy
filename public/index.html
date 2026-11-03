@@ -21,11 +21,22 @@
   </div>
 
   <header class="header">
-    <div class="online-badge" id="onlineBadge" title="Сейчас на сайте">
-  <span class="online-dot"></span>
-  <span id="onlineCount">...</span> онлайн
-</div>
     <a class="brand" href="#home" aria-label="BLUP — главная"><span class="brand-orb"></span><span>BLUP</span></a>
+    
+    <div class="online-widget" id="onlineBadge" title="Сейчас на сайте">
+      <div class="online-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20a8 8 0 0 0 0-16v16z"></path>
+          <path d="M12 16a4 4 0 0 0 0-8"></path>
+          <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+        </svg>
+      </div>
+      <div class="online-text">
+        <b id="onlineCount">1</b>
+        <span>ОНЛАЙН</span>
+      </div>
+    </div>
+
     <button class="menu-toggle" id="menuToggle" aria-label="Открыть меню"><i></i><i></i><i></i></button>
     <nav class="nav" id="nav">
       <a class="nav-link active" href="#home">Главная</a>
@@ -37,7 +48,8 @@
       <a class="nav-link" href="#contacts">Контакты</a>
     </nav>
     <div class="header-actions">
-      <a class="btn btn-ghost btn-small" id="profileBtn" href="/profile">Профиль</a><button class="btn btn-ghost btn-small" id="historyBtn"><span>↗</span> История заявок</button>
+      <a class="btn btn-ghost btn-small" id="profileBtn" href="/profile">Профиль</a>
+      <button class="btn btn-ghost btn-small" id="historyBtn"><span>↗</span> История заявок</button>
       <button class="btn btn-outline btn-small" id="loginBtn">Войти</button>
       <div class="user-chip hidden" id="userChip"><span class="user-dot"></span><b id="userName"></b><button id="logoutBtn" title="Выйти">↗</button></div>
     </div>
@@ -51,7 +63,6 @@
         <p class="hero-lead">Оформляй заявку на продажу без каких либо сложностей.Понятные шаги,прозрачные и чистые условия</p>
         <div class="hero-actions">
           <button class="btn btn-primary btn-large" data-open="sell">Перейти к продаже <span class="btn-arrow">↗</span></button>
-          
         </div>
         <div class="hero-trust">
           <div><span class="trust-icon">✦</span><span><b>Чёткий процесс</b><small>Заявка по шагам</small></span></div>
@@ -123,7 +134,6 @@
           <details open><summary>Что такое BLUP?<span>＋</span></summary><p>BLUP — сервис для оформления заявок на продажу криптовалюты.</p></details>
           <details><summary>Как продать криптовалюту?<span>＋</span></summary><p>Открой раздел «Продажа», укажи актив, сеть и запрашиваемые данные. Проверь информацию и отправь заявку.</p></details>
           <details><summary>Какие криптовалюты поддерживаются?<span>＋</span></summary><p>Доступные активы и сети отображаются в форме продажи. Перед отправкой убедись, что выбрал правильную сеть.</p></details>
-          
           <details><summary>Сколько времени занимает обработка?<span>＋</span></summary><p>Срок зависит от типа операции и текущих условий. Уточни актуальный срок у поддержки до отправки средств.</p></details>
           <details><summary>Нужна ли регистрация?<span>＋</span></summary><p>Для некоторых действий может быть достаточно гостевой заявки. Для доступа к функциям аккаунта воспользуйся входом или регистрацией.</p></details>
           <details><summary>Что делать, если возникла проблема?<span>＋</span></summary><p>Обратись в службу поддержки и укажи номер или детали заявки. Не отправляй пароли и секретные фразы.</p></details>
@@ -160,7 +170,7 @@
     </section>
   </div>
 
-    <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
+  <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
     <section class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <button class="modal-close" id="authClose" aria-label="Закрыть">×</button>
       <div class="modal-eyebrow">BLUP / АККАУНТ</div>
@@ -185,6 +195,7 @@
       </form>
     </section>
   </div>
+  
   <div class="modal-backdrop" id="historyBackdrop" aria-hidden="true">
     <section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
       <button class="modal-close" id="historyClose" aria-label="Закрыть">×</button>
@@ -192,8 +203,9 @@
       <div id="historyContent" class="history-content"><div class="empty-state"><span>◷</span><b>Здесь пока пусто</b><small>Когда появятся заявки, они отобразятся в этом разделе.</small></div></div>
     </section>
   </div>
+  
   <div class="toast" id="toast"></div>
   <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
-  
   <script src="/app.js"></script>
-
+</body>
+</html>
