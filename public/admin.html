@@ -25,6 +25,7 @@
      <div><span class="eyebrow">ACCOUNTS / ACCESS LOG</span><h2>Аккаунты и доступ</h2></div>
      <div style="display: flex; gap: 10px;">
         <button class="btn btn-outline btn-small" id="adminReferralsBtn">Рефералы</button>
+        <button class="btn btn-outline btn-small" id="adminReviewsBtn">Отзывы</button>
         <button class="btn btn-ghost btn-small" id="refreshAdmin">Обновить ↻</button>
      </div>
    </div>
@@ -119,6 +120,32 @@
         <tbody id="adminRefTable"></tbody>
       </table>
     </div>
+  </section>
+</div>
+
+<!-- Модалка: Отзывы -->
+<div class="modal-backdrop" id="adminReviewsBackdrop" aria-hidden="true">
+  <section class="modal" role="dialog" aria-modal="true" style="width: min(600px, 100%);">
+    <button class="modal-close" id="adminReviewsClose">×</button>
+    <div class="modal-eyebrow">ADMIN / REVIEWS</div>
+    <h2>Добавить отзыв</h2>
+    
+    <form id="adminReviewForm" class="settings-form" style="grid-template-columns: 1fr 1fr;">
+      <label>ID пользователя<input name="userId" type="number" placeholder="Например, 123"></label>
+      <label>Никнейм<input name="nickname" required placeholder="Имя на сайте"></label>
+      <label>Сумма продажи (₽)<input name="amount" type="number" required placeholder="4000"></label>
+      <label>Оценка
+        <select name="rating" required>
+          <option value="5">5 ★</option>
+          <option value="4">4 ★</option>
+          <option value="3">3 ★</option>
+          <option value="2">2 ★</option>
+          <option value="1">1 ★</option>
+        </select>
+      </label>
+      <label class="full">Текст отзыва<textarea name="text" rows="4" required placeholder="Отличный сервис, всё быстро!"></textarea></label>
+      <button class="btn btn-primary full" type="submit">Добавить отзыв</button>
+    </form>
   </section>
 </div>
 
