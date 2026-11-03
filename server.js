@@ -161,7 +161,7 @@ app.post('/api/login', (req, res) => {
 app.post('/api/auth/telegram', (req, res) => {
   const ip = ipOf(req);
   const data = req.body || {};
-  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
+  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g';
   if (!botToken) return res.status(503).json({ error: 'Telegram-вход не настроен на сервере' });
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Некорректные данные Telegram' });
   if (rateLimit(`tg:${ip}`, 20)) return res.status(429).json({ error: 'Слишком много попыток. Попробуйте позже.' });
