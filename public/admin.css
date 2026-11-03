@@ -40,3 +40,5 @@
 .blup-select-menu::-webkit-scrollbar { width: 6px; }
 .blup-select-menu::-webkit-scrollbar-thumb { background: rgba(101,230,220,.3); border-radius: 3px; }
 .settings-form label .blup-select { margin-top: 8px; }
+
+.section-collapsed > :not(.admin-card-head){display:none!important}.collapse-section-btn{white-space:nowrap}.promo-code-open{border:0;background:transparent;color:#9bd8ff;font:inherit;font-weight:800;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px}.promo-code-open:hover{color:#fff}

@@ -78,7 +78,7 @@ async function load(){
         <td><small>${esc(x.network||'—')} · ${esc(x.bank||'—')}</small><small>${esc(x.wallet||'—')}</small><small>Кошелёк BLUP: ${esc(x.destination_wallet||'—')}</small><small>${esc('Реквизиты выплаты')}: ${esc(x.phone||'—')}</small>${x.memo?`<small>MEMO: ${esc(x.memo)}</small>`:''}${x.comment?`<small>Комментарий: ${esc(x.comment)}</small>`:''}</td>
         <td>${date(x.created_at)}</td>
         <td><span class="status-pill ${x.status==='completed'?'completed':x.status==='rejected'?'rejected':''}">${esc(statusLabel(x.status))}</span></td>
-        <td><select class="status-select" data-sale="${x.id}"><option value="pending" ${x.status==='pending'?'selected':''}>Ожидает</option><option value="processing" ${x.status==='processing'?'selected':''}>В работе</option><option value="completed" ${x.status==='completed'?'selected':''}>Выполнена</option><option value="rejected" ${x.status==='rejected'?'selected':''}>Отклонена</option></select></td>
+        <td><select class="status-select" data-sale="${x.id}"><option value="pending" ${x.status==='pending'?'selected':''}>Ожидает</option><option value="processing" ${x.status==='processing'?'selected':''}>В работе</option><option value="completed" ${x.status==='completed'?'selected':''}>Выполнена</option><option value="rejected" ${x.status==='rejected'?'selected':''}>Отменена</option></select>${x.status==='rejected'?`<button class="table-action danger" data-delete-sale="${x.id}" style="margin-top:5px;background:#731f31">Удалить</button>`:''}</td>
       </tr>
     `).join(''):'<tr><td colspan="6" class="empty-cell">Продаж пока нет</td></tr>';
 
@@ -111,7 +111,7 @@ async function load(){
   }
 }
 
-function statusLabel(s){return ({pending:'Ожидает',processing:'В работе',completed:'Выполнена',rejected:'Отклонена'})[s]||s}
+function statusLabel(s){return ({pending:'Ожидает',processing:'В работе',completed:'Выполнена',rejected:'Отменена'})[s]||s}
 
 $('#maintenanceToggle').addEventListener('change',async e=>{
   const toggle=e.currentTarget;
@@ -208,6 +208,18 @@ document.addEventListener('change',async e=>{
   }catch(err){toast(err.message);}
 });
 
+// Сворачиваемые секции админки: заголовок остаётся видимым.
+function makeCollapsible(selector, label) {
+  const card = document.querySelector(selector); if (!card) return;
+  const head = card.querySelector('.admin-card-head'); if (!head || head.querySelector('.collapse-section-btn')) return;
+  const btn = document.createElement('button'); btn.type='button'; btn.className='btn btn-ghost btn-small collapse-section-btn'; btn.textContent='Свернуть'; btn.setAttribute('aria-expanded','true');
+  btn.addEventListener('click',()=>{ const collapsed=card.classList.toggle('section-collapsed'); btn.textContent=collapsed?'Развернуть':'Свернуть'; btn.setAttribute('aria-expanded',String(!collapsed)); });
+  head.appendChild(btn);
+}
+makeCollapsible('section:has(#usersTable)', 'Аккаунты и доступ');
+makeCollapsible('section:has(#salesTable)', 'Поток заявок');
+makeCollapsible('section:has(#visitsTable)', 'История входов');
+
 check();
 
 async function loadPromos(){
@@ -216,15 +228,34 @@ async function loadPromos(){
     $('#promoAdminList').innerHTML=rows.map(x=>`
       <div class="ban-item">
         <span>
-          <b>${esc(x.code)}</b>
+          <b><button type="button" class="promo-code-open" data-promo-details="${x.id}">${esc(x.code)}</button></b>
           <small>${esc(x.description||x.reward_type)} · активаций ${x.activation_count||0}${x.activation_limit?'/'+x.activation_limit:' / без лимита'} · ${x.active?'Активен':'Выключен'}</small>
-          <small>Кто активировал (ID:ник): ${esc(x.activators||'пока никто')}</small>
+          <small>Нажми на код, чтобы открыть список активаций и Telegram-профили пользователей</small>
         </span>
         <button data-promo-toggle="${x.id}">${x.active?'Отключить':'Включить'}</button>
       </div>
     `).join('')||'<div class="empty-cell">Промокодов пока нет</div>';
   }catch(e){toast(e.message);}
 }
+
+document.addEventListener('click', async e => {
+  const del = e.target.closest('[data-delete-sale]');
+  if (del) {
+    if (!confirm('Удалить эту отменённую заявку без возможности восстановления?')) return;
+    try { await api(`/api/admin/sales/${del.dataset.deleteSale}`, {method:'DELETE'}); toast('Заявка удалена'); load(); } catch(err) { toast(err.message); }
+    return;
+  }
+  const promo = e.target.closest('[data-promo-details]');
+  if (promo) {
+    try {
+      const users = await api(`/api/admin/promos/${promo.dataset.promoDetails}/users`);
+      let modal = document.getElementById('promoUsersModal');
+      if (!modal) { modal = document.createElement('div'); modal.id='promoUsersModal'; modal.className='modal-backdrop open'; modal.innerHTML='<section class="modal history-modal" role="dialog" aria-modal="true"><button class="modal-close" type="button" data-close-promo>×</button><div class="modal-eyebrow">PROMO / ACTIVATIONS</div><h2>Активации промокода</h2><div id="promoUsersContent"></div></section>'; document.body.appendChild(modal); modal.addEventListener('click', ev=>{if(ev.target===modal||ev.target.closest('[data-close-promo]'))modal.remove();}); }
+      const content = modal.querySelector('#promoUsersContent');
+      content.innerHTML = users.length ? users.map(u=>`<div class="ban-item"><span style="display:flex;align-items:center;gap:10px">${u.telegram_photo_url?`<img src="${esc(u.telegram_photo_url)}" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover">`:''}<span><b>${esc(u.nickname||'Удалённый пользователь')} · #${esc(u.public_id||'—')}</b><small>Telegram ID: ${esc(u.telegram_id||'—')} · ${u.telegram_username?'@'+esc(u.telegram_username):'username не указан'}</small><small>Активация: ${date(u.created_at)}</small>${u.public_id?`<small><a href="/user/${encodeURIComponent(u.public_id)}" target="_blank" rel="noopener">Открыть профиль пользователя ↗</a></small>`:''}</span></span></div>`).join('') : '<p class="empty-cell">Пока никто не активировал этот промокод.</p>';
+    } catch(err) { toast(err.message); }
+  }
+});
 
 $('#promoAdminForm').addEventListener('submit',async e=>{
   e.preventDefault();

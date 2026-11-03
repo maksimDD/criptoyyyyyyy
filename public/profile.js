@@ -200,9 +200,9 @@ async function loadReferralData() {
       list.innerHTML = '<p style="color:#8fa5b5; font-size:11px;">У тебя пока нет рефералов.</p>';
     } else {
       list.innerHTML = d.referrals.map(ref => `
-        <div style="display:flex; justify-content:space-between; background:#0c1026; padding:8px; border-radius:6px; font-size:12px;">
-          <span>${ref.nickname} <small style="color:#8fa5b5;">#${ref.public_id}</small></span>
-          <span style="color:#8fa5b5;">${new Date(ref.created_at).toLocaleDateString('ru-RU')}</span>
+        <div style="display:flex; flex-direction:column; gap:5px; background:#0c1026; padding:10px; border-radius:8px; font-size:12px; margin-bottom:7px;">
+          <div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(ref.nickname)} <small style="color:#8fa5b5;">#${esc(ref.public_id)}</small></b><span style="color:#8fa5b5;">${new Date(ref.created_at).toLocaleDateString('ru-RU')}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:8px;color:#9eb4c8"><span>Продал: $${Number(ref.sold_usd||0).toFixed(2)} · ${Number(ref.sold_rub||0).toFixed(2)} ₽</span><b style="color:#5ce3a4">Твой доход: ${Number(ref.earned_rub||0).toFixed(2)} ₽</b></div>
         </div>
       `).join('');
     }
