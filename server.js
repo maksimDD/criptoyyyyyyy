@@ -412,6 +412,28 @@ app.get('/api/admin/referrals', adminOnly, (req, res) => {
   });
 });
 
+// === ОТЗЫВЫ ===
+app.get('/api/reviews', (req, res) => {
+  db.all('SELECT nickname, amount, text, rating, created_at FROM reviews ORDER BY id DESC LIMIT 50', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Ошибка' });
+    res.json(rows);
+  });
+});
+
+app.post('/api/admin/reviews', adminOnly, (req, res) => {
+  const { userId, nickname, amount, text, rating } = req.body;
+  const rate = Number(rating);
+  if (!nickname || !text || rate < 1 || rate > 5) return res.status(400).json({ error: 'Заполните все поля (оценка 1-5)' });
+  
+  db.run('INSERT INTO reviews(user_id, nickname, amount, text, rating) VALUES(?,?,?,?,?)',
+    [Number(userId) || null, String(nickname).slice(0,50), Number(amount) || 0, String(text).slice(0, 500), rate],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Ошибка записи' });
+      res.json({ ok: true, id: this.lastID });
+    }
+  );
+});
+
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
 app.get('/games', (req, res) => res.sendFile(path.join(__dirname, 'public', 'games.html')));
