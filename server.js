@@ -533,5 +533,10 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
 app.get('/games', (req, res) => res.sendFile(path.join(__dirname, 'public', 'games.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/admin', (req, res) => {
+  // Если это не админ, показываем форму входа (admin.html)
+  // А если админ — всё равно показываем admin.html, но там уже будет дашборд
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 db.ready.then(() => app.listen(PORT, () => console.log(`BLUP запущен на порту ${PORT}`))).catch(err => { console.error('Ошибка:', err); process.exit(1); });
