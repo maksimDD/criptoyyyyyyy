@@ -73,7 +73,15 @@ app.use('/api', (req, res, next) => {
 
 app.get('/api/status', (req, res) => getSetting('stopped', '0', (e, stopped) => res.json({ stopped: stopped === '1' && req.session.isAdmin !== true })));
 app.get('/api/config', (req, res) => { db.all('SELECT key,value FROM settings WHERE key IN (\'usdt_rate\',\'gram_rate\',\'reserve_total\',\'reserve_available\',\'banks\')', [], (err, rows) => { if (err) return res.status(500).json({ error: 'Ошибка' }); const s = Object.fromEntries(rows.map(x => [x.key, x.value])); let banks = []; try { banks = JSON.parse(s.banks || '[]'); } catch {} res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks, wallets: BLUP_WALLETS }); }); });
-app.get('/api/auth/telegram/config', (req, res) => { const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI'; if (!token) return res.status(503).json({ error: 'Нет токена' }); const botId = token.split(':')[0]; if (!botId || isNaN(botId)) return res.status(503).json({ error: 'Некорректный токен' }); res.json({ botId }); });
+
+// Конфиг для Telegram-входа (используем первый токен)
+app.get('/api/auth/telegram/config', (req, res) => { 
+  const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI'; 
+  if (!token) return res.status(503).json({ error: 'Нет токена' }); 
+  const botId = token.split(':')[0]; 
+  if (!botId || isNaN(botId)) return res.status(503).json({ error: 'Некорректный токен' }); 
+  res.json({ botId }); 
+});
 
 app.post('/api/register', (req, res) => {
   const ip = ipOf(req), nickname = String(req.body?.nickname || '').trim(), password = String(req.body?.password || ''), refCode = req.body?.ref;
@@ -128,12 +136,12 @@ app.post('/api/login', (req, res) => {
 app.post('/api/auth/telegram', (req, res) => {
   const ip = ipOf(req);
   const data = req.body || {};
-  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
-  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g';
+  const tgToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI'; // Изменил имя переменной
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Ошибка' });
   if (rateLimit(`tg:${ip}`, 20)) return res.status(429).json({ error: 'Много попыток' });
   if (Math.floor(Date.now()/1000) - Number(data.auth_date) > 300) return res.status(400).json({ error: 'Устарело' });
-  const secret = crypto.createHash('sha256').update(botToken).digest();
+  
+  const secret = crypto.createHash('sha256').update(tgToken).digest();
   const checkString = Object.keys(data).filter(k => k !== 'hash').sort().map(k => `${k}=${data[k]}`).join('\n');
   const hmac = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
   if (hmac !== data.hash) return res.status(403).json({ error: 'Неверная подпись' });
@@ -181,10 +189,11 @@ app.post('/api/auth/telegram', (req, res) => {
 app.post('/api/auth/link-telegram', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Войдите' });
   const data = req.body || {};
-  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
+  const linkToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI'; // Изменил имя переменной
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Ошибка' });
   if (Math.floor(Date.now()/1000) - Number(data.auth_date) > 300) return res.status(400).json({ error: 'Устарело' });
-  const secret = crypto.createHash('sha256').update(botToken).digest();
+  
+  const secret = crypto.createHash('sha256').update(linkToken).digest();
   const checkString = Object.keys(data).filter(k => k !== 'hash').sort().map(k => `${k}=${data[k]}`).join('\n');
   const hmac = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
   if (hmac !== data.hash) return res.status(403).json({ error: 'Неверная подпись' });
