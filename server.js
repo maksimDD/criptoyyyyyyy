@@ -398,4 +398,176 @@ app.post('/api/referral/set-code', (req, res) => {
 });
 
 app.post('/api/referral/withdraw', (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: '
+  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
+  const amount = Number(req.body?.amount);
+  const phone = String(req.body?.phone || '').trim();
+  const bank = String(req.body?.bank || '').trim();
+  
+  if (amount < 10 || !phone || !bank) return res.status(400).json({ error: 'Сумма от 10, укажите телефон и банк' });
+
+  db.get('SELECT balance FROM user_referrals WHERE user_id=?', [req.session.userId], (err, row) => {
+    if (err || !row) return res.status(500).json({ error: 'Ошибка БД' });
+    if (row.balance < amount) return res.status(400).json({ error: 'Недостаточно средств' });
+
+    db.run('UPDATE user_referrals SET balance = balance - ? WHERE user_id=?', [amount, req.session.userId], (e1) => {
+      if (e1) return res.status(500).json({ error: 'Ошибка списания' });
+      db.run('INSERT INTO referral_withdrawals(user_id, amount, phone, bank) VALUES(?,?,?,?)', [req.session.userId, amount, phone, bank], (e2) => {
+        if (e2) return res.status(500).json({ error: 'Ошибка создания заявки' });
+        notifyAdmin({ operation: 'ref_withdraw', nickname: req.session.nickname, amount, phone, bank }).catch(() => {});
+        res.json({ ok: true });
+      });
+    });
+  });
+});
+
+app.get('/api/admin/referrals', adminOnly, (req, res) => {
+  db.all(`SELECT r.*, u.nickname, u.public_id FROM user_referrals r JOIN users u ON r.user_id = u.id ORDER BY r.balance DESC`, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Ошибка' });
+    // Для каждого считаем рефералов
+    Promise.all(rows.map(r => new Promise(resolve => {
+      db.get('SELECT COUNT(*) as count FROM users WHERE referred_by=?', [r.user_id], (e, c) => {
+        r.ref_count = c?.count || 0;
+        resolve(r);
+      });
+    }))).then(() => res.json(rows));
+  });
+});
+
+app.get('/api/admin/referral-details/:id', adminOnly, (req, res) => {
+  const id = Number(req.params.id);
+  db.get('SELECT r.*, u.nickname FROM user_referrals r JOIN users u ON r.user_id=u.id WHERE r.user_id=?', [id], (err, row) => {
+    if (err || !row) return res.status(404).json({ error: 'Не найден' });
+    db.all('SELECT nickname, public_id, created_at FROM users WHERE referred_by=?', [id], (e, refs) => {
+      res.json({ ...row, referrals: refs || [] });
+    });
+  });
+});
+
+// === АДМИНКА ===
+function adminOnly(req, res, next) { if (req.session.isAdmin === true) return next(); return res.status(403).json({ error: 'Доступ запрещён' }); }
+
+app.post('/api/admin/login', (req, res) => {
+  const ip = ipOf(req);
+  if (rateLimit(`admin:${ip}`, 5)) return res.status(429).json({ error: 'Слишком много попыток.' });
+  const expected = process.env.BLUP_ADMIN_PASSWORD;
+  const supplied = String(req.body?.password || '');
+  if (!expected || Buffer.byteLength(supplied) !== Buffer.byteLength(expected) || !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return res.status(403).json({ error: 'Неверный пароль' });
+  req.session.regenerate(err => {
+    if (err) return res.status(500).json({ error: 'Ошибка сессии' });
+    req.session.isAdmin = true;
+    req.session.save(() => res.json({ ok: true }));
+  });
+});
+app.post('/api/admin/logout', adminOnly, (req, res) => req.session.destroy(() => { res.clearCookie('blup.sid'); res.json({ ok: true }); }));
+app.post('/api/admin/maintenance', adminOnly, (req, res) => setSetting('stopped', req.body?.stopped ? '1' : '0', err => err ? res.status(500).json({ error: 'Ошибка' }) : res.json({ ok: true, stopped: !!req.body?.stopped })));
+app.get('/api/admin/me', (req, res) => res.json({ isAdmin: req.session.isAdmin === true }));
+app.get('/api/admin/overview', adminOnly, (req, res) => {
+  db.get('SELECT COUNT(*) AS users, SUM(CASE WHEN is_banned=1 THEN 1 ELSE 0 END) AS banned FROM users', [], (e, stats) => {
+    if (e) return res.status(500).json({ error: 'Ошибка БД' });
+    db.get("SELECT COUNT(*) AS pending FROM sales WHERE status='pending' AND operation_type='sell'", [], (e2, pending) => {
+      db.all('SELECT id,nickname,created_at,last_ip,last_seen,is_banned,ban_reason FROM users ORDER BY id DESC LIMIT 300', [], (e3, users) => {
+        db.all("SELECT id,user_id,nickname,coin,network,operation_type,amount,payout_rub,status,created_at,wallet,destination_wallet,phone,bank,memo,payout_type,comment,parent_sale_id FROM sales WHERE operation_type='sell' ORDER BY id DESC LIMIT 300", [], (e4, sales) => {
+          db.all('SELECT ip,reason,created_at FROM ip_bans ORDER BY created_at DESC', [], (e5, bans) => {
+            db.all('SELECT user_id,nickname,ip,event,created_at FROM visits ORDER BY id DESC LIMIT 200', [], (e7, visits) => {
+              if (e2 || e3 || e4 || e5 || e7) return res.status(500).json({ error: 'Ошибка' });
+              db.all('SELECT key,value FROM settings', [], (e6, rows) => {
+                const settings = Object.fromEntries(rows.map(x => [x.key, x.value]));
+                res.json({ stats: { users: stats.users || 0, banned: stats.banned || 0, pending: pending.pending || 0 }, users: users || [], sales: sales || [], ipBans: bans || [], visits: visits || [], settings });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+});
+app.post('/api/admin/settings', adminOnly, (req, res) => {
+  const { usdtRate, gramRate, reserveTotal, reserveAvailable, banks } = req.body || {};
+  const values = [usdtRate, gramRate, reserveTotal, reserveAvailable].map(Number);
+  if (values.some(v => !Number.isFinite(v) || v < 0 || v > 1e12) || values[3] > values[2]) return res.status(400).json({ error: 'Проверьте курсы.' });
+  if (!Array.isArray(banks) || banks.length > 100 || banks.some(x => typeof x !== 'string' || !x.trim() || x.length > 80)) return res.status(400).json({ error: 'Некорректный список банков.' });
+  db.serialize(() => {
+    const pairs = [['usdt_rate', values[0]], ['gram_rate', values[1]], ['reserve_total', values[2]], ['reserve_available', values[3]], ['banks', JSON.stringify([...new Set(banks.map(x => x.trim()))])]];
+    const stmt = db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+    pairs.forEach(p => stmt.run(p[0], String(p[1])));
+    stmt.finalize(err => err ? res.status(500).json({ error: 'Ошибка' }) : res.json({ ok: true }));
+  });
+});
+app.post('/api/admin/users/:id/ban', adminOnly, (req, res) => {
+  const id = Number(req.params.id), banned = !!req.body?.banned, reason = String(req.body?.reason || '').slice(0,200);
+  db.run('UPDATE users SET is_banned=?,ban_reason=?,session_version=session_version+1 WHERE id=?', [banned ? 1 : 0, banned ? reason : null, id], function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка БД' });
+    if (!this.changes) return res.status(404).json({ error: 'Не найден' });
+    db.get('SELECT id,nickname,last_ip FROM users WHERE id=?', [id], (e, user) => {
+      if (banned && user?.last_ip) db.run('INSERT OR IGNORE INTO ip_bans(ip,reason) VALUES(?,?)', [user.last_ip, reason || 'Бан']);
+      res.json({ ok: true });
+    });
+  });
+});
+app.delete('/api/admin/users/:id', adminOnly, (req, res) => {
+  const id = Number(req.params.id);
+  db.run('DELETE FROM users WHERE id=?', [id], function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка' });
+    if (!this.changes) return res.status(404).json({ error: 'Не найден' });
+    res.json({ ok: true });
+  });
+});
+app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
+  const ip = String(req.body?.ip || '').trim(), reason = String(req.body?.reason || '').slice(0,200);
+  if (!ip || ip.length > 64 || /[\s,;]/.test(ip)) return res.status(400).json({ error: 'Укажите IP.' });
+  db.run('INSERT INTO ip_bans(ip,reason) VALUES(?,?) ON CONFLICT(ip) DO UPDATE SET reason=excluded.reason', [ip, reason], err => err ? res.status(500).json({ error: 'Ошибка' }) : res.json({ ok: true }));
+});
+app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => {
+  db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => err ? res.status(500).json({ error: 'Ошибка' }) : res.json({ ok: true }));
+});
+app.delete('/api/admin/visits', adminOnly, (req, res) => {
+  db.run('DELETE FROM visits', function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка' });
+    res.json({ ok: true, deleted: this.changes });
+  });
+});
+app.delete('/api/admin/sales', adminOnly, (req, res) => {
+  db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка' });
+    res.json({ ok: true, deleted: this.changes });
+  });
+});
+app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
+  const id = Number(req.params.id), status = String(req.body?.status || '');
+  if (!Number.isInteger(id) || id < 1 || !['pending','processing','completed','rejected'].includes(status)) return res.status(400).json({ error: 'Некорректные данные' });
+  db.run("UPDATE sales SET status=? WHERE id=? AND operation_type='sell'", [status, id], function(err) {
+    if (err) return res.status(500).json({ error: 'Ошибка' });
+    if (!this.changes) return res.status(404).json({ error: 'Не найдена' });
+    
+    // Если выполнена, начисляем реф баланс
+    if (status === 'completed') {
+      db.get('SELECT user_id, payout_rub FROM sales WHERE id=?', [id], (e, sale) => {
+        if (sale) {
+          db.get('SELECT referred_by FROM users WHERE id=?', [sale.user_id], (e2, user) => {
+            if (user && user.referred_by) {
+              const bonus = sale.payout_rub * 0.10;
+              db.run('UPDATE user_referrals SET balance = balance + ? WHERE user_id=?', [bonus, user.referred_by]);
+            }
+          });
+        }
+      });
+    }
+    res.json({ ok: true });
+  });
+});
+app.post('/api/admin/promos',adminOnly,(req,res)=>{
+ const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||''),description=String(req.body?.description||'').slice(0,200),limit=Math.max(0,Math.floor(Number(req.body?.activationLimit||0)));
+ const allowed={sell_discount_1:['percent',1,'Скидка 1%'],sell_discount_3:['percent',3,'Скидка 3%'],deposit_150:['deposit_kb',150,'Депозит 150'],deposit_300:['deposit_jab',300,'Депозит 300'],games_deposit_25:['games_deposit_25',25,'+25% Games']};
+ const preset=allowed[type];if(!/^[A-Z0-9_-]{3,24}$/.test(code)||!preset||!Number.isFinite(limit))return res.status(400).json({error:'Ошибка'});
+ db.run('INSERT INTO promos(code,reward_type,reward_value,description,activation_limit) VALUES(?,?,?,?,?)',[code,preset[0],preset[1],description||preset[2],limit],e=>e?res.status(409).json({error:'Существует'}):res.json({ok:true}));
+});
+app.get('/api/admin/promos',adminOnly,(req,res)=>db.all(`SELECT p.*, (SELECT GROUP_CONCAT(COALESCE(r.public_id,r.user_id)||':'||r.nickname, char(10)) FROM promo_redemptions r WHERE r.promo_id=p.id) AS activators FROM promos p ORDER BY p.id DESC`,(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows)));
+app.post('/api/admin/promos/:id/toggle',adminOnly,(req,res)=>db.run('UPDATE promos SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE id=?',[Number(req.params.id)],function(e){e?res.status(500).json({error:'Ошибка'}):res.json({ok:true});}));
+app.post('/api/admin/users/:id/discount',adminOnly,(req,res)=>{const id=Number(req.params.id),percent=Number(req.body?.percent);if(!Number.isInteger(id)||id<1||![0,1,3].includes(percent))return res.status(400).json({error:'Ошибка'});if(percent===0)return db.run('DELETE FROM user_discounts WHERE user_id=?',[id],e=>e?res.status(500).json({error:'Ошибка'}):res.json({ok:true}));db.run('INSERT INTO user_discounts(user_id,percent,source,active) VALUES(?,?,?,1) ON CONFLICT(user_id) DO UPDATE SET percent=excluded.percent,source=excluded.source,active=1',[id,percent,'admin'],e=>e?res.status(500).json({error:'Ошибка'}):res.json({ok:true}));});
+
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
+app.get('/games', (req, res) => res.sendFile(path.join(__dirname, 'public', 'games.html')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+db.ready.then(() => app.listen(PORT, () => console.log(`BLUP запущен на порту ${PORT}`))).catch(err => { console.error('Ошибка подготовки БД:', err); process.exit(1); });
