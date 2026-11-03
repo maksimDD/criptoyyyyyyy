@@ -74,6 +74,17 @@ db.ready = (async () => {
     await run('DELETE FROM sessions WHERE expires < ?',[Date.now()]);
     await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nickname_nocase ON users(nickname COLLATE NOCASE)').catch(err=>console.warn(err.message));
     await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id) WHERE telegram_id IS NOT NULL').catch(err=>console.warn(err.message));
+
+  // Таблица для отзывов
+  await run(`CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    nickname TEXT,
+    amount REAL,
+    text TEXT,
+    rating INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
     
     console.log('База BLUP готова; миграции завершены.');
   } catch (e) {
