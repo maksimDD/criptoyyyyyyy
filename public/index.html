@@ -23,7 +23,7 @@
   <header class="header">
     <a class="brand" href="#home" aria-label="BLUP — главная"><span class="brand-orb"></span><span>BLUP</span></a>
     
-                       <div class="online-widget" id="onlineBadge" title="Сейчас на сайте">
+    <div class="online-widget" id="onlineBadge" title="Сейчас на сайте">
       <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%235ce3a4' d='M12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-3.3 5.3a6.6 6.6 0 0 1 0-9.6l1.4 1.4a4.7 4.7 0 0 0 0 6.8l-1.4 1.4zm6.6 0l-1.4-1.4a4.7 4.7 0 0 0 0-6.8l1.4-1.4a6.6 6.6 0 0 1 0 9.6zM5.9 18.1a9.4 9.4 0 0 1 0-14.2l1.4 1.4a7.5 7.5 0 0 0 0 11.4l-1.4 1.4zm12.2 0l-1.4-1.4a7.5 7.5 0 0 0 0-11.4l1.4-1.4a9.4 9.4 0 0 1 0 14.2z'/></svg>" alt="online" class="online-img">
       <div class="online-text">
         <b id="onlineCount">1</b>
@@ -149,7 +149,7 @@
   <footer class="footer section-wrap">
     <a class="brand" href="#home"><span class="brand-orb"></span><span>BLUP</span></a>
     <span class="footer-copy">© <span id="year"></span> BLUP. Информация о сервисе.</span>
-    <div class="footer-links"><a href="#faq">FAQ</a><a href="#contacts">Контакты</a><a href="#" data-placeholder="terms">Условия сервиса</a><a href="#" data-placeholder="privacy">Конфиденциальность</a></div>
+    <div class="footer-links"><a href="#faq">FAQ</a><a href="#contacts">Контакты</a><a href="#" id="footerTerms">Условия сервиса</a><a href="#" id="footerPrivacy">Конфиденциальность</a></div>
   </footer>
 
   <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
@@ -195,6 +195,58 @@
       <button class="modal-close" id="historyClose" aria-label="Закрыть">×</button>
       <div class="modal-eyebrow">BLUP / АКТИВНОСТЬ</div><h2 id="historyTitle">История заявок</h2><p class="modal-desc">Последние заявки, зарегистрированные в системе.</p>
       <div id="historyContent" class="history-content"><div class="empty-state"><span>◷</span><b>Здесь пока пусто</b><small>Когда появятся заявки, они отобразятся в этом разделе.</small></div></div>
+    </section>
+  </div>
+
+  <!-- Модалка: Условия использования -->
+  <div class="modal-backdrop" id="termsBackdrop" aria-hidden="true">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
+      <button class="modal-close" id="termsClose" aria-label="Закрыть">×</button>
+      <div class="modal-eyebrow">BLUP / ДОКУМЕНТЫ</div>
+      <h2 id="termsTitle">Условия использования</h2>
+      <p class="modal-desc">Последнее обновление: Сегодня</p>
+      
+      <div class="legal-text">
+        <p>Используя наш сервис, вы соглашаетесь с этими правилами. Пожалуйста, прочитайте их внимательно перед отправкой заявки.</p>
+        
+        <h4>1. О сервисе</h4>
+        <p>BLUP — это платформа для оформления заявок на продажу криптовалюты. Мы не являемся банком или биржей. Все операции по переводу средств и выплате рублей выполняются операторами вручную после проверки.</p>
+        
+        <h4>2. Как это работает</h4>
+        <p>Вы создаете заявку, переводите криптовалюту на указанный нами кошелек и ждете подтверждения. Только после того, как мы увидим поступление средств в блокчейне, мы отправим рубли на ваши реквизиты.</p>
+        
+        <h4>3. Ответственность</h4>
+        <p>Вы несете ответственность за правильность введенных данных (сеть, кошелек, номер карты). Если вы отправите средства не в той сети или укажете чужую карту, вернуть их будет невозможно. Мы не несем ответственности за задержки на стороне банков или блокчейна.</p>
+        
+        <h4>4. Ограничения</h4>
+        <p>Мы оставляем за собой право отклонить заявку, если у нас возникнут подозрения в мошенничестве или нарушении законодательства. Максимальная сумма одной сделки ограничена лимитами, указанными на сайте.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Модалка: Политика конфиденциальности -->
+  <div class="modal-backdrop" id="privacyBackdrop" aria-hidden="true">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+      <button class="modal-close" id="privacyClose" aria-label="Закрыть">×</button>
+      <div class="modal-eyebrow">BLUP / ДОКУМЕНТЫ</div>
+      <h2 id="privacyTitle">Политика конфиденциальности</h2>
+      <p class="modal-desc">Последнее обновление: Сегодня</p>
+      
+      <div class="legal-text">
+        <p>Мы уважаем вашу приватность и собираем только те данные, которые реально нужны для работы сервиса.</p>
+        
+        <h4>1. Какие данные мы собираем</h4>
+        <p>При входе через Telegram мы сохраняем ваш ID, юзернейм и аватарку. При создании заявки — реквизиты для выплаты (номер карты или телефон) и ваш Telegram для связи. Также мы автоматически записываем IP-адрес и время входа для защиты от спама и взломов.</p>
+        
+        <h4>2. Как мы используем данные</h4>
+        <p>Данные нужны исключительно для обработки ваших заявок, связи с вами и защиты сайта. Мы не продаем ваши данные третьим лицам и не рассылаем спам.</p>
+        
+        <h4>3. Кто имеет доступ</h4>
+        <p>Доступ к базе данных имеют только сотрудники, обрабатывающие заявки. Сами реквизиты и пароли (если вы их используете) хранятся в зашифрованном виде. Уведомления в Telegram отправляются без паролей и CVV-кодов.</p>
+        
+        <h4>4. Ваши права</h4>
+        <p>Вы можете запросить удаление своего аккаунта и связанных с ним данных, написав в нашу службу поддержки в Telegram.</p>
+      </div>
     </section>
   </div>
   
