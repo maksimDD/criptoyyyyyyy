@@ -185,17 +185,13 @@ async function showHistory(){
 if ($('#historyBtn')) $('#historyBtn').addEventListener('click',showHistory);
 if ($('#historyCardBtn')) $('#historyCardBtn').addEventListener('click',showHistory);
 
-[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop'],['termsClose','termsBackdrop'],['privacyClose','privacyBackdrop']].forEach(([btn,id])=>{
+[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop']].forEach(([btn,id])=>{
   if($('#'+btn)) $('#'+btn).addEventListener('click',()=>closeModal(id));
 });
 
 $$('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)closeModal(b.id)}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.modal-backdrop.open').forEach(m=>closeModal(m.id))});
 $$('[data-placeholder]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();toast('Контакт или документ будет добавлен перед запуском сервиса.')}));
-
-// Открытие юридических модалок
-if ($('#footerTerms')) $('#footerTerms').addEventListener('click', (e) => { e.preventDefault(); openModal('termsBackdrop'); });
-if ($('#footerPrivacy')) $('#footerPrivacy').addEventListener('click', (e) => { e.preventDefault(); openModal('privacyBackdrop'); });
 
 if ($('#promoApplyForm')) {
   $('#promoApplyForm').addEventListener('submit',async e=>{
@@ -227,31 +223,27 @@ const tgLoginBtn = $('#tgLoginBtn');
 if (tgLoginBtn) {
   tgLoginBtn.addEventListener('click', async () => {
     const msgEl = $('#authMessage');
-    if (msgEl) msgEl.textContent = 'Загрузка Telegram…';
-
-    // Ждём появления объекта Telegram (до 5 секунд)
-    let waited = 0;
-    while ((!window.Telegram || !window.Telegram.Login) && waited < 5000) {
-      await new Promise(r => setTimeout(r, 100));
-      waited += 100;
-    }
-
-    if (!window.Telegram || !window.Telegram.Login || !window.Telegram.Login.auth) {
-      if (msgEl) msgEl.textContent = 'Telegram не загрузился. Проверьте, не блокирует ли его AdBlock, и обновите страницу.';
-      return;
-    }
-
     if (msgEl) msgEl.textContent = '';
-
+    
     try {
+      // 1. Получаем числовой botId с сервера
       const r = await fetch('/api/auth/telegram/config');
       const config = await r.json();
       if (!r.ok) throw new Error(config.error || 'Telegram-вход не настроен');
-
+      
+      // 2. Проверяем, загрузился ли скрипт Telegram
+      if (!window.Telegram || !window.Telegram.Login || !window.Telegram.Login.auth) {
+        throw new Error('Скрипт Telegram не загрузился. Проверьте интернет или обновите страницу.');
+      }
+      
+      // 3. Открываем окно авторизации Telegram
       window.Telegram.Login.auth(
         { bot_id: config.botId, request_access: 'write', lang: 'ru' },
         async (user) => {
-          if (!user) { if (msgEl) msgEl.textContent = 'Вход отменён'; return; }
+          if (!user) { 
+            if (msgEl) msgEl.textContent = 'Вход отменён'; 
+            return; 
+          }
           try {
             const authRes = await fetch('/api/auth/telegram', {
               method: 'POST',
@@ -260,68 +252,18 @@ if (tgLoginBtn) {
             });
             const d = await authRes.json().catch(() => ({}));
             if (!authRes.ok) throw new Error(d.error || 'Ошибка Telegram-входа');
+            
             closeModal('authBackdrop');
             await refreshUser();
             toast('Вход через Telegram выполнен');
             location.href = '/profile';
-          } catch (e) { if (msgEl) msgEl.textContent = e.message; }
+          } catch (e) { 
+            if (msgEl) msgEl.textContent = e.message; 
+          }
         }
       );
     } catch (e) {
       if (msgEl) msgEl.textContent = e.message;
-    }
-  });
-}
-
-async function refreshOnline() {
-  try {
-    const r = await fetch('/api/real-online');
-    const d = await r.json();
-    const countEl = $('#onlineCount');
-    if (countEl) countEl.textContent = d.online || 0;
-  } catch {}
-}
-refreshOnline();
-setInterval(refreshOnline, 60000); // Обновляем раз в минуту
-
-// ==========================================
-// ЛОГИКА ВХОДА (ЛОГИН/ПАРОЛЬ И TG)
-// ==========================================
-let authMode = 'login';
-
-const tabLogin = $('#tabLogin');
-const tabRegister = $('#tabRegister');
-const authForm = $('#authForm');
-
-function setAuthMode(mode) {
-  authMode = mode;
-  if (tabLogin) tabLogin.classList.toggle('selected', mode === 'login');
-  if (tabRegister) tabRegister.classList.toggle('selected', mode === 'register');
-  if ($('#authTitle')) $('#authTitle').textContent = mode === 'login' ? 'Вход в аккаунт' : 'Создать аккаунт';
-  if ($('#authSubmit')) $('#authSubmit').innerHTML = (mode === 'login' ? 'Войти' : 'Зарегистрироваться') + ' <span>↗</span>';
-  if ($('#passwordHint')) $('#passwordHint').textContent = mode === 'register' ? 'Для нового аккаунта пароль должен быть не короче 10 символов.' : '';
-  if ($('#authMessage')) $('#authMessage').textContent = '';
-  if (authForm) authForm.querySelector('[name="password"]').minLength = mode === 'register' ? 10 : 4;
-}
-
-if (tabLogin) tabLogin.addEventListener('click', () => setAuthMode('login'));
-if (tabRegister) tabRegister.addEventListener('click', () => setAuthMode('register'));
-
-if (authForm) {
-  authForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const f = new FormData(form);
-    if ($('#authMessage')) $('#authMessage').textContent = 'Проверяем данные…';
-    try {
-      const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
-      await api(endpoint, { method: 'POST', body: JSON.stringify(Object.fromEntries(f.entries())) });
-      closeModal('authBackdrop');
-      await refreshUser();
-      toast(authMode === 'login' ? 'Ты вошёл в аккаунт' : 'Аккаунт создан');
-      form.reset();
-    } catch (err) {
-      if ($('#authMessage')) $('#authMessage').textContent = err.message;
     }
   });
 }
