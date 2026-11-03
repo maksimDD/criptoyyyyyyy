@@ -208,6 +208,29 @@ document.addEventListener('change',async e=>{
   }catch(err){toast(err.message);}
 });
 
+// Удаление отклонённой заявки
+document.addEventListener('click', async e => {
+  const delBtn = e.target.closest('[data-del-sale]');
+  if (delBtn) {
+    if (!confirm('Удалить эту заявку навсегда?')) return;
+    try {
+      await api(`/api/admin/sales/${delBtn.dataset.delSale}`, { method: 'DELETE' });
+      toast('Заявка удалена');
+      load();
+    } catch (err) { toast(err.message); }
+  }
+});
+
+// Очистка истории входов
+document.getElementById('clearVisitsBtn')?.addEventListener('click', async () => {
+  if (!confirm('Удалить всю историю входов?')) return;
+  try {
+    await api('/api/admin/visits', { method: 'DELETE' });
+    toast('История очищена');
+    load();
+  } catch (e) { toast(e.message); }
+});
+
 check();
 
 async function loadPromos(){
