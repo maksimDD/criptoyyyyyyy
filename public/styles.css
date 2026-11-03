@@ -229,7 +229,17 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 
 @media (max-width: 760px) {
   .online-widget { margin-left: auto; padding: 6px 10px; gap: 8px; margin-right: 10px; }
-  .online-img { width: 20px; height: 20px; }
-  .online-text b { font-size: 14px; }
-  .online-text span { font-size: 8px; }
+  .online-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  /* Делаем картинку зеленой и убираем белый фон */
+  filter: brightness(0) saturate(100%) invert(80%) sepia(31%) saturate(546%) hue-rotate(93deg) brightness(96%) contrast(86%) drop-shadow(0 0 6px rgba(92, 227, 164, 0.6));
+  animation: pulse-icon 2s infinite;
+}
+
+@keyframes pulse-icon {
+  0% { opacity: 0.8; transform: scale(0.95); filter: brightness(0) saturate(100%) invert(80%) sepia(31%) saturate(546%) hue-rotate(93deg) brightness(96%) contrast(86%) drop-shadow(0 0 2px rgba(92, 227, 164, 0.4)); }
+  50% { opacity: 1; transform: scale(1); filter: brightness(0) saturate(100%) invert(80%) sepia(31%) saturate(546%) hue-rotate(93deg) brightness(96%) contrast(86%) drop-shadow(0 0 10px rgba(92, 227, 164, 0.8)); }
+  100% { opacity: 0.8; transform: scale(0.95); filter: brightness(0) saturate(100%) invert(80%) sepia(31%) saturate(546%) hue-rotate(93deg) brightness(96%) contrast(86%) drop-shadow(0 0 2px rgba(92, 227, 164, 0.4)); }
 }
