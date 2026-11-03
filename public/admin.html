@@ -26,13 +26,24 @@
      <div style="display: flex; gap: 10px;">
         <button class="btn btn-outline btn-small" id="adminReferralsBtn">Рефералы</button>
         <button class="btn btn-outline btn-small" id="adminReviewsBtn">Отзывы</button>
+        <button class="btn btn-ghost btn-small" id="toggleUsersBtn">Свернуть ▲</button>
         <button class="btn btn-ghost btn-small" id="refreshAdmin">Обновить ↻</button>
      </div>
    </div>
-   <div class="table-scroll"><table><thead><tr><th>Аккаунт</th><th>Последний IP</th><th>Последняя активность</th><th>Статус</th><th>Действие</th></tr></thead><tbody id="usersTable"><tr><td colspan="5">Загрузка…</td></tr></tbody></table></div>
+   <div class="table-scroll" id="usersTableContainer"><table><thead><tr><th>Аккаунт</th><th>Последний IP</th><th>Последняя активность</th><th>Статус</th><th>Действие</th></tr></thead><tbody id="usersTable"><tr><td colspan="5">Загрузка…</td></tr></tbody></table></div>
  </section>
 
- <section class="admin-card table-card"><div class="admin-card-head"><div><span class="eyebrow">CRYPTO SALES</span><h2>Поток заявок</h2><p class="admin-footnote">Здесь отображаются только заявки на продажу криптовалюты.</p></div><button class="btn btn-outline btn-small" id="clearSales">Очистить историю</button></div><div class="table-scroll"><table><thead><tr><th>№ / Пользователь</th><th>Продажа</th><th>Реквизиты</th><th>Дата</th><th>Статус</th><th>Действие</th></tr></thead><tbody id="salesTable"><tr><td colspan="6">Загрузка…</td></tr></tbody></table></div></section>
+ <section class="admin-card table-card">
+   <div class="admin-card-head">
+     <div><span class="eyebrow">CRYPTO SALES</span><h2>Поток заявок</h2><p class="admin-footnote">Здесь отображаются только заявки на продажу криптовалюты.</p></div>
+     <div style="display: flex; gap: 10px;">
+       <button class="btn btn-outline btn-small" id="clearSales">Очистить историю</button>
+       <button class="btn btn-ghost btn-small" id="toggleSalesBtn">Свернуть ▲</button>
+     </div>
+   </div>
+   <div class="table-scroll" id="salesTableContainer"><table><thead><tr><th>№ / Пользователь</th><th>Продажа</th><th>Реквизиты</th><th>Дата</th><th>Статус</th><th>Действие</th></tr></thead><tbody id="salesTable"><tr><td colspan="6">Загрузка…</td></tr></tbody></table></div>
+ </section>
+
  <section class="admin-card table-card"><div class="admin-card-head"><div><span class="eyebrow">PROMO CODES</span><h2>Промокоды</h2></div></div>
  <form id="promoAdminForm" class="settings-form">
    <label>Код промокода<input name="code" required maxlength="24" placeholder="BLUP2026"></label>
@@ -103,7 +114,16 @@
    <button class="btn btn-primary">Применить</button>
  </form>
  </section>
- <section class="admin-card table-card"><div class="admin-card-head"><div><span class="eyebrow">LOGIN ACTIVITY / AUDIT</span><h2>История входов</h2></div></div><div class="table-scroll"><table><thead><tr><th>Пользователь</th><th>Событие</th><th>IP-адрес</th><th>Дата и время</th></tr></thead><tbody id="visitsTable"><tr><td colspan="4">Загрузка…</td></tr></tbody></table></div></section>
+ <section class="admin-card table-card">
+   <div class="admin-card-head">
+     <div><span class="eyebrow">LOGIN ACTIVITY / AUDIT</span><h2>История входов</h2></div>
+     <div style="display: flex; gap: 10px;">
+       <button class="btn btn-outline btn-small" id="clearVisitsBtn">Очистить</button>
+       <button class="btn btn-ghost btn-small" id="toggleVisitsBtn">Свернуть ▲</button>
+     </div>
+   </div>
+   <div class="table-scroll" id="visitsTableContainer"><table><thead><tr><th>Пользователь</th><th>Событие</th><th>IP-адрес</th><th>Дата и время</th></tr></thead><tbody id="visitsTable"><tr><td colspan="4">Загрузка…</td></tr></tbody></table></div>
+ </section>
  <p class="admin-privacy-note">IP-адреса и история входов являются техническими данными. Используйте их только для безопасности и с опубликованной политикой конфиденциальности.</p>
 </section></main>
 
@@ -146,6 +166,15 @@
       <label class="full">Текст отзыва<textarea name="text" rows="4" required placeholder="Отличный сервис, всё быстро!"></textarea></label>
       <button class="btn btn-primary full" type="submit">Добавить отзыв</button>
     </form>
+  </section>
+</div>
+
+<!-- Модалка: Просмотр промокода -->
+<div class="modal-backdrop" id="adminPromoViewBackdrop" aria-hidden="true">
+  <section class="modal" role="dialog" aria-modal="true" style="width: min(500px, 100%);">
+    <button class="modal-close" onclick="document.getElementById('adminPromoViewBackdrop').classList.remove('open'); document.body.style.overflow='';">×</button>
+    <div class="modal-eyebrow">ADMIN / PROMO DETAILS</div>
+    <div id="adminPromoViewContent"></div>
   </section>
 </div>
 
