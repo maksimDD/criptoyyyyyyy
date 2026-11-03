@@ -177,7 +177,6 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .tg-login-btn{margin-top:6px;background:linear-gradient(112deg,#43c9c0,#3989b7 58%,#7168da)}
 .tg-btn-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.18);font-size:12px;margin-right:4px}
 
-/* Плашка онлайна */
 .online-widget {
   display: inline-flex;
   align-items: center;
@@ -191,17 +190,14 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   backdrop-filter: blur(10px);
 }
 
-/* Твоя картинка */
 .online-img {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
-  border-radius: 4px; /* На всякий случай, если у картинки есть фон */
-  filter: drop-shadow(0 0 6px rgba(92, 227, 164, 0.6)); /* Зеленое свечение */
+  filter: drop-shadow(0 0 6px rgba(92, 227, 164, 0.6));
   animation: pulse-icon 2s infinite;
 }
 
-/* Текст */
 .online-text {
   display: flex;
   flex-direction: column;
@@ -233,7 +229,7 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 
 @media (max-width: 760px) {
   .online-widget { margin-left: auto; padding: 6px 10px; gap: 8px; margin-right: 10px; }
-  .online-img { width: 18px; height: 18px; }
+  .online-img { width: 20px; height: 20px; }
   .online-text b { font-size: 14px; }
   .online-text span { font-size: 8px; }
 }
