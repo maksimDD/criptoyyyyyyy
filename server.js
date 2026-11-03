@@ -56,6 +56,37 @@ app.use(session({
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ==========================================
+// ОТСЛЕЖИВАНИЕ ОНЛАЙНА
+// ==========================================
+const onlineUsers = new Map();
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) {
+    return next();
+  }
+  const identifier = req.session?.userId ? `user_${req.session.userId}` : `ip_${ipOf(req)}`;
+  onlineUsers.set(identifier, Date.now());
+  next();
+});
+
+app.get('/api/online', (req, res) => {
+  const now = Date.now();
+  const fiveMinutes = 5 * 60 * 1000;
+  let count = 0;
+
+  onlineUsers.forEach((lastSeen, id) => {
+    if (now - lastSeen < fiveMinutes) {
+      count++;
+    } else {
+      onlineUsers.delete(id);
+    }
+  });
+
+  res.json({ online: count > 0 ? count : 1 });
+});
+// ==========================================
+
 const authAttempts = new Map();
 function rateLimit(key, max = 12, windowMs = 15 * 60 * 1000) {
   const now = Date.now();
@@ -71,7 +102,7 @@ function getSetting(key, fallback, cb) {
 function setSetting(key, value, cb) { db.run('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', [key, String(value)], cb || (() => {})); }
 function logVisit(user, ip, event) {
   db.run('INSERT INTO visits(user_id,nickname,ip,event) VALUES(?,?,?,?)', [user ? user.id : null, user ? user.nickname : null, ip, event]);
-  if (user) db.run('UPDATE users SET last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?', [ip, user.id]);
+  if (user) db.run('UPDATE users SET last_ip=?,last_seen=CURRENT_TIMESTAMP WHERE id=?', [ip, user.id]);
 }
 function sendBlocked(res) { return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' }); }
 
