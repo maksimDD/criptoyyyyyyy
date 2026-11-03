@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>BLUP Games - x50 / x100</title>
+<title>BLUP Games</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -32,10 +32,10 @@
 
   .app { width: 100%; max-width: 1100px; display: flex; flex-direction: column; gap: 15px; }
 
-  /* ХЕДЕР */
+  /* --- ХЕДЕР --- */
   .header { display: flex; justify-content: space-between; align-items: center; background: var(--panel); padding: 12px 20px; border-radius: 12px; }
   .header-left { display: flex; align-items: center; gap: 15px; }
-  .logo { width: 36px; height: 36px; background: var(--accent); border-radius: 10px; display: flex; justify-content: center; align-items: center; font-weight: 900; }
+  .logo { width: 36px; height: 36px; background: var(--accent); border-radius: 10px; display: flex; justify-content: center; align-items: center; font-weight: 900; color:#fff; text-decoration:none; }
   .title { font-size: 18px; font-weight: 800; }
   .header-right { display: flex; align-items: center; gap: 10px; }
   .balance { background: var(--panel-light); padding: 8px 16px; border-radius: 10px; font-weight: 700; border: 1px solid var(--line); }
@@ -43,26 +43,44 @@
   .btn-back { background: var(--panel-light); border: 1px solid var(--line); color: var(--text); padding: 8px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; transition: 0.2s; }
   .btn-back:hover { background: var(--line); }
 
-  /* ИГРОВОЕ ПОЛЕ */
-  .game-board { background: var(--panel); border-radius: 16px; padding: 30px; position: relative; display: flex; flex-direction: column; align-items: center; border: 1px solid var(--line); }
+  /* --- ЛОББИ --- */
+  .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+  .nav-tabs button { background: var(--panel); border: 1px solid var(--line); color: var(--muted); padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 800; transition: 0.2s; }
+  .nav-tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-  /* СТРЕЛКИ */
+  .panel-content { display: none; background: var(--panel); border-radius: 16px; border: 1px solid var(--line); padding: 30px; }
+  .panel-content.active { display: block; }
+
+  /* Выбор игр */
+  .game-list { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .game-card { background: var(--panel-light); border: 1px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; text-decoration: none; color: #fff; transition: 0.2s; }
+  .game-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .game-card h2 { font-size: 24px; margin-bottom: 10px; color: var(--accent); }
+  .game-card p { font-size: 12px; color: var(--muted); }
+
+  /* Пополнение и Промо */
+  .form-box { max-width: 400px; margin: 0 auto; }
+  .form-box input { width: 100%; background: var(--bg); border: 1px solid var(--line); color: #fff; padding: 15px; border-radius: 10px; font-size: 16px; margin-bottom: 15px; outline: none; }
+  .form-box button { width: 100%; padding: 15px; border: none; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
+  .form-box p { margin-top: 15px; text-align: center; font-weight: 600; }
+
+  /* --- ИГРА (x50 / x100) --- */
+  .game-board { background: var(--panel); border-radius: 16px; padding: 30px; position: relative; display: none; flex-direction: column; align-items: center; border: 1px solid var(--line); }
+  .game-board.active { display: flex; }
+
   .arrows { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 10; }
   .arrow-down { width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 14px solid var(--accent); filter: drop-shadow(0 0 5px var(--accent)); }
   .arrow-up { width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 14px solid var(--accent); filter: drop-shadow(0 0 5px var(--accent)); }
 
-  /* КОЛЕСО */
   .wheel-wrapper { width: 100%; max-width: 600px; height: 300px; position: relative; margin-top: 40px; display: flex; justify-content: center; }
   .wheel-svg { width: 100%; height: 100%; transition: transform 5s cubic-bezier(0.1, 0.7, 0.1, 1); transform-origin: center bottom; }
 
-  /* ТАЙМЕР */
   .timer-panel { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); background: var(--panel-light); border: 1px solid var(--line); border-radius: 12px; padding: 10px 20px; text-align: center; z-index: 10; min-width: 140px; }
   .timer-label { font-size: 9px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
   .timer-digits { font-size: 22px; font-weight: 900; display: flex; justify-content: center; gap: 4px; }
   .timer-digits span { background: var(--bg); padding: 2px 6px; border-radius: 4px; }
 
-  /* ПАНЕЛИ */
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-bottom: 15px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-bottom: 15px; margin-top: 20px; }
   .info-box { background: var(--panel-light); border: 1px solid var(--line); border-radius: 12px; padding: 15px; }
   .info-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
   
@@ -71,7 +89,6 @@
   .history { display: flex; gap: 6px; overflow: hidden; height: 40px; align-items: center; }
   .hist-item { width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px; font-weight: 900; color: #000; flex-shrink: 0; }
 
-  /* КНОПКИ СТАВОК */
   .bet-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 100%; }
   .bet-card { background: var(--panel-light); border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; gap: 8px; user-select: none; }
   .bet-card:hover { border-color: var(--accent); }
@@ -97,6 +114,7 @@
     .bet-grid { grid-template-columns: repeat(2, 1fr); }
     .info-grid { grid-template-columns: 1fr; }
     .wheel-wrapper { height: 220px; }
+    .game-list { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -106,25 +124,64 @@
   
   <header class="header">
     <div class="header-left">
-      <div class="logo">B</div>
-      <div class="title" id="gameTitle">Игра x50</div>
+      <a href="/games" class="logo" style="text-decoration:none;">B</a>
+      <div class="title" id="headerTitle">BLUP Games</div>
     </div>
     <div class="header-right">
       <div class="balance">Баланс: <span>$<span id="balDisplay">0</span></span></div>
-      <a href="/" class="btn-back">Назад</a>
+      <a href="/" class="btn-back">На главную</a>
     </div>
   </header>
 
-  <div class="game-board">
+  <!-- ЛОББИ (БЕЗ ХЕША) -->
+  <div id="lobbyView">
+    <div class="nav-tabs">
+      <button class="active" data-tab="games">Игры</button>
+      <button data-tab="deposit">Пополнить</button>
+      <button data-tab="promo">Промокод</button>
+    </div>
+
+    <div class="panel-content active" id="tab-games">
+      <div class="game-list">
+        <a href="#x50" class="game-card">
+          <h2>Игра x50</h2>
+          <p>Множители: x2, x3, x5, x50</p>
+        </a>
+        <a href="#x100" class="game-card">
+          <h2>Игра x100</h2>
+          <p>Множители: x2, x3, x5, x10, x15, x20, x100</p>
+        </a>
+      </div>
+    </div>
+
+    <div class="panel-content" id="tab-deposit">
+      <div class="form-box">
+        <h2 style="text-align:center; margin-bottom:20px;">Пополнение баланса</h2>
+        <input type="number" id="depositAmount" placeholder="Сумма в $" value="100" min="1">
+        <button onclick="doDeposit()">Пополнить</button>
+        <p id="depositStatus"></p>
+      </div>
+    </div>
+
+    <div class="panel-content" id="tab-promo">
+      <div class="form-box">
+        <h2 style="text-align:center; margin-bottom:20px;">Активация промокода</h2>
+        <input type="text" id="promoCode" placeholder="Введите промокод" maxlength="24">
+        <button onclick="doPromo()">Применить</button>
+        <p id="promoStatus"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ИГРА (ОТКРЫВАЕТСЯ ПО ХЕШУ #x50 ИЛИ #x100) -->
+  <div class="game-board" id="gameView">
     <div class="arrows">
       <div class="arrow-up"></div>
       <div class="arrow-down"></div>
     </div>
 
     <div class="wheel-wrapper">
-      <svg class="wheel-svg" id="wheelSvg" viewBox="0 0 500 250">
-        <!-- Генерируется JS -->
-      </svg>
+      <svg class="wheel-svg" id="wheelSvg" viewBox="0 0 500 250"></svg>
     </div>
 
     <div class="timer-panel" id="timerPanel">
@@ -151,12 +208,12 @@
 </div>
 
 <script>
-  // КОНФИГУРАЦИЯ ЦВЕТОВ (КАК НА Hotskins)
+  // КОНФИГУРАЦИЯ
   const gameConfig = {
     x50: {
       title: "Игра x50",
+      // Точные цвета как на скрине Hotskins (темное, желтое, красное, зеленое)
       segments: [
-        // Чередование: темный, темный, желтый, темный, красный, темный...
         '#252c3f', '#252c3f', '#d98e00', '#252c3f', '#d94040', '#252c3f', 
         '#252c3f', '#252c3f', '#d98e00', '#252c3f', '#d94040', '#252c3f',
         '#252c3f', '#252c3f', '#d98e00', '#252c3f', '#d94040', '#252c3f',
@@ -169,13 +226,12 @@
     },
     x100: {
       title: "Игра x100",
+      // Синие, фиолетовые, оранжевые, желтые, зеленые, красные
       segments: [
-        // Оранжевый, желтый, синий, фиолетовый, зеленый, красный...
-        '#ff7b4b', '#ffb84b', '#3d8aff', '#9f4bff', '#4bff9f', '#ff4b4b',
-        '#ff7b4b', '#ffb84b', '#3d8aff', '#9f4bff', '#4bff9f', '#ff4b4b',
-        '#ff7b4b', '#ffb84b', '#3d8aff', '#9f4bff', '#4bff9f', '#ff4b4b',
-        '#ff7b4b', '#ffb84b', '#3d8aff', '#9f4bff', '#4bff9f', '#ff4b4b',
-        '#ff7b4b', '#ffb84b', '#3d8aff', '#9f4bff', '#4bff9f', '#ff4b4b'
+        '#3d8aff', '#9f4bff', '#ff7b4b', '#ffb84b', '#4bff9f', '#ff4b4b',
+        '#3d8aff', '#9f4bff', '#ff7b4b', '#ffb84b', '#4bff9f', '#ff4b4b',
+        '#3d8aff', '#9f4bff', '#ff7b4b', '#ffb84b', '#4bff9f', '#ff4b4b',
+        '#3d8aff', '#9f4bff', '#ff7b4b', '#ffb84b', '#4bff9f', '#ff4b4b'
       ],
       multipliers: [
         { val: 2, color: '#3d8aff' }, { val: 3, color: '#ffb84b' }, 
@@ -190,7 +246,7 @@
   let balance = 0;
   let selectedMult = 2;
   let isSpinning = false;
-  let isBettingOpen = true;
+  let isBettingOpen = false;
   let timerInt = null;
   let timeLeft = 20;
 
@@ -199,17 +255,85 @@
   const betGrid = document.getElementById('betGrid');
   const timerPanel = document.getElementById('timerPanel');
 
-  // Отрисовка колеса
+  // ==========================================
+  // ВКЛАДКИ В ЛОББИ
+  // ==========================================
+  document.querySelectorAll('.nav-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  async function doDeposit() {
+    const amt = Number(document.getElementById('depositAmount').value);
+    const st = document.getElementById('depositStatus');
+    st.innerText = 'Обработка...';
+    try {
+      const r = await fetch('/api/games/deposit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount: amt }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      st.innerText = `Баланс пополнен на $${amt}`;
+      st.style.color = '#4bff9f';
+      loadBalance();
+    } catch (e) { st.innerText = e.message; st.style.color = '#ff4b4b'; }
+  }
+
+  async function doPromo() {
+    const code = document.getElementById('promoCode').value;
+    const st = document.getElementById('promoStatus');
+    st.innerText = 'Проверка...';
+    try {
+      const r = await fetch('/api/games/promo', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      st.innerText = `Бонус: +$${d.bonus}`;
+      st.style.color = '#4bff9f';
+      loadBalance();
+    } catch (e) { st.innerText = e.message; st.style.color = '#ff4b4b'; }
+  }
+
+  // ==========================================
+  // РОУТИНГ (ХЕШ)
+  // ==========================================
+  function handleHash() {
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'x50' || hash === 'x100') {
+      currentGame = hash;
+      document.getElementById('lobbyView').style.display = 'none';
+      document.getElementById('gameView').classList.add('active');
+      document.getElementById('headerTitle').innerText = gameConfig[currentGame].title;
+      document.getElementById('gameView').style.display = 'flex';
+      initGame();
+    } else {
+      document.getElementById('lobbyView').style.display = 'block';
+      document.getElementById('gameView').classList.remove('active');
+      document.getElementById('gameView').style.display = 'none';
+      document.getElementById('headerTitle').innerText = 'BLUP Games';
+    }
+  }
+
+  window.addEventListener('hashchange', handleHash);
+
+  // ==========================================
+  // ИГРА
+  // ==========================================
+  function initGame() {
+    drawWheel();
+    renderButtons();
+    startRoundTimer();
+    isSpinning = false;
+    isBettingOpen = false;
+  }
+
   function drawWheel() {
     svg.innerHTML = '';
     const colors = gameConfig[currentGame].segments;
     const numSegments = colors.length;
     const radius = 230;
     const cx = 250, cy = 250;
-
-    // Отступы для сегментов
-    const gapDeg = 2;
-    const segmentAngle = 180 / numSegments;
 
     for (let i = 0; i < numSegments; i++) {
       const startAngle = Math.PI + (i * Math.PI / numSegments);
@@ -221,19 +345,15 @@
       const y2 = cy + radius * Math.sin(endAngle);
 
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      // Рисуем от края до края дуги
       path.setAttribute('d', `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`);
       path.setAttribute('stroke', colors[i]);
       path.setAttribute('stroke-width', '24');
       path.setAttribute('fill', 'none');
-      
-      // Делаем отступы между сегментами (эффект порезов)
       path.setAttribute('stroke-dasharray', '12 3');
       
       svg.appendChild(path);
     }
 
-    // Черный внутренний круг, чтобы было видно только кольцо
     const inner = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     inner.setAttribute('cx', cx);
     inner.setAttribute('cy', cy);
@@ -242,7 +362,6 @@
     svg.appendChild(inner);
   }
 
-  // Отрисовка кнопок выбора ставки
   function renderButtons() {
     const mults = gameConfig[currentGame].multipliers;
     betGrid.innerHTML = mults.map(m => `
@@ -268,7 +387,6 @@
     });
   }
 
-  // Таймер (20 секунд)
   function startRoundTimer() {
     if (timerInt) clearInterval(timerInt);
     timeLeft = 20;
@@ -283,7 +401,7 @@
       updateTimerDisplay();
       if (timeLeft <= 0) {
         clearInterval(timerInt);
-        if (isBettingOpen) spinWheel(); // Авто-старт, если время вышло
+        if (isBettingOpen) spinWheel();
       }
     }, 1000);
   }
@@ -295,7 +413,6 @@
     document.getElementById('t4').innerText = 0;
   }
 
-  // Запуск колеса
   async function spinWheel() {
     if (!isBettingOpen) return;
     isBettingOpen = false;
@@ -306,7 +423,6 @@
 
     const bet = Number(document.getElementById('betInput').value);
     if (bet > balance) {
-      // Если баланс меньше ставки, просто крутим колесо без денег (для визуала)
       animateSpin(null);
       return;
     }
@@ -318,10 +434,7 @@
         body: JSON.stringify({ game: currentGame, amount: bet, multiplier: selectedMult })
       });
       const data = await r.json();
-      
-      // Крутим колесо
       animateSpin(data);
-
     } catch (e) {
       console.error(e);
       animateSpin(null);
@@ -329,35 +442,25 @@
   }
 
   function animateSpin(result) {
-    // Случайный угол, чтобы колесо покрутилось 5 секунд и остановилось
-    const randomDeg = Math.floor(Math.random() * 360) + 1440; // 4 оборота
+    const randomDeg = Math.floor(Math.random() * 360) + 1440;
     svg.style.transition = 'transform 5s cubic-bezier(0.1, 0.7, 0.1, 1)';
     svg.style.transform = `rotate(${randomDeg}deg)`;
 
     setTimeout(() => {
-      // Колесо остановилось
       if (result) {
         balance = result.newBalance;
         document.getElementById('balDisplay').innerText = balance.toFixed(2);
         addHistory(selectedMult);
-
-        if (result.win) {
-          alert(`🎉 ВЫИГРЫШ! Выпал x${selectedMult}. Вы получили $${result.winAmount}`);
-        } else {
-          alert(`😔 Вы проиграли.`);
-        }
+        if (result.win) alert(`🎉 ВЫИГРЫШ! Выпал x${selectedMult}. Вы получили $${result.winAmount}`);
+        else alert(`😔 Вы проиграли.`);
       }
-
       playBtn.innerText = 'СДЕЛАТЬ СТАВКУ';
-      
-      // Сбрасываем визуальный поворот колеса и запускаем новый таймер
       setTimeout(() => {
         svg.style.transition = 'none';
         svg.style.transform = 'rotate(0deg)';
         startRoundTimer();
       }, 500);
-      
-    }, 5000); // 5 секунд кручения
+    }, 5000);
   }
 
   function addHistory(mult) {
@@ -382,7 +485,6 @@
     } catch {}
   }
 
-  // Нажатие кнопки "Сделать ставку"
   playBtn.addEventListener('click', () => {
     if (!isBettingOpen) return;
     if (Number(document.getElementById('betInput').value) > balance) {
@@ -393,19 +495,7 @@
 
   // Старт
   loadBalance();
-  drawWheel();
-  renderButtons();
-  startRoundTimer();
-  
-  // Переключение между x50 и x100 по клику на заголовок (для тестов)
-  document.getElementById('gameTitle').addEventListener('click', () => {
-    if (isSpinning || !isBettingOpen) return;
-    currentGame = currentGame === 'x50' ? 'x100' : 'x50';
-    document.getElementById('gameTitle').innerText = gameConfig[currentGame].title;
-    selectedMult = gameConfig[currentGame].multipliers[0].val;
-    drawWheel();
-    renderButtons();
-  });
+  handleHash();
 </script>
 </body>
 </html>
