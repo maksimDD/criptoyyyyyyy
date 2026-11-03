@@ -4,7 +4,6 @@ function fmtDate(v){ if(!v) return '—'; const d=new Date(String(v).replace(' '
 
 let currentProfile = null;
 
-// 1. Загрузка профиля
 (async function(){
   try {
     const r = await fetch('/api/profile', { credentials: 'same-origin' });
@@ -47,7 +46,7 @@ let currentProfile = null;
       : '<p class="muted">Активных купонов нет</p>';
       
     initLinkTelegram();
-    initReferralSystem(); // Вызываем после загрузки профиля
+    initReferralSystem();
   } catch (e) {
     $('#p-error').textContent = e.message;
   }
@@ -58,7 +57,6 @@ let currentProfile = null;
   });
 })();
 
-// 2. Привязка Telegram
 function initLinkTelegram() {
   const linkTgBtn = $('#linkTgBtn');
   if (!linkTgBtn) return;
@@ -123,7 +121,6 @@ function initLinkTelegram() {
   });
 }
 
-// 3. Реферальная система
 function initReferralSystem() {
   const refBtn = $('#openRefBtn');
   const refClose = $('#refClose');
