@@ -268,3 +268,14 @@ if (tgLoginBtn) {
     }
   });
 }
+
+async function refreshOnline() {
+  try {
+    const r = await fetch('/api/online');
+    const d = await r.json();
+    const countEl = $('#onlineCount');
+    if (countEl) countEl.textContent = d.online;
+  } catch {}
+}
+refreshOnline();
+setInterval(refreshOnline, 15000);
