@@ -62,7 +62,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const onlineUsers = new Map();
 
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) {
+  if (req.path.startsWith('/api/online') || req.path.startsWith('/api/real-online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) {
     return next();
   }
   const identifier = req.session?.userId ? `user_${req.session.userId}` : `ip_${ipOf(req)}`;
@@ -84,6 +84,33 @@ app.get('/api/online', (req, res) => {
   });
 
   res.json({ online: count > 0 ? count : 1 });
+});
+
+app.get('/api/real-online', async (req, res) => {
+  const token = process.env.YM_TOKEN || 'y0__wgBEPmQic8HGJXETiDj_ILRGTCcj7yMCC7MDSzW1KfoJBhureZsU9l-5ONs'; 
+  const counterId = 114041862;
+
+  if (!token) return res.status(500).json({ error: 'Токен Метрики не настроен' });
+
+  try {
+    const url = `https://api-metrika.yandex.net/stat/v1/data?ids=${counterId}&metrics=ym:s:users&date1=today&date2=today&dimensions=ym:s:startOfMinute&limit=30&sort=-ym:s:startOfMinute`;
+    
+    const response = await fetch(url, {
+      headers: { 'Authorization': `OAuth ${token}` }
+    });
+    
+    const data = await response.json();
+    
+    let online = 0;
+    if (data.data && data.data.length > 0) {
+      online = data.data[0].metrics[0];
+    }
+    
+    res.json({ online: online > 0 ? online : 1 });
+  } catch (e) {
+    console.error('Ошибка запроса к API Метрики:', e.message);
+    res.json({ online: 1 });
+  }
 });
 // ==========================================
 
@@ -134,7 +161,7 @@ app.get('/api/config', (req, res) => {
 });
 
 app.get('/api/auth/telegram/config', (req, res) => {
-  const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+  const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
   if (!token) return res.status(503).json({ error: 'Telegram-вход не настроен' });
   const botId = token.split(':')[0];
   if (!botId || isNaN(botId)) return res.status(503).json({ error: 'Некорректный токен бота' });
@@ -268,6 +295,42 @@ app.post('/api/auth/telegram', (req, res) => {
         });
       });
     });
+  });
+});
+
+// НОВЫЙ МАРШРУТ: Привязка Telegram к обычному аккаунту
+app.post('/api/auth/link-telegram', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
+  const data = req.body || {};
+  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
+  if (!botToken) return res.status(503).json({ error: 'Telegram-вход не настроен на сервере' });
+  if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Некорректные данные Telegram' });
+  if (Math.floor(Date.now()/1000) - Number(data.auth_date) > 300) {
+    return res.status(400).json({ error: 'Подпись Telegram устарела. Попробуйте снова.' });
+  }
+  const secret = crypto.createHash('sha256').update(botToken).digest();
+  const checkString = Object.keys(data).filter(k => k !== 'hash').sort().map(k => `${k}=${data[k]}`).join('\n');
+  const hmac = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
+  if (hmac !== data.hash) return res.status(403).json({ error: 'Подпись Telegram неверна' });
+
+  db.get('SELECT id, nickname FROM users WHERE telegram_id=? AND id!=?', [data.id, req.session.userId], (err, existing) => {
+    if (err) return res.status(500).json({ error: 'Ошибка БД' });
+    if (existing) return res.status(409).json({ error: 'Этот Telegram уже привязан к другому аккаунту' });
+
+    db.run(`UPDATE users SET telegram_id=?, telegram_username=?, telegram_first_name=?, telegram_last_name=?, telegram_photo_url=? WHERE id=?`,
+      [data.id, data.username || null, data.first_name || null, data.last_name || null, data.photo_url || null, req.session.userId], function(updErr) {
+        if (updErr) return res.status(500).json({ error: 'Не удалось привязать Telegram' });
+        
+        db.get('SELECT public_id, nickname FROM users WHERE id=?', [req.session.userId], (e, user) => {
+          notifyNewUser({
+            nickname: user.nickname,
+            publicId: user.public_id,
+            telegramId: data.id,
+            telegramUsername: data.username || 'нет юзернейма'
+          }).catch(() => {});
+          res.json({ ok: true });
+        });
+      });
   });
 });
 
