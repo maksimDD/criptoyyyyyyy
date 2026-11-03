@@ -100,6 +100,27 @@ db.ready = (async () => {
     win_amount REAL,    -- сколько выиграл
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
+
+  // === Реферальная система ===
+  await run(`CREATE TABLE IF NOT EXISTS user_referrals (
+    user_id INTEGER PRIMARY KEY,
+    referrer_id INTEGER,
+    ref_code TEXT UNIQUE,
+    balance REAL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run(`CREATE TABLE IF NOT EXISTS referral_withdrawals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    amount REAL,
+    phone TEXT,
+    bank TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  // Добавляем колонку referred_by в users, если её нет
+  const userCols = new Set((await all('PRAGMA table_info(users)')).map(x => x.name));
+  if (!userCols.has('referred_by')) await run('ALTER TABLE users ADD COLUMN referred_by INTEGER');
     
     console.log('База BLUP готова; миграции завершены.');
   } catch (e) {
