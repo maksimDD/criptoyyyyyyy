@@ -20,7 +20,6 @@
     <a class="nav-link active" href="/profile">Профиль</a>
   </nav>
   <div class="header-actions">
-    <button id="openRefBtn" class="btn btn-primary" style="width:100%; margin-bottom:15px; background: linear-gradient(112deg,#43c9c0,#3989b7 58%,#7168da);">Реферальная система</button>
     <a class="btn btn-ghost btn-small" href="/">На сайт ↗</a>
     <button class="btn btn-outline btn-small" id="p-logout">Выйти</button>
   </div>
@@ -51,7 +50,6 @@
         <b id="p-tg-id">—</b>
       </div>
       
-      <!-- Блок для привязки Telegram -->
       <div class="profile-item" id="tgLinkBlock">
         <small>Статус Telegram</small>
         <b id="p-tg-status" style="font-size: 12px; margin-bottom: 8px;">не привязан</b>
@@ -73,39 +71,6 @@
     </div>
   </section>
 
-    <!-- Модалка Реферальная система -->
-  <div class="modal-backdrop" id="refBackdrop" aria-hidden="true">
-    <section class="modal" role="dialog" aria-modal="true">
-      <button class="modal-close" id="refClose" aria-label="Закрыть">×</button>
-      <div class="modal-eyebrow">BLUP / РЕФЕРАЛЫ</div>
-      <h2>Реферальная система</h2>
-      <p class="modal-desc">Приглашай друзей и получай 10% от их продаж.</p>
-      
-      <div class="ref-info" style="margin-bottom: 20px;">
-        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-weight:800; color:#fff;">
-          <span>Твой баланс:</span>
-          <span style="color:#5ce3a4;" id="refBalance">$0.00</span>
-        </div>
-        <div style="display:flex; gap:10px;">
-          <input type="text" id="refCodeInput" placeholder="Твой код" style="flex:1; background:#08131e; border:1px solid #2a3347; color:#fff; padding:10px; border-radius:8px;">
-          <button class="btn btn-primary" id="saveRefCodeBtn" style="padding:10px 15px;">Сохранить</button>
-        </div>
-        <div style="margin-top:10px; font-size:11px; color:#8fa5b5;">Твоя ссылка: <b id="refLinkDisplay" style="color:#3d8aff; word-break:break-all;"></b></div>
-      </div>
-
-      <h3 style="font-size:14px; margin-bottom:10px;">Мои рефералы</h3>
-      <div id="refList" style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:5px; margin-bottom:20px;"></div>
-
-      <h3 style="font-size:14px; margin-bottom:10px;">Вывод средств</h3>
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <input type="number" id="refWithdrawAmount" placeholder="Сумма (мин. $10)" style="background:#08131e; border:1px solid #2a3347; color:#fff; padding:10px; border-radius:8px;">
-        <input type="text" id="refWithdrawPhone" placeholder="Номер телефона или карты" style="background:#08131e; border:1px solid #2a3347; color:#fff; padding:10px; border-radius:8px;">
-        <input type="text" id="refWithdrawBank" placeholder="Название банка" style="background:#08131e; border:1px solid #2a3347; color:#fff; padding:10px; border-radius:8px;">
-        <button class="btn btn-primary" id="refWithdrawBtn">Вывести</button>
-      </div>
-    </section>
-  </div>
-
   <section class="profile-card">
     <div class="profile-card-head">
       <span class="profile-eyebrow">ОДНОРАЗОВЫЕ КУПОНЫ</span>
@@ -116,7 +81,49 @@
       <p class="muted">Загрузка…</p>
     </div>
   </section>
+
+  <section class="profile-card">
+    <div class="profile-card-head">
+      <span class="profile-eyebrow">ПАРТНЕРСКАЯ ПРОГРАММА</span>
+      <h2>Реферальная система</h2>
+      <p class="muted">Приглашай друзей и получай 10% от их продаж.</p>
+    </div>
+    <button id="openRefBtn" class="btn btn-primary" style="width:100%; background: linear-gradient(112deg,#43c9c0,#3989b7 58%,#7168da);">Открыть реферальную систему</button>
+  </section>
 </main>
+
+<!-- Модалка Реферальная система -->
+<div class="modal-backdrop" id="refBackdrop" aria-hidden="true">
+  <section class="modal" role="dialog" aria-modal="true">
+    <button class="modal-close" id="refClose" aria-label="Закрыть">×</button>
+    <div class="modal-eyebrow">BLUP / РЕФЕРАЛЫ</div>
+    <h2>Реферальная система</h2>
+    <p class="modal-desc">Приглашай друзей и получай 10% от их продаж.</p>
+    
+    <div class="ref-info" style="margin-bottom: 20px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-weight:800; color:#fff;">
+        <span>Твой баланс:</span>
+        <span style="color:#5ce3a4;" id="refBalance">$0.00</span>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="refCodeInput" placeholder="Твой код" style="flex:1; background:#08131e; border:1px solid #2a3347; color:#fff; padding:10px; border-radius:8px;">
+        <button class="btn btn-primary" id="saveRefCodeBtn" style="padding:10px 15px;">Сохранить</button>
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:#8fa5b5;">Твоя ссылка: <b id="refLinkDisplay" style="color:#3d8aff; word-break:break-all;"></b></div>
+    </div>
+
+    <h3 style="font-size:14px; margin-bottom:10px;">Мои рефералы</h3>
+    <div id="refList" style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:5px; margin-bottom:20px;"></div>
+
+    <h3 style="font-size:14px; margin-bottom:10px;">Вывод средств</h3>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <input type="number" id="refWithdrawAmount" placeholder="Сумма (мин. $10)" style="background:#08131e; border:1px solid #2a3347; color:#fff; padding:10px; border-radius:8px;">
+      <input type="text" id="refWithdrawPhone" placeholder="Номер телефона или карты" style="background:#08131e; border:1px solid #2a3347; color:#fff; padding:10px; border-radius:8px;">
+      <input type="text" id="refWithdrawBank" placeholder="Название банка" style="background:#08131e; border:1px solid #2a3347; color:#fff; padding:10px; border-radius:8px;">
+      <button class="btn btn-primary" id="refWithdrawBtn">Вывести</button>
+    </div>
+  </section>
+</div>
 
 <!-- Скрипт Telegram для работы привязки -->
 <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
