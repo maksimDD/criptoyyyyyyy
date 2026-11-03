@@ -2,29 +2,27 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-// Функция для безопасного поиска рабочей директории
-function getDbPath() {
-  // Пытаемся использовать /data (постоянное хранилище Amvera)
-  const dataDir = '/data';
+// Жестко указываем системную папку Amvera
+const dbDir = '/data';
+
+// Если папки нет, создаем
+if (!fs.existsSync(dbDir)) {
   try {
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    fs.accessSync(dataDir, fs.constants.W_OK);
-    return path.join(dataDir, 'data.db');
-  } catch (err) {
-    // Если /data недоступна, пишем в папку проекта (временное решение)
-    console.warn('ВНИМАНИЕ: Папка /data недоступна. База будет создана в папке проекта (данные могут слететь при перезапуске).', err.message);
-    return path.join(__dirname, 'data.db');
+    fs.mkdirSync(dbDir, { recursive: true });
+    console.log(`Папка ${dbDir} создана.`);
+  } catch (e) {
+    console.error('Не удалось создать папку /data:', e.message);
   }
 }
 
-const dbPath = getDbPath();
-console.log(`Используется база данных по пути: ${dbPath}`);
+const dbPath = path.join(dbDir, 'data.db');
+console.log(`>>> БАЗА ДАННЫХ БУДЕТ ПОДКЛЮЧЕНА ПО ПУТИ: ${dbPath}`);
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
-    console.error('ОШИБКА ПОДКЛЮЧЕНИЯ К БАЗЕ ДАННЫХ:', err.message);
+    console.error('>>> КРИТИЧЕСКАЯ ОШИБКА ПОДКЛЮЧЕНИЯ К БД:', err.message);
+  } else {
+    console.log('>>> БАЗА ДАННЫХ УСПЕШНО ПОДКЛЮЧЕНА!');
   }
 });
 
