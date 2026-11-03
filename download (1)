@@ -1,0 +1,4 @@
+.env
+.blup-session-secret
+*.db
+node_modules/

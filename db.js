@@ -62,6 +62,7 @@ db.ready = (async () => {
 
     // Реферальная система
     await run(`CREATE TABLE IF NOT EXISTS user_referrals (user_id INTEGER PRIMARY KEY, referrer_id INTEGER, ref_code TEXT UNIQUE, balance REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    await run(`CREATE TABLE IF NOT EXISTS referral_commissions (sale_id INTEGER PRIMARY KEY, referrer_id INTEGER NOT NULL, sale_amount_usd REAL DEFAULT 0, sale_amount_rub REAL DEFAULT 0, commission_usd REAL DEFAULT 0, commission_rub REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS referral_withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount REAL, phone TEXT, bank TEXT, status TEXT DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
 
     const defaults = {
@@ -69,6 +70,8 @@ db.ready = (async () => {
       banks:JSON.stringify(['Сбербанк','Т-Банк','ВТБ','Альфа-Банк','Газпромбанк','Россельхозбанк','Промсвязьбанк','Совкомбанк','Райффайзенбанк','Московский кредитный банк','Банк ДОМ.РФ','Уралсиб','Ак Барс Банк','Банк Санкт-Петербург','ОТП Банк','ЮниКредит Банк','Почта Банк','Озон Банк','Яндекс Банк','МТС Банк','Ренессанс Банк','Банк Зенит','Банк Россия','Синара Банк','Центр-инвест','Примсоцбанк','Кубань Кредит','Локо-Банк','Металлинвестбанк','Банк Левобережный','ББР Банк','Экспобанк','Точка','Модульбанк','Дальневосточный банк','Генбанк','Авангард','Банк Казани','Энерготрансбанк','Форштадт','Кредит Европа Банк','Банк Интеза','Банк Акцепт','Финсервис','Челиндбанк','Банк СГБ','Приморье','Кольцо Урала','Новикомбанк','Абсолют Банк','Банк Санкт-Петербург'])
     };
     for (const [key,value] of Object.entries(defaults)) await run('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)',[key,value]);
+    const migratedBalance = await all("SELECT value FROM settings WHERE key='referral_balance_usd_migrated'");
+    if (!migratedBalance.length) { const rateRow = await all("SELECT value FROM settings WHERE key='usdt_rate'"); const rate = Number(rateRow[0]?.value || 0); if (rate > 0) { await run('UPDATE user_referrals SET balance=ROUND(balance / ?, 8)', [rate]); await run("INSERT INTO settings(key,value) VALUES('referral_balance_usd_migrated','1')"); } }
     const missingPublicIds = await all('SELECT id FROM users WHERE public_id IS NULL');
     for (const row of missingPublicIds) { let candidate; do { candidate = Math.floor(Math.random()*99999)+1; } while (await all('SELECT id FROM users WHERE public_id=?',[candidate]).then(x=>x.length)); await run('UPDATE users SET public_id=? WHERE id=?',[candidate,row.id]); }
     await run('DELETE FROM sessions WHERE expires < ?',[Date.now()]);

@@ -24,7 +24,7 @@ BLUP V2 — ОБНОВЛЕНИЕ ПРОЕКТА
    BLUP_ADMIN_PASSWORD — отдельный длинный пароль администратора;
    NODE_ENV=production;
    TRUST_PROXY=1 — только если платформа работает через доверенный reverse proxy.
-6. Для Telegram-уведомлений задай TELEGRAM_BOT_TOKEN, REGISTER_BOT_TOKEN и TELEGRAM_ADMIN_CHAT. Это необязательно.
+6. Для двух Telegram-ботов задай TELEGRAM_BOT_1_TOKEN, TELEGRAM_BOT_1_CHAT_ID, TELEGRAM_BOT_2_TOKEN и TELEGRAM_BOT_2_CHAT_ID. Для Telegram Login отдельно задай TELEGRAM_LOGIN_BOT_TOKEN и TELEGRAM_LOGIN_BOT_USERNAME. Это необязательно для запуска сайта.
 7. Перезапусти приложение. Открой /admin и войди с BLUP_ADMIN_PASSWORD.
 8. В админке укажи реальные курсы, резерв и проверь список банков. Пока курс не задан (0), сайт показывает «не задан».
 
@@ -47,7 +47,7 @@ BLUP V2 — ОБНОВЛЕНИЕ ПРОЕКТА
 - Перед обновлением сделайте резервную копию data.db.
 - Замените файлы проекта файлами из архива, но НЕ удаляйте и НЕ заменяйте существующую data.db.
 - При старте сервер автоматически добавит новые поля и таблицу промокодов.
-- Для Telegram-уведомлений задайте TELEGRAM_BOT_TOKEN и TELEGRAM_ADMIN_CHAT. REGISTER_BOT_TOKEN необязателен: если не задан, используется TELEGRAM_BOT_TOKEN.
+- Для Telegram-уведомлений задайте обе пары TELEGRAM_BOT_1_TOKEN / TELEGRAM_BOT_1_CHAT_ID и TELEGRAM_BOT_2_TOKEN / TELEGRAM_BOT_2_CHAT_ID. Telegram Login использует отдельную переменную TELEGRAM_LOGIN_BOT_TOKEN.
 - Уведомления о регистрации не содержат пароль. Пароли хранятся только в виде bcrypt-хеша; восстановление возможно только через отдельную процедуру сброса.
 - Время уведомлений указывается по часовому поясу Europe/Moscow.
 - Запрос на вывод доступен только после того, как администратор переведёт соответствующую заявку продажи в статус «Выполнена». Сумма RUB вычисляется сервером по действующему курсу USDT/RUB или GRAM/RUB.
@@ -56,3 +56,16 @@ BLUP V2 — ОБНОВЛЕНИЕ ПРОЕКТА
 - В заявке продажи пользователь указывает сумму, валюту/сеть, реквизиты выплаты (телефон/СБП или карту), банк, Telegram username и комментарий.
 - На экране показывается точный кошелёк BLUP для выбранной валюты и сети; адрес и реквизиты выплаты сохраняются в заявке и передаются администратору в Telegram.
 - Перевод криптовалюты, его подтверждение и отправка рублей остаются ручными действиями администратора; статус нельзя считать подтверждением блокчейн-платежа.
+
+TELEGRAM SETUP (UPDATED)
+------------------------
+1. Set TELEGRAM_BOT_1_TOKEN and TELEGRAM_BOT_1_CHAT_ID in Amvera.
+2. Set TELEGRAM_BOT_2_TOKEN and TELEGRAM_BOT_2_CHAT_ID in Amvera.
+   Both bots receive the same registration, sale and promo notifications.
+3. Set TELEGRAM_LOGIN_BOT_TOKEN to the token of the bot used for Telegram Login.
+   Set TELEGRAM_LOGIN_BOT_USERNAME to that bot's username without @.
+4. In @BotFather, open the login bot and run /setdomain. Select the same bot,
+   then enter exactly: blup-bluup.msk1.amvera.tech (without https:// or a path).
+   Telegram checks this on its side; a code change alone cannot register a domain.
+5. Rotate any bot token that was pasted into a chat, repository or public log.
+   Never put bot tokens into public/ JavaScript files.

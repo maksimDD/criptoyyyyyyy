@@ -73,7 +73,7 @@ app.use('/api', (req, res, next) => {
 
 app.get('/api/status', (req, res) => getSetting('stopped', '0', (e, stopped) => res.json({ stopped: stopped === '1' && req.session.isAdmin !== true })));
 app.get('/api/config', (req, res) => { db.all('SELECT key,value FROM settings WHERE key IN (\'usdt_rate\',\'gram_rate\',\'reserve_total\',\'reserve_available\',\'banks\')', [], (err, rows) => { if (err) return res.status(500).json({ error: 'Ошибка' }); const s = Object.fromEntries(rows.map(x => [x.key, x.value])); let banks = []; try { banks = JSON.parse(s.banks || '[]'); } catch {} res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks, wallets: BLUP_WALLETS }); }); });
-app.get('/api/auth/telegram/config', (req, res) => { const token = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI'; if (!token) return res.status(503).json({ error: 'Нет токена' }); const botId = token.split(':')[0]; if (!botId || isNaN(botId)) return res.status(503).json({ error: 'Некорректный токен' }); res.json({ botId }); });
+app.get('/api/auth/telegram/config', (req, res) => { const token = process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN; if (!token) return res.status(503).json({ error: 'Telegram Login не настроен: задайте TELEGRAM_LOGIN_BOT_TOKEN' }); const botId = token.split(':')[0]; if (!/^\d+$/.test(botId || '')) return res.status(503).json({ error: 'Некорректный токен Telegram Login' }); res.json({ botId, botUsername: (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '') }); });
 
 app.post('/api/register', (req, res) => {
   const ip = ipOf(req), nickname = String(req.body?.nickname || '').trim(), password = String(req.body?.password || ''), refCode = req.body?.ref;
@@ -128,10 +128,11 @@ app.post('/api/login', (req, res) => {
 app.post('/api/auth/telegram', (req, res) => {
   const ip = ipOf(req);
   const data = req.body || {};
-  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
+  const botToken = process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Ошибка' });
   if (rateLimit(`tg:${ip}`, 20)) return res.status(429).json({ error: 'Много попыток' });
   if (Math.floor(Date.now()/1000) - Number(data.auth_date) > 300) return res.status(400).json({ error: 'Устарело' });
+  if (!botToken) return res.status(503).json({ error: 'Telegram Login не настроен' });
   const secret = crypto.createHash('sha256').update(botToken).digest();
   const checkString = Object.keys(data).filter(k => k !== 'hash').sort().map(k => `${k}=${data[k]}`).join('\n');
   const hmac = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
@@ -139,31 +140,18 @@ app.post('/api/auth/telegram', (req, res) => {
 
   db.get('SELECT ip FROM ip_bans WHERE ip=?', [ip], (e, ban) => {
     if (ban) return sendBlocked(res);
-         const finishLogin = user => {
+    const finishLogin = user => {
       if (!user || user.is_banned) return sendBlocked(res);
       req.session.regenerate(regErr => {
-        if (regErr) return res.status(500).json({ error: 'Не удалось создать сессию' });
-        req.session.userId = user.id;
-        req.session.nickname = user.nickname;
-        req.session.sessionVersion = user.session_version || 0;
+        req.session.userId = user.id; req.session.nickname = user.nickname; req.session.sessionVersion = user.session_version || 0;
         logVisit(user, ip, 'login_telegram');
-        
-        // Отправка уведомления в Telegram, если это новый пользователь
-        if (user.isNew) {
-          notifyNewUser({
-            nickname: user.nickname,
-            publicId: user.public_id,
-            telegramId: data.id,
-            telegramUsername: data.username || 'нет юзернейма'
-          }).catch(() => {});
-        }
-
+        if (user.isNew) notifyNewUser({ nickname: user.nickname, publicId: user.public_id, telegramId: data.id, telegramUsername: data.username || 'нет' }).catch(() => {});
         req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
       });
     };
     db.get('SELECT * FROM users WHERE telegram_id=?', [data.id], (err, byTg) => {
       if (byTg) {
-        db.run(`UPDATE users SET telegram_username=?, last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?`, [data.username || null, ip, byTg.id]);
+        db.run(`UPDATE users SET telegram_username=?, telegram_photo_url=?, last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?`, [data.username || null, data.photo_url || null, ip, byTg.id]);
         return finishLogin(byTg);
       }
       const baseNick = (data.username || `tg_${data.id}`).replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20) || `tg_${data.id}`;
@@ -172,8 +160,8 @@ app.post('/api/auth/telegram', (req, res) => {
       pickId(pid => {
         publicId = pid;
         const tryInsert = (nick, cb) => {
-          db.run(`INSERT INTO users(nickname,password_hash,last_ip,last_seen,public_id,telegram_id,telegram_username) VALUES(?,?,?,CURRENT_TIMESTAMP,?,?,?)`,
-            [nick, randomHash, ip, pid, data.id, data.username||null], function(insErr) {
+          db.run(`INSERT INTO users(nickname,password_hash,last_ip,last_seen,public_id,telegram_id,telegram_username,telegram_photo_url) VALUES(?,?,?,CURRENT_TIMESTAMP,?,?,?,?)`,
+            [nick, randomHash, ip, pid, data.id, data.username||null, data.photo_url||null], function(insErr) {
               if (insErr) return cb(insErr);
               cb(null, { id: this.lastID, nickname: nick, session_version: 0, is_banned: 0 });
             });
@@ -193,9 +181,10 @@ app.post('/api/auth/telegram', (req, res) => {
 app.post('/api/auth/link-telegram', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Войдите' });
   const data = req.body || {};
-  const botToken = process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI';
+  const botToken = process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Ошибка' });
   if (Math.floor(Date.now()/1000) - Number(data.auth_date) > 300) return res.status(400).json({ error: 'Устарело' });
+  if (!botToken) return res.status(503).json({ error: 'Telegram Login не настроен' });
   const secret = crypto.createHash('sha256').update(botToken).digest();
   const checkString = Object.keys(data).filter(k => k !== 'hash').sort().map(k => `${k}=${data[k]}`).join('\n');
   const hmac = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
@@ -203,7 +192,7 @@ app.post('/api/auth/link-telegram', (req, res) => {
 
   db.get('SELECT id FROM users WHERE telegram_id=? AND id!=?', [data.id, req.session.userId], (err, existing) => {
     if (existing) return res.status(409).json({ error: 'TG уже привязан к другому' });
-    db.run(`UPDATE users SET telegram_id=?, telegram_username=? WHERE id=?`, [data.id, data.username || null, req.session.userId], function() {
+    db.run(`UPDATE users SET telegram_id=?, telegram_username=?, telegram_photo_url=? WHERE id=?`, [data.id, data.username || null, data.photo_url || null, req.session.userId], function() {
       res.json({ ok: true });
     });
   });
@@ -219,7 +208,7 @@ app.get('/api/history', (req, res) => {
 
 app.get('/api/profile', (req,res) => {
   if(!req.session.userId) return res.status(401).json({error:'Войдите'});
-  db.get(`SELECT u.nickname,u.public_id,u.created_at,u.telegram_id,u.telegram_username,
+  db.get(`SELECT u.nickname,u.public_id,u.created_at,u.telegram_id,u.telegram_username,u.telegram_photo_url,
             COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd,
             COALESCE((SELECT percent FROM user_discounts WHERE user_id=u.id AND active=1),0) discount_percent
           FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.id=? GROUP BY u.id`,
@@ -267,14 +256,16 @@ app.get('/ref/:code', (req, res) => {
 app.get('/api/referral', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Войдите' });
   db.get('SELECT ref_code, balance FROM user_referrals WHERE user_id=?', [req.session.userId], (err, row) => {
-    if (!row) {
-      const refCode = crypto.randomBytes(4).toString('hex');
-      db.run('INSERT INTO user_referrals(user_id, ref_code) VALUES(?,?)', [req.session.userId, refCode]);
-      return res.json({ ref_code: refCode, balance: 0, referrals: [] });
-    }
-    db.all('SELECT nickname, public_id, created_at FROM users WHERE referred_by=?', [req.session.userId], (e, refs) => {
-      res.json({ ref_code: row.ref_code, balance: row.balance, referrals: refs || [] });
-    });
+    const ensure = cb => { if (row) return cb(row); const refCode = crypto.randomBytes(4).toString('hex'); db.run('INSERT INTO user_referrals(user_id, ref_code, balance) VALUES(?,?,0)', [req.session.userId, refCode], e => cb({ ref_code: refCode, balance: 0 })); };
+    ensure(ref => db.all(`SELECT u.nickname,u.public_id,u.created_at,
+      COALESCE(SUM(CASE WHEN s.status='completed' AND s.operation_type='sell' THEN s.amount ELSE 0 END),0) sold_usd,
+      COALESCE(SUM(CASE WHEN s.status='completed' AND s.operation_type='sell' THEN s.payout_rub ELSE 0 END),0) sold_rub,
+      COALESCE((SELECT SUM(c.commission_rub) FROM referral_commissions c JOIN sales sx ON sx.id=c.sale_id WHERE sx.user_id=u.id),0) earned_rub,
+      COALESCE((SELECT SUM(c.commission_usd) FROM referral_commissions c JOIN sales sx ON sx.id=c.sale_id WHERE sx.user_id=u.id),0) earned_usd
+      FROM users u LEFT JOIN sales s ON s.user_id=u.id AND s.operation_type='sell' AND s.status='completed'
+      WHERE u.referred_by=? GROUP BY u.id ORDER BY u.created_at DESC`, [req.session.userId], (e, refs) => {
+      res.json({ ref_code: ref.ref_code, balance: Number(ref.balance || 0), referrals: refs || [] });
+    }));
   });
 });
 
@@ -370,24 +361,30 @@ app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
 app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => { db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => res.json({ ok: true })); });
 app.delete('/api/admin/visits', adminOnly, (req, res) => { db.run('DELETE FROM visits', function(err) { res.json({ ok: true, deleted: this.changes }); }); });
 app.delete('/api/admin/sales', adminOnly, (req, res) => { db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) { res.json({ ok: true, deleted: this.changes }); }); });
+app.delete('/api/admin/sales/:id', adminOnly, (req,res) => db.run("DELETE FROM sales WHERE id=? AND operation_type='sell' AND status='rejected'", [Number(req.params.id)], function(err){ if(err)return res.status(500).json({error:'Ошибка'}); if(!this.changes)return res.status(409).json({error:'Удалять можно только отменённые заявки'}); res.json({ok:true}); }));
 
 app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
   const id = Number(req.params.id), status = String(req.body?.status || '');
-  db.run("UPDATE sales SET status=? WHERE id=? AND operation_type='sell'", [status, id], function(err) {
-    if (!this.changes) return res.status(404).json({ error: 'Не найдена' });
-    if (status === 'completed') {
-      db.get('SELECT user_id, payout_rub FROM sales WHERE id=?', [id], (e, sale) => {
-        if (sale) {
-          db.get('SELECT referred_by FROM users WHERE id=?', [sale.user_id], (e2, user) => {
-            if (user && user.referred_by) {
-              const bonus = sale.payout_rub * 0.10;
-              db.run('UPDATE user_referrals SET balance = balance + ? WHERE user_id=?', [bonus, user.referred_by]);
-            }
+  if (!['pending','processing','completed','rejected'].includes(status)) return res.status(400).json({ error: 'Некорректный статус' });
+  db.get("SELECT * FROM sales WHERE id=? AND operation_type='sell'", [id], (findErr, sale) => {
+    if (!sale) return res.status(404).json({ error: 'Не найдена' });
+    db.run("UPDATE sales SET status=? WHERE id=? AND operation_type='sell'", [status, id], function(err) {
+      if (err) return res.status(500).json({ error: 'Ошибка базы данных' });
+      if (status !== 'completed' || sale.status === 'completed') return res.json({ ok: true });
+      db.get('SELECT referred_by FROM users WHERE id=?', [sale.user_id], (e, user) => {
+        if (!user?.referred_by) return res.json({ ok: true });
+        db.get('SELECT value FROM settings WHERE key=?', [sale.coin === 'GRAM' ? 'gram_rate' : 'usdt_rate'], (rateErr, rateRow) => {
+          const rate = Number(rateRow?.value || 0);
+          const commissionUsd = Number((Number(sale.amount || 0) * 0.025).toFixed(8));
+          const commissionRub = Number((Number(sale.payout_rub || (Number(sale.amount || 0) * rate)) * 0.025).toFixed(2));
+          db.run('INSERT OR IGNORE INTO referral_commissions(sale_id,referrer_id,sale_amount_usd,sale_amount_rub,commission_usd,commission_rub) VALUES(?,?,?,?,?,?)', [id,user.referred_by,Number(sale.amount||0),Number(sale.payout_rub||0),commissionUsd,commissionRub], function(commErr) {
+            if (commErr) return res.status(500).json({ error: 'Не удалось начислить реферальный бонус' });
+            if (this.changes) db.run('UPDATE user_referrals SET balance=balance+? WHERE user_id=?', [commissionUsd,user.referred_by], e2 => res.json({ ok: true, referralBonusUsd: commissionUsd }));
+            else res.json({ ok: true });
           });
-        }
+        });
       });
-    }
-    res.json({ ok: true });
+    });
   });
 });
 
@@ -398,6 +395,7 @@ app.post('/api/admin/promos',adminOnly,(req,res)=>{
  db.run('INSERT INTO promos(code,reward_type,reward_value,description,activation_limit) VALUES(?,?,?,?,?)',[code,preset[0],preset[1],description||preset[2],limit],e=>e?res.status(409).json({error:'Существует'}):res.json({ok:true}));
 });
 app.get('/api/admin/promos',adminOnly,(req,res)=>db.all(`SELECT p.*, (SELECT GROUP_CONCAT(COALESCE(r.public_id,r.user_id)||':'||r.nickname, char(10)) FROM promo_redemptions r WHERE r.promo_id=p.id) AS activators FROM promos p ORDER BY p.id DESC`,(e,rows)=>res.json(rows)));
+app.get('/api/admin/promos/:id/users',adminOnly,(req,res)=>db.all(`SELECT r.id redemption_id,r.public_id,r.nickname,r.created_at,u.id user_id,u.telegram_id,u.telegram_username,u.telegram_photo_url FROM promo_redemptions r LEFT JOIN users u ON u.id=r.user_id WHERE r.promo_id=? ORDER BY r.id DESC`,[Number(req.params.id)],(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows||[])));
 app.post('/api/admin/promos/:id/toggle',adminOnly,(req,res)=>db.run('UPDATE promos SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE id=?',[Number(req.params.id)],function(e){res.json({ok:true});}));
 app.post('/api/admin/users/:id/discount',adminOnly,(req,res)=>{const id=Number(req.params.id),percent=Number(req.body?.percent);if(![0,1,3].includes(percent))return res.status(400).json({error:'Ошибка'});if(percent===0)return db.run('DELETE FROM user_discounts WHERE user_id=?',[id],e=>res.json({ok:true}));db.run('INSERT INTO user_discounts(user_id,percent,source,active) VALUES(?,?,?,1) ON CONFLICT(user_id) DO UPDATE SET percent=excluded.percent,source=excluded.source,active=1',[id,percent,'admin'],e=>res.json({ok:true}));});
 
@@ -412,6 +410,15 @@ app.get('/api/admin/referrals', adminOnly, (req, res) => {
     }))).then(() => res.json(rows));
   });
 });
+
+app.get('/api/public/user/:id', (req,res) => {
+  const publicId = Number(req.params.id);
+  if (!Number.isInteger(publicId) || publicId < 1) return res.status(400).json({error:'Некорректный ID'});
+  db.get(`SELECT u.nickname,u.public_id,u.created_at,u.telegram_id,u.telegram_username,u.telegram_photo_url,
+    COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd
+    FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.public_id=? GROUP BY u.id`,[publicId],(e,row)=>e?res.status(500).json({error:'Ошибка'}):row?res.json(row):res.status(404).json({error:'Пользователь не найден'}));
+});
+app.get('/user/:id', (req,res) => res.sendFile(path.join(__dirname,'public','public-profile.html')));
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
