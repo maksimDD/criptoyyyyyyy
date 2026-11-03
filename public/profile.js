@@ -4,12 +4,13 @@ function fmtDate(v){ if(!v) return '—'; const d=new Date(String(v).replace(' '
 
 let currentProfile = null;
 
+// 1. Загрузка профиля
 (async function(){
   try {
     const r = await fetch('/api/profile', { credentials: 'same-origin' });
     if (r.status === 401) { location.href = '/'; return; }
     const p = await r.json();
-    if (!r.ok) throw new Error(p.error || 'Ошибка загрузки профиля');
+    if (!r.ok) throw new Error(p.error || 'Ошибка');
 
     currentProfile = p;
 
@@ -30,7 +31,6 @@ let currentProfile = null;
     const tgIdEl = $('#p-tg-id');
     if (tgIdEl) tgIdEl.textContent = p.telegram_id || '—';
 
-    // Обновляем статус TG
     const tgStatus = $('#p-tg-status');
     if (tgStatus) {
       tgStatus.textContent = p.telegram_username ? '@' + p.telegram_username : 'не привязан';
@@ -47,6 +47,7 @@ let currentProfile = null;
       : '<p class="muted">Активных купонов нет</p>';
       
     initLinkTelegram();
+    initReferralSystem(); // Вызываем после загрузки профиля
   } catch (e) {
     $('#p-error').textContent = e.message;
   }
@@ -57,11 +58,11 @@ let currentProfile = null;
   });
 })();
 
+// 2. Привязка Telegram
 function initLinkTelegram() {
   const linkTgBtn = $('#linkTgBtn');
   if (!linkTgBtn) return;
 
-  // Если Telegram уже привязан (вошел через ТГ), скрываем кнопку
   if (currentProfile && currentProfile.is_telegram) {
     linkTgBtn.style.display = 'none';
     return;
@@ -78,7 +79,7 @@ function initLinkTelegram() {
     }
 
     if (!window.Telegram || !window.Telegram.Login || !window.Telegram.Login.auth) {
-      alert('Telegram не загрузился. Проверьте интернет или отключите AdBlock, затем обновите страницу.');
+      alert('Telegram не загрузился. Проверьте интернет или AdBlock.');
       linkTgBtn.textContent = 'Привязать Telegram';
       linkTgBtn.disabled = false;
       return;
@@ -104,8 +105,7 @@ function initLinkTelegram() {
               body: JSON.stringify(user)
             });
             const d = await authRes.json();
-            if (!authRes.ok) throw new Error(d.error || 'Ошибка привязки');
-            
+            if (!authRes.ok) throw new Error(d.error || 'Ошибка');
             alert('Telegram успешно привязан!');
             location.reload();
           } catch (e) { 
@@ -121,18 +121,66 @@ function initLinkTelegram() {
       linkTgBtn.disabled = false;
     }
   });
-
-  // === РЕФЕРАЛЬНАЯ СИСТЕМА В ПРОФИЛЕ ===
-const refBtn = document.getElementById('openRefBtn');
-if (refBtn) {
-  refBtn.addEventListener('click', async () => {
-    openModal('refBackdrop');
-    await loadReferralData();
-  });
 }
 
-if (document.getElementById('refClose')) {
-  document.getElementById('refClose').addEventListener('click', () => closeModal('refBackdrop'));
+// 3. Реферальная система
+function initReferralSystem() {
+  const refBtn = $('#openRefBtn');
+  const refClose = $('#refClose');
+  const refBackdrop = $('#refBackdrop');
+
+  if (refBtn) {
+    refBtn.addEventListener('click', async () => {
+      refBackdrop.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      await loadReferralData();
+    });
+  }
+
+  if (refClose) {
+    refClose.addEventListener('click', () => {
+      refBackdrop.classList.remove('open');
+      document.body.style.overflow = '';
+    });
+  }
+
+  if (refBackdrop) {
+    refBackdrop.addEventListener('click', (e) => {
+      if (e.target === refBackdrop) {
+        refBackdrop.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+  }
+
+  $('#saveRefCodeBtn')?.addEventListener('click', async () => {
+    const code = $('#refCodeInput').value.trim();
+    if (!code) return alert('Введите код');
+    try {
+      const r = await fetch('/api/referral/set-code', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      alert('Код сохранен!');
+      loadReferralData();
+    } catch (e) { alert(e.message); }
+  });
+
+  $('#refWithdrawBtn')?.addEventListener('click', async () => {
+    const amount = Number($('#refWithdrawAmount').value);
+    const phone = $('#refWithdrawPhone').value;
+    const bank = $('#refWithdrawBank').value;
+
+    if (!amount || amount < 10) return alert('Мин. сумма $10');
+    if (!phone || !bank) return alert('Введите реквизиты');
+
+    try {
+      const r = await fetch('/api/referral/withdraw', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount, phone, bank }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      alert('Заявка на вывод создана!');
+      loadReferralData();
+    } catch (e) { alert(e.message); }
+  });
 }
 
 async function loadReferralData() {
@@ -141,15 +189,13 @@ async function loadReferralData() {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error);
 
-    document.getElementById('refBalance').innerText = `$${Number(d.balance || 0).toFixed(2)}`;
+    $('#refBalance').innerText = `$${Number(d.balance || 0).toFixed(2)}`;
     
-    // Устанавливаем ссылку
     const code = d.ref_code || '';
-    document.getElementById('refCodeInput').value = code;
-    document.getElementById('refLinkDisplay').innerText = code ? `https://blup-bluup.msk1.amvera.tech/ref/${code}` : 'Код не создан';
+    $('#refCodeInput').value = code;
+    $('#refLinkDisplay').innerText = code ? `https://blup-bluup.msk1.amvera.tech/ref/${code}` : 'Код не создан';
 
-    // Список рефералов
-    const list = document.getElementById('refList');
+    const list = $('#refList');
     if (d.referrals.length === 0) {
       list.innerHTML = '<p style="color:#8fa5b5; font-size:11px;">У тебя пока нет рефералов.</p>';
     } else {
@@ -163,36 +209,4 @@ async function loadReferralData() {
   } catch (e) {
     console.error(e);
   }
-}
-
-// Сохранение кода
-document.getElementById('saveRefCodeBtn')?.addEventListener('click', async () => {
-  const code = document.getElementById('refCodeInput').value.trim();
-  if (!code) return alert('Введите код');
-  try {
-    const r = await fetch('/api/referral/set-code', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error);
-    alert('Код сохранен!');
-    loadReferralData();
-  } catch (e) { alert(e.message); }
-});
-
-// Вывод рефки
-document.getElementById('refWithdrawBtn')?.addEventListener('click', async () => {
-  const amount = Number(document.getElementById('refWithdrawAmount').value);
-  const phone = document.getElementById('refWithdrawPhone').value;
-  const bank = document.getElementById('refWithdrawBank').value;
-
-  if (!amount || amount < 10) return alert('Мин. сумма $10');
-  if (!phone || !bank) return alert('Введите реквизиты');
-
-  try {
-    const r = await fetch('/api/referral/withdraw', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount, phone, bank }) });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error);
-    alert('Заявка на вывод создана!');
-    loadReferralData();
-  } catch (e) { alert(e.message); }
-});
 }
