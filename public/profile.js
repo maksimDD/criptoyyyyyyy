@@ -2,7 +2,6 @@ const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function fmtDate(v){ if(!v) return '—'; const d=new Date(String(v).replace(' ','T')+'Z'); return isNaN(d)?esc(v):d.toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'}); }
 
-// Глобальная переменная для хранения профиля
 let currentProfile = null;
 
 (async function(){
@@ -12,7 +11,7 @@ let currentProfile = null;
     const p = await r.json();
     if (!r.ok) throw new Error(p.error || 'Ошибка загрузки профиля');
 
-    currentProfile = p; // Сохраняем профиль
+    currentProfile = p;
 
     const img = $('#p-avatar');
     if (p.telegram_photo_url) {
@@ -28,12 +27,15 @@ let currentProfile = null;
     $('#p-public-id').textContent = '#' + (p.public_id || '—');
     $('#p-tg-username').textContent = p.telegram_username ? '@' + p.telegram_username : 'не привязан';
     
-    // Скрываем блок ID, если он есть в HTML (чтобы было аккуратно)
     const tgIdEl = $('#p-tg-id');
     if (tgIdEl) tgIdEl.textContent = p.telegram_id || '—';
 
-    const tgNameEl = $('#p-tg-name');
-    if (tgNameEl) tgNameEl.textContent = [p.telegram_first_name, p.telegram_last_name].filter(Boolean).join(' ') || '—';
+    // Обновляем статус TG
+    const tgStatus = $('#p-tg-status');
+    if (tgStatus) {
+      tgStatus.textContent = p.telegram_username ? '@' + p.telegram_username : 'не привязан';
+      tgStatus.style.color = p.telegram_username ? '#5ce3a4' : '#8fa8b4';
+    }
 
     $('#p-created').textContent = fmtDate(p.created_at);
     $('#p-sold').textContent = Number(p.sold_usd || 0).toFixed(2) + ' USD';
@@ -44,7 +46,6 @@ let currentProfile = null;
       ? coupons.map(c => `<div class="coupon"><b>${esc(c.percent)}%</b><span>Купон #${esc(c.id)} · получен ${fmtDate(c.created_at)}</span></div>`).join('')
       : '<p class="muted">Активных купонов нет</p>';
       
-    // Инициализируем кнопку привязки ТГ после загрузки профиля
     initLinkTelegram();
   } catch (e) {
     $('#p-error').textContent = e.message;
@@ -56,15 +57,12 @@ let currentProfile = null;
   });
 })();
 
-// ==========================================
-// ПРИВЯЗКА TELEGRAM В ПРОФИЛЕ
-// ==========================================
 function initLinkTelegram() {
   const linkTgBtn = $('#linkTgBtn');
   if (!linkTgBtn) return;
 
-  // Если Telegram уже привязан, скрываем кнопку
-  if (currentProfile && currentProfile.telegram_id) {
+  // Если Telegram уже привязан (вошел через ТГ), скрываем кнопку
+  if (currentProfile && currentProfile.is_telegram) {
     linkTgBtn.style.display = 'none';
     return;
   }
@@ -73,7 +71,6 @@ function initLinkTelegram() {
     linkTgBtn.textContent = 'Загрузка Telegram…';
     linkTgBtn.disabled = true;
 
-    // Ждём загрузки скрипта Telegram (до 5 секунд)
     let waited = 0;
     while ((!window.Telegram || !window.Telegram.Login) && waited < 5000) {
       await new Promise(r => setTimeout(r, 100));
