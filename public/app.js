@@ -74,10 +74,12 @@ function walletPanel(coin,network){const address=walletFor(coin,network);return 
 
 function renderOperationFields(){
  if(!operationFields) return;
- operationFields.innerHTML=`${labelSelect('Криптовалюта','coin',[{value:'USDT',label:'USDT — Tether'},{value:'GRAM',label:'GRAM'}])}<div id="networkField">${labelSelect('Сеть USDT','network',['BEP20','TRC20','ERC20','TON','SPL'].map(x=>({value:x,label:x})))}</div><div id="platformWallet">${walletPanel('USDT','BEP20')}</div>${labelInput('Сумма для продажи (USD)','amount','Например, 100','number',true)}<div id="rubPreview" class="field-note full">Итого к выплате: укажи сумму и курс</div><div id="discountOffer" class="field-note full hidden"></div>${labelSelect('Куда отправить выплату','payoutType',[{value:'phone',label:'На номер телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text',true)}${labelSelect('Банк получателя','bank',bankOptions(),true)}${labelInput('Telegram username','telegramUsername','Например, @username','text',true)}${labelInput('Комментарий к продаже','comment','Комментарий (необязательно)','text',true,false)}<p class="field-note full">Проверь адрес и сеть, отправь криптовалюту на кошелёк BLUP. Укажи реквизиты для выплаты. После отправки заявки администратор проверит поступление и вручную отправит рубли. Не вводи CVV, PIN или SMS-коды.</p>`;
+ // TRC20 первый в списке!
+ operationFields.innerHTML=`${labelSelect('Криптовалюта','coin',[{value:'USDT',label:'USDT — Tether'},{value:'GRAM',label:'GRAM'}])}<div id="networkField">${labelSelect('Сеть USDT','network',['TRC20','BEP20','ERC20','TON','SPL'].map(x=>({value:x,label:x})))}</div><div id="platformWallet">${walletPanel('USDT','TRC20')}</div>${labelInput('Сумма для продажи (USD)','amount','Например, 100','number',true)}<div id="rubPreview" class="field-note full">Итого к выплате: укажи сумму и курс</div><div id="discountOffer" class="field-note full hidden"></div>${labelSelect('Куда отправить выплату','payoutType',[{value:'phone',label:'На номер телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text',true)}${labelSelect('Банк получателя','bank',bankOptions(),true)}${labelInput('Telegram username','telegramUsername','Например, @username','text',true)}${labelInput('Комментарий к продаже','comment','Комментарий (необязательно)','text',true,false)}<p class="field-note full">Проверь адрес и сеть, отправь криптовалюту на кошелёк BLUP. Укажи реквизиты для выплаты. После отправки заявки администратор проверит поступление и вручную отправит рубли. Не вводи CVV, PIN или SMS-коды.</p>`;
  const coin=operationFields.querySelector('[name="coin"]');
- function updateWallet(){const net=coin.value==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'BEP20');$('#platformWallet').innerHTML=walletPanel(coin.value,net);}
- function networkWrap(){const gram=coin.value==='GRAM';$('#networkField').innerHTML=gram?'<div class="static-field"><span>Сеть</span><b>TON</b></div>':labelSelect('Сеть USDT','network',['BEP20','TRC20','ERC20','TON','SPL'].map(x=>({value:x,label:x})));updateWallet();}
+ function updateWallet(){const net=coin.value==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'TRC20');$('#platformWallet').innerHTML=walletPanel(coin.value,net);}
+ // TRC20 первый в списке!
+ function networkWrap(){const gram=coin.value==='GRAM';$('#networkField').innerHTML=gram?'<div class="static-field"><span>Сеть</span><b>TON</b></div>':labelSelect('Сеть USDT','network',['TRC20','BEP20','ERC20','TON','SPL'].map(x=>({value:x,label:x})));updateWallet();}
  coin.addEventListener('change',networkWrap);operationFields.addEventListener('change',e=>{if(e.target.name==='network')updateWallet();});
  const amountInput=operationFields.querySelector('[name="amount"]');amountInput.max='200';amountInput.placeholder='До 200 USD';let discountPercent=0;
  function updateRub(){const coinName=coin.value,rate=Number(window.blupRates?.[coinName]||0),amount=Number(amountInput.value||0);const base=amount*rate;const apply=!!operationFields.querySelector('#applyDiscount')?.checked;const total=base*(apply?1+discountPercent/100:1);$('#rubPreview').textContent=rate>0&&amount>0?`Курс: ${rate.toLocaleString('ru-RU')} ₽ за 1 ${coinName}. Итого к выплате: ${total.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})} ₽`:'Итого к выплате:';}
@@ -116,7 +118,7 @@ $$('[data-open="sell"]').forEach(b=>b.addEventListener('click',showOperation));
 
 async function copyCurrentBlupWallet(){
   const coin=operationFields.querySelector('[name="coin"]')?.value||'USDT';
-  const network=coin==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'BEP20');
+  const network=coin==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'TRC20');
   const address=walletFor(coin,network);
   if(!address){toast('Адрес кошелька не найден');return;}
   try{await navigator.clipboard.writeText(address);toast('Адрес BLUP скопирован. Отправь криптовалюту из своего кошелька.');}
@@ -185,7 +187,7 @@ async function showHistory(){
 if ($('#historyBtn')) $('#historyBtn').addEventListener('click',showHistory);
 if ($('#historyCardBtn')) $('#historyCardBtn').addEventListener('click',showHistory);
 
-[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop'],['termsClose','termsBackdrop'],['privacyClose','privacyBackdrop']].forEach(([btn,id])=>{
+[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop'],['termsClose','termsBackdrop'],['privacyClose','privacyBackdrop'],['reviewsClose','reviewsBackdrop']].forEach(([btn,id])=>{
   if($('#'+btn)) $('#'+btn).addEventListener('click',()=>closeModal(id));
 });
 
@@ -273,16 +275,17 @@ if (tgLoginBtn) {
   });
 }
 
+// Онлайн
 async function refreshOnline() {
   try {
-    const r = await fetch('/api/real-online');
+    const r = await fetch('/api/online');
     const d = await r.json();
     const countEl = $('#onlineCount');
-    if (countEl) countEl.textContent = d.online || 0;
+    if (countEl) countEl.textContent = d.online; // Без принудительной 1
   } catch {}
 }
 refreshOnline();
-setInterval(refreshOnline, 60000); // Обновляем раз в минуту
+setInterval(refreshOnline, 10000);
 
 // ==========================================
 // ЛОГИКА ВХОДА (ЛОГИН/ПАРОЛЬ И TG)
