@@ -57,12 +57,12 @@ app.use(session({
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ==========================================
-// ОТСЛЕЖИВАНИЕ ОНЛАЙНА (РЕАЛЬНОЕ ВРЕМЯ)
+// ОТСЛЕЖИВАНИЕ ОНЛАЙНА
 // ==========================================
 const onlineUsers = new Map();
 
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/online') || req.path.startsWith('/api/real-online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) {
+  if (req.path.startsWith('/api/online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) {
     return next();
   }
   const identifier = req.session?.userId ? `user_${req.session.userId}` : `ip_${ipOf(req)}`;
@@ -70,7 +70,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Внутренний счетчик (точный онлайн за 5 минут)
 app.get('/api/online', (req, res) => {
   const now = Date.now();
   const fiveMinutes = 5 * 60 * 1000;
@@ -85,37 +84,6 @@ app.get('/api/online', (req, res) => {
   });
 
   res.json({ online: count > 0 ? count : 1 });
-});
-
-// Онлайн из Яндекс Метрики (с задержкой, но глобальный)
-app.get('/api/real-online', async (req, res) => {
-  const token = process.env.YM_TOKEN || 'y0__wgBEPmQic8HGJXETiDj_ILRGTCcj7yMCC7MDSzW1KfoJBhureZsU9l-5ONs'; 
-  const counterId = 114041862;
-
-  if (!token) return res.status(500).json({ error: 'Токен Метрики не настроен' });
-
-  try {
-    // Запрашиваем посетителей за последние 30 минут с группировкой по минутам
-    const url = `https://api-metrika.yandex.net/stat/v1/data?ids=${counterId}&metrics=ym:s:users&date1=today&date2=today&dimensions=ym:s:startOfMinute&limit=30&sort=-ym:s:startOfMinute`;
-    
-    const response = await fetch(url, {
-      headers: { 'Authorization': `OAuth ${token}` }
-    });
-    
-    const data = await response.json();
-    
-    let online = 0;
-    // API Метрики возвращает массив данных по минутам. Мы берем самую свежую точку.
-    if (data.data && data.data.length > 0) {
-      online = data.data[0].metrics[0];
-    }
-    
-    // Если Метрика вернула 0 (например, из-за задержки или блокировщиков), возвращаем 1
-    res.json({ online: online > 0 ? online : 1 });
-  } catch (e) {
-    console.error('Ошибка запроса к API Метрики:', e.message);
-    res.json({ online: 1 }); // При ошибке показываем 1, чтобы не было пусто
-  }
 });
 // ==========================================
 
