@@ -58,7 +58,6 @@ async function load(){
       state.classList.toggle('maintenance',s.stopped==='1');
     }
 
-    // 1. ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ
     $('#usersTable').innerHTML=d.users.length?d.users.map(u=>`
       <tr>
         <td><b>${esc(u.nickname)}</b><small>#${u.id} · ${date(u.created_at)}</small></td>
@@ -72,7 +71,6 @@ async function load(){
       </tr>
     `).join(''):'<tr><td colspan="5" class="empty-cell">Пользователей пока нет</td></tr>';
 
-    // 2. ТАБЛИЦА ЗАЯВОК (ПРОДАЖ)
     $('#salesTable').innerHTML=d.sales.length?d.sales.map(x=>`
       <tr>
         <td><b>#${x.id} · ${esc(x.nickname||'—')}</b><small>${date(x.created_at)}</small></td>
@@ -84,14 +82,13 @@ async function load(){
       </tr>
     `).join(''):'<tr><td colspan="6" class="empty-cell">Продаж пока нет</td></tr>';
 
-    // 3. ТАБЛИЦА ИСТОРИИ ВХОДОВ (с кнопкой очистки)
     const visitsHead = $('#visitsTable').closest('.admin-card-head');
     if (visitsHead && !visitsHead.querySelector('.clear-visits-btn')) {
       const btn = document.createElement('button');
       btn.className = 'btn btn-outline btn-small clear-visits-btn';
       btn.textContent = 'Очистить историю';
       btn.onclick = async () => {
-        if(!confirm('Удалить всю историю входов навсегда?')) return;
+        if(!confirm('Удалить всю историю входов?')) return;
         try { await api('/api/admin/visits', {method:'DELETE'}); toast('История очищена'); load(); } catch(e){ toast(e.message); }
       };
       visitsHead.appendChild(btn);
@@ -105,7 +102,6 @@ async function load(){
       </tr>
     `).join(''):'<tr><td colspan="4" class="empty-cell">История входов пока пуста</td></tr>';
 
-    // 4. БЛОКИРОВКИ IP
     $('#ipBanList').innerHTML=d.ipBans.length?d.ipBans.map(b=>`<div class="ban-item"><span><b>${esc(b.ip)}</b><small>${esc(b.reason||'Без причины')} · ${date(b.created_at)}</small></span><button data-unban="${esc(b.ip)}">Снять блокировку</button></div>`).join(''):'<div class="empty-cell">Заблокированных IP нет</div>';
     
     loadPromos();
