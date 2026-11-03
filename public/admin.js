@@ -405,3 +405,49 @@ document.getElementById('adminRefClose')?.addEventListener('click', () => {
     document.body.style.overflow = '';
   }
 });
+
+// === ОТЗЫВЫ В АДМИНКЕ ===
+document.getElementById('adminReviewsBtn')?.addEventListener('click', () => {
+  const modal = document.getElementById('adminReviewsBackdrop');
+  if (modal) {
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+});
+
+document.getElementById('adminReviewsClose')?.addEventListener('click', () => {
+  const modal = document.getElementById('adminReviewsBackdrop');
+  if (modal) {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+});
+
+document.getElementById('adminReviewForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const f = new FormData(form);
+  
+  try {
+    const res = await api('/api/admin/reviews', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId: f.get('userId'),
+        nickname: f.get('nickname'),
+        amount: f.get('amount'),
+        text: f.get('text'),
+        rating: f.get('rating')
+      })
+    });
+    
+    if (res.ok) {
+      toast('Отзыв успешно добавлен!');
+      form.reset();
+      document.getElementById('adminReviewsBackdrop').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
