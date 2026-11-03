@@ -4,6 +4,7 @@ function fmtDate(v){ if(!v) return '—'; const d=new Date(String(v).replace(' '
 
 let currentProfile = null;
 
+// 1. Загрузка профиля
 (async function(){
   try {
     const r = await fetch('/api/profile', { credentials: 'same-origin' });
@@ -46,7 +47,7 @@ let currentProfile = null;
       : '<p class="muted">Активных купонов нет</p>';
       
     initLinkTelegram();
-    initReferralSystem();
+    initReferralSystem(); // Вызываем после загрузки профиля
   } catch (e) {
     $('#p-error').textContent = e.message;
   }
@@ -57,6 +58,7 @@ let currentProfile = null;
   });
 })();
 
+// 2. Привязка Telegram
 function initLinkTelegram() {
   const linkTgBtn = $('#linkTgBtn');
   if (!linkTgBtn) return;
@@ -121,6 +123,7 @@ function initLinkTelegram() {
   });
 }
 
+// 3. Реферальная система
 function initReferralSystem() {
   const refBtn = $('#openRefBtn');
   const refClose = $('#refClose');
@@ -197,14 +200,9 @@ async function loadReferralData() {
       list.innerHTML = '<p style="color:#8fa5b5; font-size:11px;">У тебя пока нет рефералов.</p>';
     } else {
       list.innerHTML = d.referrals.map(ref => `
-        <div style="display:flex; justify-content:space-between; background:#0c1026; padding:8px; border-radius:6px; font-size:12px; margin-bottom:5px;">
-          <div>
-            <b>${ref.nickname}</b> <small style="color:#8fa5b5;">#${ref.public_id}</small>
-            <div style="color:#5ce3a4; font-size:11px; margin-top:2px;">Продал на: $${ref.total_sold_usd}</div>
-          </div>
-          <div style="text-align:right; color:#8fa5b5; font-size:10px;">
-            ${new Date(ref.created_at).toLocaleDateString('ru-RU')}
-          </div>
+        <div style="display:flex; justify-content:space-between; background:#0c1026; padding:8px; border-radius:6px; font-size:12px;">
+          <span>${ref.nickname} <small style="color:#8fa5b5;">#${ref.public_id}</small></span>
+          <span style="color:#8fa5b5;">${new Date(ref.created_at).toLocaleDateString('ru-RU')}</span>
         </div>
       `).join('');
     }
