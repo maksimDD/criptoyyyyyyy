@@ -41,3 +41,45 @@ function fmtDate(v){ if(!v) return '—'; const d=new Date(String(v).replace(' '
     location.href = '/';
   });
 })();
+
+// ==========================================
+// ПРИВЯЗКА TELEGRAM В ПРОФИЛЕ
+// ==========================================
+const linkTgBtn = $('#linkTgBtn');
+if (linkTgBtn) {
+  // Если Telegram уже привязан, скрываем кнопку (проверка в основном скрипте profile.js)
+  if (window.currentProfile && window.currentProfile.telegram_id) {
+    linkTgBtn.style.display = 'none';
+  }
+
+  linkTgBtn.addEventListener('click', async () => {
+    if (!window.Telegram || !window.Telegram.Login || !window.Telegram.Login.auth) {
+      alert('Telegram не загрузился. Проверьте интернет или AdBlock.');
+      return;
+    }
+    
+    try {
+      const r = await fetch('/api/auth/telegram/config');
+      const config = await r.json();
+      if (!r.ok) throw new Error(config.error || 'Telegram-вход не настроен');
+
+      window.Telegram.Login.auth(
+        { bot_id: config.botId, request_access: 'write', lang: 'ru' },
+        async (user) => {
+          if (!user) return;
+          try {
+            const authRes = await fetch('/api/auth/link-telegram', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify(user)
+            });
+            const d = await authRes.json();
+            if (!authRes.ok) throw new Error(d.error || 'Ошибка привязки');
+            alert('Telegram успешно привязан!');
+            location.reload();
+          } catch (e) { alert(e.message); }
+        }
+      );
+    } catch (e) { alert(e.message); }
+  });
+}
