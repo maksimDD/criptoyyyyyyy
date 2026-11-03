@@ -62,18 +62,42 @@
   .form-box button { width: 100%; padding: 15px; border: none; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 800; font-size: 16px; cursor: pointer; }
   .form-box p { margin-top: 15px; text-align: center; font-weight: 600; }
 
-  /* --- ИГРА --- */
+  /* --- ИГРА (КАК НА Hotskins) --- */
   .game-board { background: var(--panel); border-radius: 16px; padding: 30px; position: relative; display: none; flex-direction: column; align-items: center; border: 1px solid var(--line); }
   .game-board.active { display: flex; }
 
-  /* Стрелка сверху (указатель) */
-  .arrow-top { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 20px solid var(--accent); filter: drop-shadow(0 0 8px var(--accent)); z-index: 10; }
+  /* Стрелки */
+  .wheel-arrows {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+  }
+  .arrow-top {
+    width: 0; height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 20px solid var(--accent);
+    filter: drop-shadow(0 0 8px var(--accent));
+  }
+  .arrow-bottom {
+    width: 0; height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-bottom: 20px solid var(--accent);
+    filter: drop-shadow(0 0 8px var(--accent));
+    opacity: 0.3;
+  }
 
-  /* Контейнер для колеса */
+  /* Колесо */
   .wheel-container { position: relative; width: 100%; max-width: 700px; height: 380px; margin: 0 auto; display: flex; justify-content: center; align-items: flex-end; overflow: hidden; }
   
-  /* Изображение колеса (твоя картинка) */
-  .wheel-image {
+  .wheel-spinner {
     position: absolute;
     bottom: 0;
     width: 100%;
@@ -82,9 +106,10 @@
     background-position: center bottom;
     background-size: contain;
     z-index: 1;
+    transition: transform 6s cubic-bezier(0.1, 0.7, 0.1, 1);
+    transform-origin: center bottom;
   }
 
-  /* Маска для внутренней части */
   .wheel-inner-mask {
     position: absolute;
     bottom: 0;
@@ -97,7 +122,7 @@
     z-index: 3;
   }
 
-  /* Таймер */
+  /* Таймер (в красном квадрате) */
   .timer-panel {
     position: absolute;
     bottom: 40px;
@@ -116,7 +141,7 @@
   .timer-digits { font-size: 24px; font-weight: 900; display: flex; justify-content: center; gap: 4px; }
   .timer-digits span { background: var(--bg); padding: 2px 8px; border-radius: 6px; color: #fff; }
 
-  /* Панели информации */
+  /* Панели */
   .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-bottom: 15px; z-index: 5; margin-top: 20px;}
   .info-box { background: var(--panel-light); border: 1px solid var(--line); border-radius: 12px; padding: 15px; }
   .info-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
@@ -124,7 +149,7 @@
   .history { display: flex; gap: 6px; overflow: hidden; height: 40px; align-items: center; }
   .hist-item { width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px; font-weight: 900; color: #000; flex-shrink: 0; }
 
-  /* Кнопки ставок */
+  /* Кнопки */
   .bet-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 100%; z-index: 5; }
   .bet-card { background: var(--panel-light); border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; gap: 8px; user-select: none; }
   .bet-card:hover { border-color: var(--accent); }
@@ -167,6 +192,7 @@
     </div>
   </header>
 
+  <!-- ЛОББИ -->
   <div id="lobbyView">
     <div class="nav-tabs">
       <button class="active" data-tab="games">Игры</button>
@@ -206,14 +232,17 @@
     </div>
   </div>
 
+  <!-- ИГРА -->
   <div class="game-board" id="gameView">
     
-    <div class="arrow-top"></div>
+    <div class="wheel-arrows">
+      <div class="arrow-top"></div>
+      <div class="arrow-bottom"></div>
+    </div>
 
     <div class="wheel-container">
-      <div class="wheel-image" id="wheelImage"></div>
+      <div class="wheel-spinner" id="wheelImage"></div>
       <div class="wheel-inner-mask"></div>
-
       <div class="timer-panel" id="timerPanel">
         <div class="timer-label">НАЧАЛО ЧЕРЕЗ</div>
         <div class="timer-digits">
@@ -265,8 +294,6 @@
   let isBettingOpen = false;
   let timerInt = null;
   let timeLeft = 20;
-  
-  // Переменные для ставок, которые сделаны в текущем раунде
   let currentBets = [];
 
   const bgElement = document.getElementById('wheelImage');
@@ -362,12 +389,10 @@
         if (bet < 1) return alert('Мин. ставка $1');
         if (bet > balance) return alert('Недостаточно средств на балансе!');
 
-        // Списываем визуально сразу
         balance -= bet;
         document.getElementById('balDisplay').innerText = balance.toFixed(2);
         currentBets.push({ mult, bet });
         
-        // Подсвечиваем кнопку, на которую нажали
         card.style.borderColor = '#4bff9f';
         card.style.background = '#1e2640';
       });
@@ -405,20 +430,17 @@
     isSpinning = true;
     timerPanel.style.opacity = '0';
 
-    // Сбрасываем подсветку кнопок
     document.querySelectorAll('.bet-card').forEach(c => {
       c.style.borderColor = '';
       c.style.background = '';
     });
 
-    // Если ставок не было, просто крутим визуал и начинаем заново
     if (currentBets.length === 0) {
       animateSpin(null);
       return;
     }
 
     try {
-      // Отправляем первую ставку на сервер (для простоты)
       const primaryBet = currentBets[0];
       const r = await fetch('/api/games/bet', {
         method: 'POST',
@@ -434,21 +456,16 @@
   }
 
   function animateSpin(result) {
-    // Делаем 5 полных оборотов + случайный угол
-    const randomDeg = Math.floor(Math.random() * 360) + 1800;
-    
-    // Крутим картинку
+    const randomDeg = Math.floor(Math.random() * 360) + 1440;
     bgElement.style.transition = 'transform 5s cubic-bezier(0.1, 0.7, 0.1, 1)';
     bgElement.style.transform = `rotate(${randomDeg}deg)`;
 
-    setTimeout(async () => {
-      // Колесо остановилось
+    setTimeout(() => {
       if (result) {
         balance = result.newBalance;
         document.getElementById('balDisplay').innerText = balance.toFixed(2);
         
-        // Добавляем в историю только те ставки, которые совпали с выигрышем
-        const winMult = currentBets[0].mult; // Для визуала берем первую ставку
+        const winMult = currentBets[0].mult; 
         addHistory(winMult);
 
         if (result.win) {
@@ -458,16 +475,12 @@
         }
       }
 
-      // Сбрасываем колесо
       setTimeout(() => {
         bgElement.style.transition = 'none';
         bgElement.style.transform = 'rotate(0deg)';
-        
-        // Очищаем текущие ставки и запускаем новый таймер
         currentBets = [];
         startRoundTimer();
       }, 500);
-      
     }, 5000);
   }
 
