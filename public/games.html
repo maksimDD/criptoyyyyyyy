@@ -83,6 +83,7 @@
   .mine-selector { display: flex; gap: 8px; }
   .mine-btn { flex: 1; background: var(--panel-light); border: 1px solid var(--line); color: #fff; padding: 8px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s; }
   .mine-btn.active { background: var(--yellow); color: #000; border-color: var(--yellow); }
+  .mine-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   
   .bet-input-box { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .bet-input-box span { color: var(--yellow); font-size: 18px; }
@@ -92,11 +93,27 @@
   .bet-quick button:hover { color: #fff; }
 
   .actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .btn-play { background: var(--accent); color: #fff; border: none; padding: 15px; border-radius: 10px; font-weight: 800; font-size: 16px; cursor: pointer; transition: 0.2s; }
-  .btn-play:hover { background: #2b7bf3; }
-  .btn-play:disabled { background: var(--panel-light); color: var(--muted); cursor: not-allowed; }
+  
+  /* Кнопка Играть/Забрать */
+  .btn-main-action { 
+    background: var(--accent); 
+    color: #fff; 
+    border: none; 
+    padding: 15px; 
+    border-radius: 10px; 
+    font-weight: 800; 
+    font-size: 16px; 
+    cursor: pointer; 
+    transition: 0.2s; 
+  }
+  .btn-main-action:hover { background: #2b7bf3; }
+  .btn-main-action.take { background: var(--green); color: #000; }
+  .btn-main-action.take:hover { background: #38e078; }
+  .btn-main-action:disabled { background: var(--panel-light); color: var(--muted); cursor: not-allowed; }
+
   .btn-auto { background: var(--yellow); color: #000; border: none; padding: 15px; border-radius: 10px; font-weight: 800; font-size: 16px; cursor: pointer; transition: 0.2s; }
   .btn-auto:hover { background: #e5a542; }
+  .btn-auto:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* Правая панель - Сетка */
   .mines-grid-panel {
@@ -140,7 +157,7 @@
   .cell.crown { background: #1c3a24; border-color: var(--green); }
   .cell.disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* Нижние кнопки (x1.225x и т.д.) */
+  /* Нижние кнопки */
   .bottom-actions {
     display: flex;
     gap: 10px;
@@ -208,7 +225,6 @@
     </div>
   </header>
 
-  <!-- ЛОББИ -->
   <div id="lobbyView">
     <div class="nav-tabs">
       <button class="active" data-tab="games">Игры</button>
@@ -222,7 +238,6 @@
           <h2>Mines</h2>
           <p>Классический минёр</p>
         </a>
-        <!-- Можно добавить другие игры -->
       </div>
     </div>
 
@@ -245,11 +260,9 @@
     </div>
   </div>
 
-  <!-- ИГРА MINES -->
   <div class="game-board" id="gameView">
     <div class="mines-layout">
       
-      <!-- Левая панель -->
       <div class="mines-sidebar">
         <div class="side-panel">
           <div class="side-label"><span>Количество мин</span> <span style="color:var(--red);" id="currentMinesLabel">💣 5</span></div>
@@ -276,20 +289,13 @@
         </div>
 
         <div class="actions-row">
-          <button class="btn-play" id="startGameBtn">Играть</button>
-          <button class="btn-auto">Авто-выбор</button>
-        </div>
-
-        <div class="side-panel" style="margin-top:auto;">
-          <div class="side-label">Пароль: <span style="color:#fff;">Скрыто</span></div>
-          <button style="width:100%; background:none; border:none; color:var(--muted); font-size:12px; text-decoration:underline; cursor:pointer;">Скачать архив</button>
+          <button class="btn-main-action" id="mainActionBtn">Играть</button>
+          <button class="btn-auto" id="autoBtn">Авто-выбор</button>
         </div>
       </div>
 
-      <!-- Правая панель (Сетка) -->
       <div class="mines-grid-panel">
         
-        <!-- Плашки по бокам -->
         <div class="info-floater left" id="crownsCountBox" style="display: none;">
           <img src="https://cdn-icons-png.flaticon.com/512/190/190314.png" alt="crown">
           <p>Короны</p>
@@ -301,15 +307,13 @@
           <span id="minesCount">0</span>
         </div>
 
-        <div class="grid-container" id="grid">
-          <!-- Заполняется JS (25 ячеек) -->
-        </div>
+        <div class="grid-container" id="grid"></div>
 
         <div class="bottom-actions">
           <button id="prevCoeffBtn" disabled>←</button>
           <button id="currCoeffBtn" disabled>1.000x</button>
           <button id="nextCoeffBtn" disabled>1.000x</button>
-          <button id="takeWinBtn" disabled>Забрать</button>
+          <button id="takeWinBottomBtn" disabled>Забрать</button>
           <button id="nextRoundBtn" disabled>→</button>
         </div>
       </div>
@@ -319,7 +323,6 @@
 </div>
 
 <script>
-  // Инициализация
   let balance = 0;
   let isGameActive = false;
   let currentBombs = 5;
@@ -327,13 +330,14 @@
   let bombsPositions = [];
   let openedCellsCount = 0;
   let currentMultiplier = 1.0;
+  let autoPlayInterval = null;
 
   const balDisplay = document.getElementById('balDisplay');
   const grid = document.getElementById('grid');
-  const startBtn = document.getElementById('startGameBtn');
-  const takeWinBtn = document.getElementById('takeWinBtn');
+  const mainActionBtn = document.getElementById('mainActionBtn');
+  const autoBtn = document.getElementById('autoBtn');
+  const takeWinBottomBtn = document.getElementById('takeWinBottomBtn');
 
-  // Вкладки
   document.querySelectorAll('.nav-tabs button').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
@@ -343,7 +347,6 @@
     });
   });
 
-  // Выбор мин
   document.querySelectorAll('.mine-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (isGameActive) return;
@@ -354,12 +357,10 @@
     });
   });
 
-  // Ставка
   window.setBet = (amt) => {
     document.getElementById('betAmount').value = Math.max(1, Math.floor(amt));
   };
 
-  // Роутинг
   function handleHash() {
     const hash = window.location.hash.replace('#', '');
     if (hash === 'mines') {
@@ -378,21 +379,18 @@
 
   window.addEventListener('hashchange', handleHash);
 
-  // Создание сетки 5х5
   function initMines() {
     grid.innerHTML = '';
     gridCells = [];
     for (let i = 0; i < 25; i++) {
       const cell = document.createElement('div');
       cell.className = 'cell';
-      cell.innerText = '🔥'; // Иконка огня (как на скрине)
+      cell.innerText = '🔥';
       cell.dataset.index = i;
       cell.addEventListener('click', () => handleCellClick(i));
       grid.appendChild(cell);
       gridCells.push(cell);
     }
-    
-    // Сброс состояния
     resetGameState();
   }
 
@@ -401,52 +399,120 @@
     openedCellsCount = 0;
     currentMultiplier = 1.0;
     bombsPositions = [];
+    clearInterval(autoPlayInterval);
+    autoPlayInterval = null;
     
-    gridCells.forEach((cell, i) => {
+    gridCells.forEach((cell) => {
       cell.className = 'cell';
       cell.innerText = '🔥';
     });
 
-    startBtn.disabled = false;
-    takeWinBtn.disabled = true;
-    document.getElementById('crownsCountBox').style.display = 'none';
-    document.getElementById('minesCountBox').style.display = 'none';
+    // Кнопки
+    mainActionBtn.innerText = 'Играть';
+    mainActionBtn.classList.remove('take');
+    mainActionBtn.disabled = false;
+    autoBtn.disabled = false;
+    
+    // Нижние кнопки
+    takeWinBottomBtn.disabled = true;
     document.getElementById('currCoeffBtn').innerText = '1.000x';
     document.getElementById('nextCoeffBtn').innerText = '1.000x';
+
+    // Скрываем плашки
+    document.getElementById('crownsCountBox').style.display = 'none';
+    document.getElementById('minesCountBox').style.display = 'none';
+    
+    // Возвращаем выбору мин активность
+    document.querySelectorAll('.mine-btn').forEach(b => b.disabled = false);
   }
 
-  // Старт игры
-  startBtn.addEventListener('click', () => {
-    const bet = Number(document.getElementById('betAmount').value);
-    if (bet < 1) return alert('Мин. ставка $1');
-    if (bet > balance) return alert('Недостаточно средств на балансе!');
+  // Кнопка Играть / Забрать (Главная)
+  mainActionBtn.addEventListener('click', () => {
+    if (isGameActive) {
+      // Если игра идет, кнопка работает как "Забрать"
+      takeWin();
+    } else {
+      // Если игры нет, запускаем
+      const bet = Number(document.getElementById('betAmount').value);
+      if (bet < 1) return alert('Мин. ставка $1');
+      if (bet > balance) return alert('Недостаточно средств на балансе!');
 
-    // Списываем баланс
-    balance -= bet;
-    balDisplay.innerText = balance.toFixed(2);
-    
-    // Генерируем мины
-    bombsPositions = [];
-    while (bombsPositions.length < currentBombs) {
-      const pos = Math.floor(Math.random() * 25);
-      if (!bombsPositions.includes(pos)) bombsPositions.push(pos);
+      balance -= bet;
+      balDisplay.innerText = balance.toFixed(2);
+      
+      bombsPositions = [];
+      while (bombsPositions.length < currentBombs) {
+        const pos = Math.floor(Math.random() * 25);
+        if (!bombsPositions.includes(pos)) bombsPositions.push(pos);
+      }
+
+      isGameActive = true;
+      openedCellsCount = 0;
+      currentMultiplier = 1.0;
+      
+      // Меняем кнопку на "Забрать"
+      mainActionBtn.innerText = 'Забрать';
+      mainActionBtn.classList.add('take');
+      
+      // Блокируем настройки
+      document.querySelectorAll('.mine-btn').forEach(b => b.disabled = true);
+      autoBtn.disabled = false;
+      
+      // Показываем плашки
+      document.getElementById('crownsCountBox').style.display = 'block';
+      document.getElementById('minesCountBox').style.display = 'block';
+      document.getElementById('crownsCount').innerText = '0';
+      document.getElementById('minesCount').innerText = currentBombs;
+      
+      updateCoeffsUI();
     }
-
-    isGameActive = true;
-    openedCellsCount = 0;
-    currentMultiplier = 1.0;
-    
-    startBtn.disabled = true;
-    takeWinBtn.disabled = false;
-    document.getElementById('crownsCountBox').style.display = 'block';
-    document.getElementById('minesCountBox').style.display = 'block';
-    document.getElementById('crownsCount').innerText = '0';
-    document.getElementById('minesCount').innerText = currentBombs;
-    
-    updateCoeffsUI();
   });
 
-  // Клик по ячейке
+  // Кнопка Забрать внизу
+  takeWinBottomBtn.addEventListener('click', takeWin);
+
+  function takeWin() {
+    if (!isGameActive || openedCellsCount === 0) return;
+    
+    clearInterval(autoPlayInterval);
+    const bet = Number(document.getElementById('betAmount').value);
+    const win = Math.floor(bet * currentMultiplier);
+    balance += win;
+    balDisplay.innerText = balance.toFixed(2);
+    alert(`Вы забрали выигрыш: $${win}`);
+    revealAllCells();
+    isGameActive = false;
+    setTimeout(() => resetGameState(), 1500);
+  }
+
+  // Авто-выбор
+  autoBtn.addEventListener('click', () => {
+    if (!isGameActive) return alert('Сначала нажмите "Играть"');
+    if (autoPlayInterval) {
+      clearInterval(autoPlayInterval);
+      autoPlayInterval = null;
+      autoBtn.innerText = 'Авто-выбор';
+      return;
+    }
+
+    autoBtn.innerText = 'Стоп';
+    autoPlayInterval = setInterval(() => {
+      if (!isGameActive) {
+        clearInterval(autoPlayInterval);
+        autoPlayInterval = null;
+        autoBtn.innerText = 'Авто-выбор';
+        return;
+      }
+      
+      const closedCells = gridCells.filter(c => !c.classList.contains('opened'));
+      if (closedCells.length === 0) return;
+      
+      const randomCell = closedCells[Math.floor(Math.random() * closedCells.length)];
+      const index = Number(randomCell.dataset.index);
+      handleCellClick(index);
+    }, 500); // Клик каждые 0.5 сек
+  });
+
   function handleCellClick(index) {
     if (!isGameActive) return;
     const cell = gridCells[index];
@@ -455,24 +521,25 @@
     cell.classList.add('opened');
 
     if (bombsPositions.includes(index)) {
-      // Бомба!
       cell.classList.add('bomb');
       cell.innerText = '💣';
       endGame(false);
     } else {
-      // Корона!
       cell.classList.add('crown');
       cell.innerText = '👑';
       openedCellsCount++;
       document.getElementById('crownsCount').innerText = openedCellsCount;
       calculateMultiplier();
       updateCoeffsUI();
+      
+      // Как только открыли первую ячейку, активируем кнопку забрать
+      if (openedCellsCount > 0) {
+        takeWinBottomBtn.disabled = false;
+      }
     }
   }
 
-  // Расчет множителя (упрощенная формула)
   function calculateMultiplier() {
-    // Чем больше открыто, тем выше множитель
     const safeCells = 25 - currentBombs;
     const baseMult = 1 + (openedCellsCount * (currentBombs / 10));
     currentMultiplier = baseMult.toFixed(3);
@@ -483,28 +550,16 @@
     document.getElementById('nextCoeffBtn').innerText = `${(Number(currentMultiplier) + 0.25).toFixed(3)}x`;
   }
 
-  // Забрать выигрыш
-  takeWinBtn.addEventListener('click', () => {
-    if (!isGameActive) return;
-    const bet = Number(document.getElementById('betAmount').value);
-    const win = Math.floor(bet * currentMultiplier);
-    balance += win;
-    balDisplay.innerText = balance.toFixed(2);
-    alert(`Вы забрали выигрыш: $${win}`);
-    revealAllCells();
-    resetGameState();
-  });
-
   function endGame(isWin) {
     isGameActive = false;
+    clearInterval(autoPlayInterval);
+    autoPlayInterval = null;
+    autoBtn.innerText = 'Авто-выбор';
     revealAllCells();
-    takeWinBtn.disabled = true;
     
     if (!isWin) {
       alert('💥 БУМ! Вы наткнулись на мину.');
-      setTimeout(() => {
-        resetGameState();
-      }, 2000);
+      setTimeout(() => resetGameState(), 2000);
     }
   }
 
@@ -520,7 +575,6 @@
     });
   }
 
-  // Пополнение
   async function doDeposit() {
     const amt = Number(document.getElementById('depositAmount').value);
     const st = document.getElementById('depositStatus');
@@ -535,7 +589,6 @@
     } catch (e) { st.innerText = e.message; st.style.color = '#ff4b4b'; }
   }
 
-  // Промокод
   async function doPromo() {
     const code = document.getElementById('promoCode').value;
     const st = document.getElementById('promoStatus');
