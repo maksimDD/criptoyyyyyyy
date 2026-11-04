@@ -38,14 +38,27 @@ class SQLiteSessionStore extends session.Store {
 app.use(session({ name: 'blup.sid', secret: SESSION_SECRET, store: new SQLiteSessionStore(), resave: false, saveUninitialized: false, rolling: true, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 7 * 86400000 } }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const onlineUsers = new Map();
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api/online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) return next();
-  const identifier = req.session?.userId ? `user_${req.session.userId}` : `ip_${ipOf(req)}`;
-  onlineUsers.set(identifier, Date.now());
-  next();
-});
-app.get('/api/online', (req, res) => { const now = Date.now(); let count = 0; onlineUsers.forEach((l, id) => { if (now - l < 300000) count++; else onlineUsers.delete(id); }); res.json({ online: count > 0 ? count : 1 }); });
+// Реальный онлайн: учитываем активные браузерные сессии, которые регулярно
+// отправляют heartbeat с открытой страницы. Не подменяем ноль единицей.
+const onlineSessions = new Map();
+const ONLINE_TIMEOUT_MS = 75 * 1000;
+function reportOnline(req, res) {
+  // Помечаем сессию изменённой, чтобы express-session сохранил cookie и
+  // один посетитель не считался новой сессией при каждом heartbeat.
+  req.session.onlinePresence = true;
+  onlineSessions.set(req.sessionID, Date.now());
+  const now = Date.now();
+  let count = 0;
+  for (const [sessionId, lastSeen] of onlineSessions) {
+    if (now - lastSeen <= ONLINE_TIMEOUT_MS) count++;
+    else onlineSessions.delete(sessionId);
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json({ online: count });
+}
+app.get('/api/real-online', reportOnline);
+// Оставляем совместимость со старым адресом API.
+app.get('/api/online', reportOnline);
 
 const authAttempts = new Map();
 function rateLimit(key, max = 12, windowMs = 15 * 60 * 1000) { const now = Date.now(); const item = authAttempts.get(key); if (!item || item.until < now) { authAttempts.set(key, { count: 1, until: now + windowMs }); return false; } item.count += 1; return item.count > max; }
