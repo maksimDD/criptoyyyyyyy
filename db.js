@@ -35,6 +35,8 @@ db.ready = (async () => {
     await run(`CREATE TABLE IF NOT EXISTS ip_bans (ip TEXT PRIMARY KEY, reason TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS visits (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, nickname TEXT, ip TEXT, event TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run('CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL, expires INTEGER NOT NULL)');
+    await run('CREATE TABLE IF NOT EXISTS online_visitors (session_key TEXT PRIMARY KEY, last_seen INTEGER NOT NULL)');
+    await run('CREATE INDEX IF NOT EXISTS idx_online_visitors_last_seen ON online_visitors(last_seen)');
 
     const migrations = {
       users: { last_ip:'TEXT', last_seen:'TEXT', is_banned:'INTEGER DEFAULT 0', ban_reason:'TEXT', session_version:'INTEGER DEFAULT 0', public_id:'INTEGER', telegram_username:'TEXT',
