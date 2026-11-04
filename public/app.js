@@ -17,6 +17,17 @@ if ($('#promosNav')) {
 if ($('#promoClose')) $('#promoClose').addEventListener('click',()=>closeModal('promoBackdrop'));
 
 const userChip=$('#userChip'), loginBtn=$('#loginBtn');
+async function readApiJson(response, label='API') {
+  const type = response.headers.get('content-type') || '';
+  const raw = await response.text();
+  if (!type.includes('application/json')) {
+    if (/<!doctype html|<html/i.test(raw)) throw new Error(`${label}: сервер вернул HTML вместо JSON. Похоже, на Amvera запущена старая версия backend или API-маршрут не попадает в Node.js. Перезагрузите приложение и проверьте deployment.`);
+    throw new Error(`${label}: сервер вернул неожиданный формат ответа.`);
+  }
+  try { return raw ? JSON.parse(raw) : {}; }
+  catch { throw new Error(`${label}: сервер вернул некорректный JSON.`); }
+}
+
 let blockedNotified=false;
 
 async function api(url, options={}) { const r=await fetch(url,{...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Ошибка запроса'); return d; }
@@ -245,7 +256,7 @@ if (tgLoginBtn) {
 
     try {
       const r = await fetch('/api/auth/telegram/config');
-      const config = await r.json();
+      const config = await readApiJson(r, 'Настройки Telegram');
       if (!r.ok) throw new Error(config.error || 'Telegram-вход не настроен');
 
       window.Telegram.Login.auth(
@@ -258,7 +269,7 @@ if (tgLoginBtn) {
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(user)
             });
-            const d = await authRes.json().catch(() => ({}));
+            const d = await readApiJson(authRes, 'Авторизация Telegram');
             if (!authRes.ok) throw new Error(d.error || 'Ошибка Telegram-входа');
             closeModal('authBackdrop');
             await refreshUser();
@@ -275,15 +286,14 @@ if (tgLoginBtn) {
 
 async function refreshOnline() {
   try {
-    await fetch('/api/online/heartbeat', { method: 'POST', credentials: 'same-origin', cache: 'no-store' });
-    const r = await fetch('/api/real-online', { credentials: 'same-origin', cache: 'no-store' });
+    const r = await fetch('/api/real-online');
     const d = await r.json();
     const countEl = $('#onlineCount');
     if (countEl) countEl.textContent = d.online || 0;
   } catch {}
 }
 refreshOnline();
-setInterval(refreshOnline, 25000); // Heartbeat каждые 25 секунд; активность считается за последние 90 секунд
+setInterval(refreshOnline, 60000); // Обновляем раз в минуту
 
 // ==========================================
 // ЛОГИКА ВХОДА (ЛОГИН/ПАРОЛЬ И TG)
@@ -326,3 +336,5 @@ if (authForm) {
     }
   });
 }
+
+(async function(){const root=document.getElementById('publicReviews');if(!root)return;try{const r=await fetch('/api/reviews');const rows=await r.json();const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));root.innerHTML=rows.map(x=>`<article class="feature-card"><div style="color:#ffd166">${'★'.repeat(x.stars)}${'☆'.repeat(5-x.stars)}</div><div class="feature-tag">ПРОДАЖА ${Number(x.sale_amount).toLocaleString('ru-RU')} ₽</div><h3>${safe(x.username)}</h3><p>${safe(x.review_text)}</p><small>#${safe(x.user_public_id)}</small></article>`).join('')||'<p>Пока отзывов нет.</p>';}catch{root.innerHTML='<p>Не удалось загрузить отзывы.</p>';}})();

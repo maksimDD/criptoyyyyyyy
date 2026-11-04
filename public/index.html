@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
 <title>BLUP — Продажа криптовалюты</title> 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%2300D4FF'/%3E%3Cstop offset='1' stop-color='%237B2CFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='48' fill='url(%23g)'/%3E%3C/svg%3E"> <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="./styles.css?v=online2"> 
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%2300D4FF'/%3E%3Cstop offset='1' stop-color='%237B2CFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='48' fill='url(%23g)'/%3E%3C/svg%3E"> <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="./styles.css"> 
 </head> 
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -34,12 +34,13 @@
     <button class="menu-toggle" id="menuToggle" aria-label="Открыть меню"><i></i><i></i><i></i></button>
     <nav class="nav" id="nav">
       <a class="nav-link active" href="#home">Главная</a>
-      <a class="nav-link" href="#promos" id="promosNav">Промокоды</a>
       <a class="nav-link" href="#features">Возможности</a>
       <a class="nav-link" href="#advantages">Преимущества</a>
       <a class="nav-link" href="#how">Как это работает</a>
       <a class="nav-link" href="#faq">FAQ</a>
       <a class="nav-link" href="#contacts">Контакты</a>
+      <a class="nav-link" href="#reviews">Отзывы</a>
+      <a class="nav-link" href="#promos" id="promosNav">Промокоды</a>
     </nav>
     <div class="header-actions">
       <a class="btn btn-ghost btn-small" id="profileBtn" href="/profile">Профиль</a>
@@ -144,6 +145,8 @@
         </div>
       </div>
     </section>
+
+    <section class="section-wrap section-block" id="reviews"><div class="section-heading"><div><div class="eyebrow">ОТЗЫВЫ КЛИЕНТОВ</div><h2>Что говорят о <span>BLUP</span></h2></div><p>Отзывы пользователей о завершённых сделках.</p></div><div id="publicReviews" class="feature-grid"><p>Загрузка отзывов…</p></div></section>
   </main>
 
   <footer class="footer section-wrap">
@@ -268,6 +271,6 @@
   
   <div class="toast" id="toast"></div>
   <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=20261104-tgjson"></script>
 </body>
 </html>

@@ -436,3 +436,9 @@ document.getElementById('adminRefClose')?.addEventListener('click', () => {
     document.body.style.overflow = '';
   }
 });
+
+async function loadAdminReviews(){const rows=await api('/api/admin/reviews');$('#adminReviewsTable').innerHTML=rows.map(r=>`<tr><td>${esc(r.user_public_id)}<br><small>${esc(r.username)}</small></td><td>${Number(r.sale_amount).toFixed(2)}</td><td style="color:#ffd166">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</td><td style="white-space:normal">${esc(r.review_text)}</td><td><button class="btn btn-ghost btn-small" data-review-delete="${r.id}">Удалить</button></td></tr>`).join('')||'<tr><td colspan="5">Отзывов пока нет</td></tr>';}
+$('#adminReviewsBtn')?.addEventListener('click',async()=>{ $('#adminReviewsBackdrop').classList.add('open');document.body.style.overflow='hidden';try{await loadAdminReviews()}catch(e){toast(e.message)}});
+$('#adminReviewsClose')?.addEventListener('click',()=>{ $('#adminReviewsBackdrop').classList.remove('open');document.body.style.overflow='';});
+$('#adminReviewForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/admin/reviews',{method:'POST',body:JSON.stringify({userId:f.get('userId'),username:f.get('username'),amount:Number(f.get('amount')),stars:Number(f.get('stars')),text:f.get('text')})});e.currentTarget.reset();$('#adminReviewMessage').textContent='Отзыв добавлен';await loadAdminReviews();}catch(err){$('#adminReviewMessage').textContent=err.message;}});
+$('#adminReviewsTable')?.addEventListener('click',async e=>{const b=e.target.closest('[data-review-delete]');if(!b||!confirm('Удалить этот отзыв?'))return;try{await api('/api/admin/reviews/'+b.dataset.reviewDelete,{method:'DELETE'});await loadAdminReviews();}catch(err){toast(err.message)}});

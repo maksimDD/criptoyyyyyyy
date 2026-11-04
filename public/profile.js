@@ -1,3 +1,12 @@
+async function readProfileApiJson(response, label='API') {
+  const type = response.headers.get('content-type') || '';
+  const raw = await response.text();
+  if (!type.includes('application/json')) {
+    if (/<!doctype html|<html/i.test(raw)) throw new Error(`${label}: сервер вернул HTML вместо JSON. Backend на Amvera, вероятно, не обновлён или API-маршрут недоступен.`);
+    throw new Error(`${label}: неожиданный формат ответа.`);
+  }
+  try { return raw ? JSON.parse(raw) : {}; } catch { throw new Error(`${label}: некорректный JSON.`); }
+}
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function fmtDate(v){ if(!v) return '—'; const d=new Date(String(v).replace(' ','T')+'Z'); return isNaN(d)?esc(v):d.toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'}); }
@@ -42,7 +51,7 @@ let currentProfile = null;
 
     const tgStatus = $('#p-tg-status');
     if (tgStatus) {
-      tgStatus.textContent = validTgUsername ? '@' + p.telegram_username : (p.telegram_id ? 'username не задан в Telegram' : 'не привязан');
+      tgStatus.textContent = validTgUsername ? '@' + p.telegram_username : 'не привязан';
       tgStatus.style.color = validTgUsername ? '#5ce3a4' : '#8fa8b4';
     }
 
@@ -72,7 +81,7 @@ function initLinkTelegram() {
   const linkTgBtn = $('#linkTgBtn');
   if (!linkTgBtn) return;
 
-  if (currentProfile && (currentProfile.is_telegram || currentProfile.auth_method !== 'password')) {
+  if (currentProfile && currentProfile.is_telegram) {
     linkTgBtn.style.display = 'none';
     return;
   }
@@ -96,7 +105,7 @@ function initLinkTelegram() {
 
     try {
       const r = await fetch('/api/auth/telegram/config');
-      const config = await r.json();
+      const config = await readProfileApiJson(r, 'Настройки Telegram');
       if (!r.ok) throw new Error(config.error || 'Telegram-вход не настроен');
 
       window.Telegram.Login.auth(
@@ -113,7 +122,7 @@ function initLinkTelegram() {
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(user)
             });
-            const d = await authRes.json();
+            const d = await readProfileApiJson(authRes, 'Привязка Telegram');
             if (!authRes.ok) throw new Error(d.error || 'Ошибка');
             alert('Telegram успешно привязан!');
             location.reload();
