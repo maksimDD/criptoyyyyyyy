@@ -35,8 +35,6 @@ db.ready = (async () => {
     await run(`CREATE TABLE IF NOT EXISTS ip_bans (ip TEXT PRIMARY KEY, reason TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS visits (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, nickname TEXT, ip TEXT, event TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run('CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL, expires INTEGER NOT NULL)');
-    await run('CREATE TABLE IF NOT EXISTS online_visitors (session_key TEXT PRIMARY KEY, last_seen INTEGER NOT NULL)');
-    await run('CREATE INDEX IF NOT EXISTS idx_online_visitors_last_seen ON online_visitors(last_seen)');
 
     const migrations = {
       users: { last_ip:'TEXT', last_seen:'TEXT', is_banned:'INTEGER DEFAULT 0', ban_reason:'TEXT', session_version:'INTEGER DEFAULT 0', public_id:'INTEGER', telegram_username:'TEXT',
@@ -57,6 +55,7 @@ db.ready = (async () => {
     await run(`CREATE TABLE IF NOT EXISTS user_discounts (user_id INTEGER PRIMARY KEY, percent INTEGER NOT NULL, source TEXT DEFAULT 'admin', active INTEGER DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS user_coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, promo_id INTEGER, percent INTEGER NOT NULL, source TEXT DEFAULT 'promo', created_at TEXT DEFAULT CURRENT_TIMESTAMP, used_at TEXT, used_sale_id INTEGER)`);
     await run('CREATE INDEX IF NOT EXISTS idx_user_coupons_active ON user_coupons(user_id, used_at)');
+    await run(`CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_public_id TEXT NOT NULL, username TEXT NOT NULL, sale_amount REAL NOT NULL DEFAULT 0, review_text TEXT NOT NULL, stars INTEGER NOT NULL CHECK(stars BETWEEN 1 AND 5), created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     
     // Таблицы для мини-игр
     await run(`CREATE TABLE IF NOT EXISTS game_balance (user_id INTEGER PRIMARY KEY, balance REAL DEFAULT 0)`);

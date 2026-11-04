@@ -38,27 +38,14 @@ class SQLiteSessionStore extends session.Store {
 app.use(session({ name: 'blup.sid', secret: SESSION_SECRET, store: new SQLiteSessionStore(), resave: false, saveUninitialized: false, rolling: true, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 7 * 86400000 } }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Онлайн считаем по heartbeat активных вкладок в общей SQLite-БД.
-// Это работает между перезапусками процесса и несколькими инстансами приложения.
-app.post('/api/online/heartbeat', (req, res) => {
-  // Создаём cookie-сессию и для гостей, иначе анонимные посетители не будут различаться.
-  if (req.session) req.session.onlineHeartbeat = true;
-  if (!req.sessionID) return res.status(400).json({ error: 'Нет сессии' });
-  const ua = String(req.headers['user-agent'] || '').slice(0, 300);
-  if (/bot|crawler|spider|preview/i.test(ua)) return res.json({ ok: true });
-  db.run(`INSERT INTO online_visitors(session_key,last_seen) VALUES(?,?)
-          ON CONFLICT(session_key) DO UPDATE SET last_seen=excluded.last_seen`,
-    [req.sessionID, Date.now()], err => err ? res.status(500).json({ error: 'Ошибка онлайн-счётчика' }) : res.json({ ok: true }));
+const onlineUsers = new Map();
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/online') || req.path.match(/\.(css|js|png|jpg|svg|ico|woff|woff2)$/)) return next();
+  const identifier = req.session?.userId ? `user_${req.session.userId}` : `ip_${ipOf(req)}`;
+  onlineUsers.set(identifier, Date.now());
+  next();
 });
-app.get('/api/real-online', (req, res) => {
-  const cutoff = Date.now() - 90000;
-  db.get('SELECT COUNT(*) AS online FROM online_visitors WHERE last_seen>=?', [cutoff], (err, row) => {
-    if (err) return res.status(500).json({ error: 'Ошибка онлайн-счётчика' });
-    db.run('DELETE FROM online_visitors WHERE last_seen < ?', [cutoff - 60000]);
-    res.set('Cache-Control', 'no-store');
-    res.json({ online: Number(row?.online || 0) });
-  });
-});
+app.get('/api/online', (req, res) => { const now = Date.now(); let count = 0; onlineUsers.forEach((l, id) => { if (now - l < 300000) count++; else onlineUsers.delete(id); }); res.json({ online: count > 0 ? count : 1 }); });
 
 const authAttempts = new Map();
 function rateLimit(key, max = 12, windowMs = 15 * 60 * 1000) { const now = Date.now(); const item = authAttempts.get(key); if (!item || item.until < now) { authAttempts.set(key, { count: 1, until: now + windowMs }); return false; } item.count += 1; return item.count > max; }
@@ -110,7 +97,7 @@ app.post('/api/register', (req, res) => {
               const newUserId = this.lastID;
               req.session.regenerate(regErr => {
                 if (regErr) return res.status(500).json({ error: 'Ошибка сессии' });
-                req.session.userId = newUserId; req.session.nickname = nickname; req.session.sessionVersion = 0; req.session.authMethod = 'password';
+                req.session.userId = newUserId; req.session.nickname = nickname; req.session.sessionVersion = 0;
                 logVisit({ id: newUserId, nickname }, ip, 'register');
                 notifyNewUser({nickname, publicId}).catch(() => {});
                 req.session.save(() => res.json({ ok: true, nickname, publicId, referred: Boolean(referrerId) }));
@@ -137,7 +124,7 @@ app.post('/api/login', (req, res) => {
       if (err || !user || !bcrypt.compareSync(password, user.password_hash)) return res.status(400).json({ error: 'Неверный ник или пароль' });
       if (user.is_banned) return sendBlocked(res);
       req.session.regenerate(regErr => {
-        req.session.userId = user.id; req.session.nickname = user.nickname; req.session.sessionVersion = user.session_version || 0; req.session.authMethod = 'password';
+        req.session.userId = user.id; req.session.nickname = user.nickname; req.session.sessionVersion = user.session_version || 0;
         logVisit(user, ip, 'login');
         req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
       });
@@ -163,7 +150,7 @@ app.post('/api/auth/telegram', (req, res) => {
     const finishLogin = user => {
       if (!user || user.is_banned) return sendBlocked(res);
       req.session.regenerate(regErr => {
-        req.session.userId = user.id; req.session.nickname = user.nickname; req.session.sessionVersion = user.session_version || 0; req.session.authMethod = 'telegram';
+        req.session.userId = user.id; req.session.nickname = user.nickname; req.session.sessionVersion = user.session_version || 0;
         logVisit(user, ip, 'login_telegram');
         if (user.isNew) notifyNewUser({ nickname: user.nickname, publicId: user.public_id, telegramId: data.id, telegramUsername: data.username || 'нет' }).catch(() => {});
         req.session.save(() => res.json({ ok: true, nickname: user.nickname }));
@@ -171,7 +158,7 @@ app.post('/api/auth/telegram', (req, res) => {
     };
     db.get('SELECT * FROM users WHERE telegram_id=?', [data.id], (err, byTg) => {
       if (byTg) {
-        db.run(`UPDATE users SET telegram_username=?, telegram_photo_url=?, last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?`, [(String(data.username || '').trim().replace(/^@+/, '') || null), data.photo_url || null, ip, byTg.id]);
+        db.run(`UPDATE users SET telegram_username=?, telegram_photo_url=?, last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?`, [data.username || null, data.photo_url || null, ip, byTg.id]);
         return finishLogin(byTg);
       }
       const baseNick = (data.username || `tg_${data.id}`).replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20) || `tg_${data.id}`;
@@ -181,7 +168,7 @@ app.post('/api/auth/telegram', (req, res) => {
         publicId = pid;
         const tryInsert = (nick, cb) => {
           db.run(`INSERT INTO users(nickname,password_hash,last_ip,last_seen,public_id,telegram_id,telegram_username,telegram_photo_url) VALUES(?,?,?,CURRENT_TIMESTAMP,?,?,?,?)`,
-            [nick, randomHash, ip, pid, data.id, (String(data.username || '').trim().replace(/^@+/, '') || null), data.photo_url||null], function(insErr) {
+            [nick, randomHash, ip, pid, data.id, data.username||null, data.photo_url||null], function(insErr) {
               if (insErr) return cb(insErr);
               cb(null, { id: this.lastID, nickname: nick, session_version: 0, is_banned: 0 });
             });
@@ -200,7 +187,6 @@ app.post('/api/auth/telegram', (req, res) => {
 
 app.post('/api/auth/link-telegram', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Войдите' });
-  if (req.session.authMethod !== 'password') return res.status(403).json({ error: 'Привязка Telegram доступна только после входа по логину и паролю. Для Telegram-входа привязка не требуется.' });
   const data = req.body || {};
   const botToken = process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
   if (!data.id || !data.auth_date || !data.hash) return res.status(400).json({ error: 'Ошибка' });
@@ -213,7 +199,7 @@ app.post('/api/auth/link-telegram', (req, res) => {
 
   db.get('SELECT id FROM users WHERE telegram_id=? AND id!=?', [data.id, req.session.userId], (err, existing) => {
     if (existing) return res.status(409).json({ error: 'TG уже привязан к другому' });
-    db.run(`UPDATE users SET telegram_id=?, telegram_username=?, telegram_photo_url=? WHERE id=?`, [data.id, (String(data.username || '').trim().replace(/^@+/, '') || null), data.photo_url || null, req.session.userId], function() {
+    db.run(`UPDATE users SET telegram_id=?, telegram_username=?, telegram_photo_url=? WHERE id=?`, [data.id, data.username || null, data.photo_url || null, req.session.userId], function() {
       res.json({ ok: true });
     });
   });
@@ -236,9 +222,7 @@ app.get('/api/profile', (req,res) => {
     [req.session.userId], (e,row) => {
       if (e) return res.status(500).json({error:'Ошибка'});
       db.all('SELECT id,percent,created_at FROM user_coupons WHERE user_id=? AND used_at IS NULL ORDER BY id ASC', [req.session.userId], (e2, coupons) => {
-        const rawUsername = String(row?.telegram_username || '').trim().replace(/^@+/, '');
-        const cleanUsername = /^[a-zA-Z0-9_]{5,32}$/.test(rawUsername) ? rawUsername : null;
-        res.json({ ...row, telegram_username: cleanUsername, coupons: coupons || [], is_telegram: !!row?.telegram_id, auth_method: req.session.authMethod || 'password' });
+        res.json({ ...row, coupons: coupons || [], is_telegram: !!row.telegram_id });
       });
     });
 });
@@ -438,6 +422,11 @@ app.get('/api/admin/referrals', adminOnly, (req, res) => {
   });
 });
 
+app.get('/api/reviews', (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC LIMIT 50', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
+app.get('/api/admin/reviews', adminOnly, (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
+app.post('/api/admin/reviews', adminOnly, (req,res) => { const uid=String(req.body?.userId||'').trim().slice(0,40), user=String(req.body?.username||'').trim().slice(0,64), amount=Number(req.body?.amount), review=String(req.body?.text||'').trim().slice(0,1500), stars=Number(req.body?.stars); if(!uid||!user||!Number.isFinite(amount)||amount<0||!review||!Number.isInteger(stars)||stars<1||stars>5)return res.status(400).json({error:'Заполните все поля корректно'}); db.run('INSERT INTO reviews(user_public_id,username,sale_amount,review_text,stars) VALUES(?,?,?,?,?)',[uid,user,amount,review,stars],function(e){e?res.status(500).json({error:'Не удалось сохранить отзыв'}):res.json({ok:true,id:this.lastID});}); });
+app.delete('/api/admin/reviews/:id', adminOnly, (req,res) => db.run('DELETE FROM reviews WHERE id=?',[Number(req.params.id)],function(e){e?res.status(500).json({error:'Ошибка удаления'}):res.json({ok:true});}));
+
 app.get('/api/public/user/:id', (req,res) => {
   const publicId = Number(req.params.id);
   if (!Number.isInteger(publicId) || publicId < 1) return res.status(400).json({error:'Некорректный ID'});
@@ -445,6 +434,9 @@ app.get('/api/public/user/:id', (req,res) => {
     COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd
     FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.public_id=? GROUP BY u.id`,[publicId],(e,row)=>e?res.status(500).json({error:'Ошибка'}):row?res.json(row):res.status(404).json({error:'Пользователь не найден'}));
 });
+// Не отдаём HTML для неизвестных API-маршрутов: клиент должен получить понятный JSON 404.
+app.use('/api', (req, res) => res.status(404).json({ error: `API-маршрут не найден: ${req.method} ${req.originalUrl}` }));
+
 app.get('/user/:id', (req,res) => res.sendFile(path.join(__dirname,'public','public-profile.html')));
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
