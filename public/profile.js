@@ -25,16 +25,25 @@ let currentProfile = null;
     }
 
     $('#p-nick').textContent = p.nickname || '—';
-    $('#p-public-id').textContent = '#' + (p.public_id || '—');
-    $('#p-tg-username').textContent = p.telegram_username ? '@' + p.telegram_username : 'не привязан';
+    const publicId = p.public_id || '—';
+    const userPath = publicId !== '—' ? `user/${publicId}` : 'user/—';
+    $('#p-public-id').textContent = userPath;
+    const publicLink = $('#p-user-link');
+    if (publicLink) {
+      publicLink.textContent = userPath;
+      publicLink.href = publicId !== '—' ? `/user/${encodeURIComponent(publicId)}` : '#';
+      publicLink.title = publicId !== '—' ? 'Открыть публичный профиль' : 'Публичный профиль недоступен';
+      publicLink.style.pointerEvents = publicId !== '—' ? 'auto' : 'none';
+    }
+    const validTgUsername = /^[a-zA-Z0-9_]{5,32}$/.test(String(p.telegram_username || ''));
     
     const tgIdEl = $('#p-tg-id');
     if (tgIdEl) tgIdEl.textContent = p.telegram_id || '—';
 
     const tgStatus = $('#p-tg-status');
     if (tgStatus) {
-      tgStatus.textContent = p.telegram_username ? '@' + p.telegram_username : 'не привязан';
-      tgStatus.style.color = p.telegram_username ? '#5ce3a4' : '#8fa8b4';
+      tgStatus.textContent = validTgUsername ? '@' + p.telegram_username : 'не привязан';
+      tgStatus.style.color = validTgUsername ? '#5ce3a4' : '#8fa8b4';
     }
 
     $('#p-created').textContent = fmtDate(p.created_at);
