@@ -424,7 +424,21 @@ app.get('/api/admin/referrals', adminOnly, (req, res) => {
 
 app.get('/api/reviews', (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC LIMIT 50', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
 app.get('/api/admin/reviews', adminOnly, (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
-app.post('/api/admin/reviews', adminOnly, (req,res) => { const uid=String(req.body?.userId||'').trim().slice(0,40), user=String(req.body?.username||'').trim().slice(0,64), amount=Number(req.body?.amount), review=String(req.body?.text||'').trim().slice(0,1500), stars=Number(req.body?.stars); if(!uid||!user||!Number.isFinite(amount)||amount<0||!review||!Number.isInteger(stars)||stars<1||stars>5)return res.status(400).json({error:'Заполните все поля корректно'}); db.run('INSERT INTO reviews(user_public_id,username,sale_amount,review_text,stars) VALUES(?,?,?,?,?)',[uid,user,amount,review,stars],function(e){e?res.status(500).json({error:'Не удалось сохранить отзыв'}):res.json({ok:true,id:this.lastID});}); });
+app.post('/api/admin/reviews', adminOnly, (req,res) => {
+  const uid=String(req.body?.userId||'').trim().slice(0,40);
+  const user=String(req.body?.username||'').trim().slice(0,64);
+  const rawAmount=String(req.body?.amount??'').trim().replace(',','.');
+  const amount=rawAmount===''?0:Number(rawAmount);
+  const review=String(req.body?.text||'').trim().slice(0,1500);
+  const stars=Number(req.body?.stars);
+  if(!uid||!user||!Number.isFinite(amount)||amount<0||!review||!Number.isInteger(stars)||stars<1||stars>5)
+    return res.status(400).json({error:'Проверьте ID, юзернейм, сумму, оценку и текст отзыва'});
+  db.run('INSERT INTO reviews(user_public_id,username,sale_amount,review_text,stars) VALUES(?,?,?,?,?)',
+    [uid,user,amount,review,stars],function(e){
+      if(e){ console.error('Ошибка сохранения отзыва:',e); return res.status(500).json({error:'Не удалось сохранить отзыв. Проверьте подключение базы данных и попробуйте ещё раз.'}); }
+      res.json({ok:true,id:this.lastID});
+    });
+});
 app.delete('/api/admin/reviews/:id', adminOnly, (req,res) => db.run('DELETE FROM reviews WHERE id=?',[Number(req.params.id)],function(e){e?res.status(500).json({error:'Ошибка удаления'}):res.json({ok:true});}));
 
 app.get('/api/public/user/:id', (req,res) => {

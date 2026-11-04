@@ -56,6 +56,20 @@ db.ready = (async () => {
     await run(`CREATE TABLE IF NOT EXISTS user_coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, promo_id INTEGER, percent INTEGER NOT NULL, source TEXT DEFAULT 'promo', created_at TEXT DEFAULT CURRENT_TIMESTAMP, used_at TEXT, used_sale_id INTEGER)`);
     await run('CREATE INDEX IF NOT EXISTS idx_user_coupons_active ON user_coupons(user_id, used_at)');
     await run(`CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_public_id TEXT NOT NULL, username TEXT NOT NULL, sale_amount REAL NOT NULL DEFAULT 0, review_text TEXT NOT NULL, stars INTEGER NOT NULL CHECK(stars BETWEEN 1 AND 5), created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    // Совместимость со старой таблицей отзывов: CREATE TABLE IF NOT EXISTS
+    // не добавляет колонки, если таблица уже существовала.
+    const reviewCols = new Set((await all('PRAGMA table_info(reviews)')).map(x => x.name));
+    const reviewMigrations = {
+      user_public_id: "TEXT NOT NULL DEFAULT ''",
+      username: "TEXT NOT NULL DEFAULT ''",
+      sale_amount: "REAL NOT NULL DEFAULT 0",
+      review_text: "TEXT NOT NULL DEFAULT ''",
+      stars: "INTEGER NOT NULL DEFAULT 5",
+      created_at: "TEXT DEFAULT CURRENT_TIMESTAMP"
+    };
+    for (const [column, definition] of Object.entries(reviewMigrations)) {
+      if (!reviewCols.has(column)) await run(`ALTER TABLE reviews ADD COLUMN ${column} ${definition}`);
+    }
     
     // Таблицы для мини-игр
     await run(`CREATE TABLE IF NOT EXISTS game_balance (user_id INTEGER PRIMARY KEY, balance REAL DEFAULT 0)`);
