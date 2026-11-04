@@ -38,8 +38,7 @@
         <span class="profile-eyebrow">BLUP / PROFILE</span>
         <h1 id="p-nick">Загрузка…</h1>
         <div class="profile-meta">
-          <span id="p-public-id" class="pill">user/—</span>
-          <a id="p-user-link" class="pill" href="#" style="text-decoration:none">user/—</a>
+          <a id="p-user-link" class="pill" href="#" style="text-decoration:none">ID пользователя: —</a>
         </div>
       </div>
     </div>
@@ -71,15 +70,22 @@
     </div>
   </section>
 
-  <section class="profile-card">
+  <section class="profile-card" id="profilePromos">
     <div class="profile-card-head">
-      <span class="profile-eyebrow">ОДНОРАЗОВЫЕ КУПОНЫ</span>
-      <h2>Активные скидки</h2>
+      <span class="profile-eyebrow">BLUP / PROMO</span>
+      <h2>Промокоды</h2>
+      <p class="muted">Введи промокод и нажми «Применить». Активные купоны отображаются ниже.</p>
+    </div>
+    <form id="profilePromoApplyForm" class="form-grid" style="margin-top:16px">
+      <label class="full">Промокод<input name="code" placeholder="Введи промокод" required maxlength="24"></label>
+      <button class="btn btn-primary btn-submit full" type="submit">Применить <span>→</span></button>
+      <p id="profilePromoMessage" class="form-message full" aria-live="polite"></p>
+    </form>
+    <div class="profile-card-head" style="margin-top:18px">
+      <h2 style="font-size:16px">Активные скидки</h2>
       <p class="muted">Купон сгорает после применения в продаже.</p>
     </div>
-    <div id="p-coupons" class="coupon-list">
-      <p class="muted">Загрузка…</p>
-    </div>
+    <div id="p-coupons" class="coupon-list"><p class="muted">Загрузка…</p></div>
   </section>
 
   <section class="profile-card">

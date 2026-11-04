@@ -35,11 +35,9 @@ let currentProfile = null;
 
     $('#p-nick').textContent = p.nickname || '—';
     const publicId = p.public_id || '—';
-    const userPath = publicId !== '—' ? `user/${publicId}` : 'user/—';
-    $('#p-public-id').textContent = userPath;
     const publicLink = $('#p-user-link');
     if (publicLink) {
-      publicLink.textContent = userPath;
+      publicLink.textContent = `ID пользователя: ${publicId}`;
       publicLink.href = publicId !== '—' ? `/user/${encodeURIComponent(publicId)}` : '#';
       publicLink.title = publicId !== '—' ? 'Открыть публичный профиль' : 'Публичный профиль недоступен';
       publicLink.style.pointerEvents = publicId !== '—' ? 'auto' : 'none';
@@ -66,6 +64,7 @@ let currentProfile = null;
       
     initLinkTelegram();
     initReferralSystem(); // Вызываем после загрузки профиля
+    initProfilePromoForm();
   } catch (e) {
     $('#p-error').textContent = e.message;
   }
@@ -227,4 +226,26 @@ async function loadReferralData() {
   } catch (e) {
     console.error(e);
   }
+}
+
+
+function initProfilePromoForm() {
+  const form = document.getElementById('profilePromoApplyForm');
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const message = document.getElementById('profilePromoMessage');
+    const code = new FormData(form).get('code');
+    const submit = form.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    message.textContent = 'Проверяем промокод…';
+    try {
+      const response = await fetch('/api/promos/apply', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code}) });
+      const data = await readProfileApiJson(response, 'Промокод');
+      if (!response.ok) throw new Error(data.error || 'Не удалось применить промокод');
+      message.textContent = `Промокод найден: ${data.promo?.description || data.promo?.code || code}. Условия уточняются у поддержки.`;
+      form.reset();
+    } catch (error) { message.textContent = error.message; }
+    finally { submit.disabled = false; }
+  });
 }

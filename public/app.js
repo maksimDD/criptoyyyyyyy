@@ -11,10 +11,6 @@ if ($('#menuToggle')) {
 }
 $$('.nav-link').forEach(a=>a.addEventListener('click',()=>{$$('.nav-link').forEach(x=>x.classList.remove('active'));a.classList.add('active');$('#nav').classList.remove('open')}));
 
-if ($('#promosNav')) {
-  $('#promosNav').addEventListener('click',e=>{e.preventDefault();$('#nav').classList.remove('open');openModal('promoBackdrop');if($('#promoMessage'))$('#promoMessage').textContent='';});
-}
-if ($('#promoClose')) $('#promoClose').addEventListener('click',()=>closeModal('promoBackdrop'));
 if ($('#reviewsNav')) $('#reviewsNav').addEventListener('click',e=>{e.preventDefault();$('#nav').classList.remove('open');openModal('reviewsBackdrop');});
 if ($('#reviewsClose')) $('#reviewsClose').addEventListener('click',()=>closeModal('reviewsBackdrop'));
 
@@ -198,7 +194,7 @@ async function showHistory(){
 if ($('#historyBtn')) $('#historyBtn').addEventListener('click',showHistory);
 if ($('#historyCardBtn')) $('#historyCardBtn').addEventListener('click',showHistory);
 
-[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop'],['reviewsClose','reviewsBackdrop'],['termsClose','termsBackdrop'],['privacyClose','privacyBackdrop']].forEach(([btn,id])=>{
+[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['reviewsClose','reviewsBackdrop'],['termsClose','termsBackdrop'],['privacyClose','privacyBackdrop']].forEach(([btn,id])=>{
   if($('#'+btn)) $('#'+btn).addEventListener('click',()=>closeModal(id));
 });
 
@@ -210,22 +206,6 @@ $$('[data-placeholder]').forEach(a=>a.addEventListener('click',e=>{e.preventDefa
 if ($('#footerTerms')) $('#footerTerms').addEventListener('click', (e) => { e.preventDefault(); openModal('termsBackdrop'); });
 if ($('#footerPrivacy')) $('#footerPrivacy').addEventListener('click', (e) => { e.preventDefault(); openModal('privacyBackdrop'); });
 
-if ($('#promoApplyForm')) {
-  $('#promoApplyForm').addEventListener('submit',async e=>{
-    e.preventDefault();
-    const code=String(new FormData(e.currentTarget).get('code')||'').trim().toUpperCase();
-    const message=$('#promoMessage');
-    const submit=e.currentTarget.querySelector('button[type=submit]');
-    if(submit)submit.disabled=true;
-    message.textContent='Проверяем промокод…';
-    try{
-      const d=await api('/api/promos/apply',{method:'POST',body:JSON.stringify({code})});
-      message.textContent=`Промокод ${d.promo.code} успешно активирован: ${d.promo.description||'условия применены'}.`;
-    }catch(err){
-      message.textContent=err.message;
-    }finally{if(submit)submit.disabled=false;}
-  });
-}
 
 if ($('#logoutBtn')) {
   $('#logoutBtn').addEventListener('click',async()=>{

@@ -40,7 +40,7 @@
       <a class="nav-link" href="#faq">FAQ</a>
       <a class="nav-link" href="#contacts">Контакты</a>
       <a class="nav-link" href="#reviews" id="reviewsNav">Отзывы</a>
-      <a class="nav-link" href="#promos" id="promosNav">Промокоды</a>
+      <a class="nav-link" href="/giveaways">Розыгрыши</a>
     </nav>
     <div class="header-actions">
       <a class="btn btn-ghost btn-small" id="profileBtn" href="/profile">Профиль</a>
@@ -195,19 +195,6 @@
     </section>
   </div>
 
-  <div class="modal-backdrop" id="promoBackdrop" aria-hidden="true">
-    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="promoTitle">
-      <button class="modal-close" id="promoClose" aria-label="Закрыть">×</button>
-      <div class="modal-eyebrow">BLUP / PROMO</div><h2 id="promoTitle">Промокоды</h2>
-      <p class="modal-desc">Введи промокод и нажми «Применить».</p>
-      <form id="promoApplyForm" class="form-grid">
-        <label class="full">Промокод<input name="code" placeholder="Введи промокод" required maxlength="24"></label>
-        <button class="btn btn-primary btn-submit full" type="submit">Применить <span>→</span></button>
-        <p id="promoMessage" class="form-message full"></p>
-      </form>
-    </section>
-  </div>
-  
   <div class="modal-backdrop" id="reviewsBackdrop" aria-hidden="true">
     <section class="modal reviews-modal" role="dialog" aria-modal="true" aria-labelledby="reviewsTitle">
       <button class="modal-close" id="reviewsClose" aria-label="Закрыть">×</button>
