@@ -69,6 +69,32 @@ refreshMaintenance();
 setInterval(refreshMaintenance,10000);
 setInterval(refreshUser,15000);
 
+// Интерактивная 3D-карта: зажмите и двигайте мышь/палец, чтобы вращать её.
+(function enableCardDrag(){
+ const card=document.querySelector('.glass-card');
+ if(!card)return;
+ let active=false,startX=0,startY=0,rotX=13,rotY=-28,baseX=0,baseY=0;
+ card.style.touchAction='none';
+ card.setAttribute('role','img');
+ card.setAttribute('aria-label','Интерактивная 3D-карта BLUP. Зажмите и перетаскивайте для вращения.');
+ card.addEventListener('pointerdown',e=>{
+   active=true;startX=e.clientX;startY=e.clientY;baseX=rotY;baseY=rotX;
+   card.classList.add('is-dragging');card.style.animation='none';
+   card.style.cursor='grabbing';card.setPointerCapture?.(e.pointerId);e.preventDefault();
+ });
+ card.addEventListener('pointermove',e=>{if(!active)return;
+   rotY=baseX+(e.clientX-startX)*.72;rotX=Math.max(-65,Math.min(65,baseY-(e.clientY-startY)*.62));
+   card.style.transform=`rotateY(${rotY}deg) rotateX(${rotX}deg) rotateZ(-3deg) translateZ(28px)`;
+ });
+ const release=()=>{if(!active)return;active=false;card.style.cursor='grab';card.classList.remove('is-dragging');
+   // После ручного вращения возвращаем плавное автономное движение.
+   window.setTimeout(()=>{if(!active){card.style.removeProperty('animation');card.style.removeProperty('transform');}},1800);
+ };
+ card.addEventListener('pointerup',release);card.addEventListener('pointercancel',release);
+ card.addEventListener('lostpointercapture',release);
+ card.style.cursor='grab';
+})();
+
 // ==========================================
 // ОПЕРАЦИИ (ПРОДАЖА)
 // ==========================================
@@ -83,10 +109,10 @@ function walletPanel(coin,network){const address=walletFor(coin,network);return 
 
 function renderOperationFields(){
  if(!operationFields) return;
- operationFields.innerHTML=`${labelSelect('Криптовалюта','coin',[{value:'USDT',label:'USDT — Tether'},{value:'GRAM',label:'GRAM'}])}<div id="networkField">${labelSelect('Сеть USDT','network',['BEP20','TRC20','ERC20','TON','SPL'].map(x=>({value:x,label:x})))}</div><div id="platformWallet">${walletPanel('USDT','BEP20')}</div>${labelInput('Сумма для продажи (USD)','amount','Например, 100','number',true)}<div id="rubPreview" class="field-note full">Итого к выплате: укажи сумму и курс</div><div id="discountOffer" class="field-note full hidden"></div>${labelSelect('Куда отправить выплату','payoutType',[{value:'phone',label:'На номер телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text',true)}${labelSelect('Банк получателя','bank',bankOptions(),true)}${labelInput('Telegram username','telegramUsername','Например, @username','text',true)}${labelInput('Комментарий к продаже','comment','Комментарий (необязательно)','text',true,false)}<p class="field-note full">Проверь адрес и сеть, отправь криптовалюту на кошелёк BLUP. Укажи реквизиты для выплаты. После отправки заявки администратор проверит поступление и вручную отправит рубли. Не вводи CVV, PIN или SMS-коды.</p>`;
+ operationFields.innerHTML=`${labelSelect('Криптовалюта','coin',[{value:'USDT',label:'USDT — Tether'},{value:'GRAM',label:'GRAM'}])}<div id="networkField">${labelSelect('Сеть USDT','network',['TRC20','BEP20','ERC20','TON','SPL'].map(x=>({value:x,label:x})))}</div><div id="platformWallet">${walletPanel('USDT','TRC20')}</div>${labelInput('Сумма для продажи (USD)','amount','Например, 100','number',true)}<div id="rubPreview" class="field-note full">Итого к выплате: укажи сумму и курс</div><div id="discountOffer" class="field-note full hidden"></div>${labelSelect('Куда отправить выплату','payoutType',[{value:'phone',label:'На номер телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text',true)}${labelSelect('Банк получателя','bank',bankOptions(),true)}${labelInput('Telegram username','telegramUsername','Например, @username','text',true)}${labelInput('Комментарий к продаже','comment','Комментарий (необязательно)','text',true,false)}<p class="field-note full">Проверь адрес и сеть, отправь криптовалюту на кошелёк BLUP. Укажи реквизиты для выплаты. После отправки заявки администратор проверит поступление и вручную отправит рубли. Не вводи CVV, PIN или SMS-коды.</p>`;
  const coin=operationFields.querySelector('[name="coin"]');
- function updateWallet(){const net=coin.value==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'BEP20');$('#platformWallet').innerHTML=walletPanel(coin.value,net);}
- function networkWrap(){const gram=coin.value==='GRAM';$('#networkField').innerHTML=gram?'<div class="static-field"><span>Сеть</span><b>TON</b></div>':labelSelect('Сеть USDT','network',['BEP20','TRC20','ERC20','TON','SPL'].map(x=>({value:x,label:x})));updateWallet();}
+ function updateWallet(){const net=coin.value==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'TRC20');$('#platformWallet').innerHTML=walletPanel(coin.value,net);}
+ function networkWrap(){const gram=coin.value==='GRAM';$('#networkField').innerHTML=gram?'<div class="static-field"><span>Сеть</span><b>TON</b></div>':labelSelect('Сеть USDT','network',['TRC20','BEP20','ERC20','TON','SPL'].map(x=>({value:x,label:x})));updateWallet();}
  coin.addEventListener('change',networkWrap);operationFields.addEventListener('change',e=>{if(e.target.name==='network')updateWallet();});
  const amountInput=operationFields.querySelector('[name="amount"]');amountInput.max='200';amountInput.placeholder='До 200 USD';let discountPercent=0;
  function updateRub(){const coinName=coin.value,rate=Number(window.blupRates?.[coinName]||0),amount=Number(amountInput.value||0);const base=amount*rate;const apply=!!operationFields.querySelector('#applyDiscount')?.checked;const total=base*(apply?1+discountPercent/100:1);$('#rubPreview').textContent=rate>0&&amount>0?`Курс: ${rate.toLocaleString('ru-RU')} ₽ за 1 ${coinName}. Итого к выплате: ${total.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})} ₽`:'Итого к выплате:';}
@@ -125,7 +151,7 @@ $$('[data-open="sell"]').forEach(b=>b.addEventListener('click',showOperation));
 
 async function copyCurrentBlupWallet(){
   const coin=operationFields.querySelector('[name="coin"]')?.value||'USDT';
-  const network=coin==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'BEP20');
+  const network=coin==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'TRC20');
   const address=walletFor(coin,network);
   if(!address){toast('Адрес кошелька не найден');return;}
   try{await navigator.clipboard.writeText(address);toast('Адрес BLUP скопирован. Отправь криптовалюту из своего кошелька.');}
