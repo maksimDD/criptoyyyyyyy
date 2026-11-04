@@ -213,13 +213,17 @@ if ($('#footerPrivacy')) $('#footerPrivacy').addEventListener('click', (e) => { 
 if ($('#promoApplyForm')) {
   $('#promoApplyForm').addEventListener('submit',async e=>{
     e.preventDefault();
-    const code=new FormData(e.currentTarget).get('code');
+    const code=String(new FormData(e.currentTarget).get('code')||'').trim().toUpperCase();
+    const message=$('#promoMessage');
+    const submit=e.currentTarget.querySelector('button[type=submit]');
+    if(submit)submit.disabled=true;
+    message.textContent='Проверяем промокод…';
     try{
       const d=await api('/api/promos/apply',{method:'POST',body:JSON.stringify({code})});
-      $('#promoMessage').textContent=`Промокод найден: ${d.promo.description||d.promo.code}. Условия уточняются у поддержки.`;
+      message.textContent=`Промокод ${d.promo.code} успешно активирован: ${d.promo.description||'условия применены'}.`;
     }catch(err){
-      $('#promoMessage').textContent=err.message;
-    }
+      message.textContent=err.message;
+    }finally{if(submit)submit.disabled=false;}
   });
 }
 
