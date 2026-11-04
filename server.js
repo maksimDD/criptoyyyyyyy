@@ -399,6 +399,42 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
   });
 });
 
+// Применение промокода из публичного окна сайта.
+app.post('/api/promos/apply', (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Войди в аккаунт, чтобы применить промокод.' });
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{3,24}$/.test(code)) return res.status(400).json({ error: 'Введи корректный промокод.' });
+
+  db.get('SELECT * FROM promos WHERE code=? COLLATE NOCASE', [code], (findErr, promo) => {
+    if (findErr) return res.status(500).json({ error: 'Не удалось проверить промокод. Попробуй позже.' });
+    if (!promo || !promo.active) return res.status(404).json({ error: 'Промокод не найден или отключён.' });
+    if (Number(promo.activation_limit) > 0 && Number(promo.activation_count) >= Number(promo.activation_limit))
+      return res.status(409).json({ error: 'Лимит активаций этого промокода исчерпан.' });
+
+    db.get('SELECT id,nickname,public_id FROM users WHERE id=?', [req.session.userId], (userErr, user) => {
+      if (userErr || !user) return res.status(401).json({ error: 'Сессия истекла. Войди в аккаунт заново.' });
+      db.run('INSERT INTO promo_redemptions(promo_id,user_id,public_id,nickname) VALUES(?,?,?,?)',
+        [promo.id, user.id, user.public_id || null, user.nickname], function (redeemErr) {
+          if (redeemErr) {
+            if (String(redeemErr.message || '').includes('UNIQUE')) return res.status(409).json({ error: 'Ты уже активировал этот промокод.' });
+            return res.status(500).json({ error: 'Не удалось активировать промокод.' });
+          }
+          const finish = () => db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?', [promo.id], updateErr => {
+            if (updateErr) return res.status(500).json({ error: 'Промокод записан, но не удалось обновить счётчик активаций.' });
+            res.json({ ok: true, promo: { code: promo.code, description: promo.description, rewardType: promo.reward_type, rewardValue: promo.reward_value } });
+          });
+          if (promo.reward_type === 'percent' && [1, 3].includes(Number(promo.reward_value))) {
+            db.run('INSERT INTO user_coupons(user_id,promo_id,percent,source) VALUES(?,?,?,?)',
+              [user.id, promo.id, Number(promo.reward_value), 'promo'], err => {
+                if (err) return res.status(500).json({ error: 'Не удалось начислить скидку по промокоду.' });
+                finish();
+              });
+          } else finish();
+        });
+    });
+  });
+});
+
 app.post('/api/admin/promos',adminOnly,(req,res)=>{
  const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||''),description=String(req.body?.description||'').slice(0,200),limit=Math.max(0,Math.floor(Number(req.body?.activationLimit||0)));
  const allowed={sell_discount_1:['percent',1,'Скидка 1%'],sell_discount_3:['percent',3,'Скидка 3%'],deposit_150:['deposit_kb',150,'Депозит 150'],deposit_300:['deposit_jab',300,'Депозит 300'],games_deposit_25:['games_deposit_25',25,'+25% Games']};
