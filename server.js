@@ -246,7 +246,7 @@ app.post('/api/sell',(req,res)=>{
          if(discountApplied&&coupon&&couponPercent>=manualPercent) db.run('UPDATE user_coupons SET used_at=CURRENT_TIMESTAMP, used_sale_id=? WHERE id=? AND used_at IS NULL',[saleId,coupon.id]);
          const item={id:saleId,nickname:req.session.nickname,coin,network,wallet:BLUP_WALLETS[coin][network],amount,rate,payoutRub,discountPercent:discountApplied?chosenPercent:0,comment,telegramUsername:tg,phone:payout,bank,payoutType,created_at:new Date().toISOString()};
          notifyAdmin(item).catch(()=>{});
-         db.run('UPDATE users SET telegram_username=? WHERE id=?',[tg,req.session.userId]);
+         // Не записываем реквизиты выплаты в telegram_username: это отдельное поле профиля.
          res.json({ok:true,id:saleId,payoutRub,discountPercent:item.discountPercent});
        });
      });
