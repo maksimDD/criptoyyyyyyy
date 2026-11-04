@@ -171,7 +171,7 @@ app.post('/api/auth/telegram', (req, res) => {
     };
     db.get('SELECT * FROM users WHERE telegram_id=?', [data.id], (err, byTg) => {
       if (byTg) {
-        db.run(`UPDATE users SET telegram_username=?, telegram_photo_url=?, last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?`, [data.username || null, data.photo_url || null, ip, byTg.id]);
+        db.run(`UPDATE users SET telegram_username=?, telegram_photo_url=?, last_ip=?, last_seen=CURRENT_TIMESTAMP WHERE id=?`, [(String(data.username || '').trim().replace(/^@+/, '') || null), data.photo_url || null, ip, byTg.id]);
         return finishLogin(byTg);
       }
       const baseNick = (data.username || `tg_${data.id}`).replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 20) || `tg_${data.id}`;
@@ -181,7 +181,7 @@ app.post('/api/auth/telegram', (req, res) => {
         publicId = pid;
         const tryInsert = (nick, cb) => {
           db.run(`INSERT INTO users(nickname,password_hash,last_ip,last_seen,public_id,telegram_id,telegram_username,telegram_photo_url) VALUES(?,?,?,CURRENT_TIMESTAMP,?,?,?,?)`,
-            [nick, randomHash, ip, pid, data.id, data.username||null, data.photo_url||null], function(insErr) {
+            [nick, randomHash, ip, pid, data.id, (String(data.username || '').trim().replace(/^@+/, '') || null), data.photo_url||null], function(insErr) {
               if (insErr) return cb(insErr);
               cb(null, { id: this.lastID, nickname: nick, session_version: 0, is_banned: 0 });
             });
@@ -213,7 +213,7 @@ app.post('/api/auth/link-telegram', (req, res) => {
 
   db.get('SELECT id FROM users WHERE telegram_id=? AND id!=?', [data.id, req.session.userId], (err, existing) => {
     if (existing) return res.status(409).json({ error: 'TG уже привязан к другому' });
-    db.run(`UPDATE users SET telegram_id=?, telegram_username=?, telegram_photo_url=? WHERE id=?`, [data.id, data.username || null, data.photo_url || null, req.session.userId], function() {
+    db.run(`UPDATE users SET telegram_id=?, telegram_username=?, telegram_photo_url=? WHERE id=?`, [data.id, (String(data.username || '').trim().replace(/^@+/, '') || null), data.photo_url || null, req.session.userId], function() {
       res.json({ ok: true });
     });
   });
@@ -236,7 +236,9 @@ app.get('/api/profile', (req,res) => {
     [req.session.userId], (e,row) => {
       if (e) return res.status(500).json({error:'Ошибка'});
       db.all('SELECT id,percent,created_at FROM user_coupons WHERE user_id=? AND used_at IS NULL ORDER BY id ASC', [req.session.userId], (e2, coupons) => {
-        res.json({ ...row, telegram_username: /^[a-zA-Z0-9_]{5,32}$/.test(String(row.telegram_username || '')) ? row.telegram_username : null, coupons: coupons || [], is_telegram: !!row.telegram_id, auth_method: req.session.authMethod || 'password' });
+        const rawUsername = String(row?.telegram_username || '').trim().replace(/^@+/, '');
+        const cleanUsername = /^[a-zA-Z0-9_]{5,32}$/.test(rawUsername) ? rawUsername : null;
+        res.json({ ...row, telegram_username: cleanUsername, coupons: coupons || [], is_telegram: !!row?.telegram_id, auth_method: req.session.authMethod || 'password' });
       });
     });
 });
