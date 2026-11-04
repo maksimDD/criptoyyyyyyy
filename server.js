@@ -496,8 +496,6 @@ app.get('/api/public/user/:id', (req,res) => {
     COALESCE(SUM(CASE WHEN s.operation_type='sell' AND s.status='completed' THEN s.amount ELSE 0 END),0) sold_usd
     FROM users u LEFT JOIN sales s ON s.user_id=u.id WHERE u.public_id=? GROUP BY u.id`,[publicId],(e,row)=>e?res.status(500).json({error:'Ошибка'}):row?res.json(row):res.status(404).json({error:'Пользователь не найден'}));
 });
-// Не отдаём HTML для неизвестных API-маршрутов: клиент должен получить понятный JSON 404.
-app.use('/api', (req, res) => res.status(404).json({ error: `API-маршрут не найден: ${req.method} ${req.originalUrl}` }));
 
 app.get('/user/:id', (req,res) => res.sendFile(path.join(__dirname,'public','public-profile.html')));
 
@@ -630,5 +628,8 @@ app.post('/api/games/settle', requireGameUser, (req,res)=>{
 
 app.get('/games', (req, res) => res.sendFile(path.join(__dirname, 'public', 'games.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+// API 404 — только после всех API-маршрутов, в том числе Games.
+app.use('/api', (req, res) => res.status(404).json({ error: `API-маршрут не найден: ${req.method} ${req.originalUrl}` }));
 
 db.ready.then(() => app.listen(PORT, () => console.log(`BLUP запущен на порту ${PORT}`))).catch(err => { console.error('Ошибка:', err); process.exit(1); });
