@@ -298,14 +298,18 @@ if (tgLoginBtn) {
 
 async function refreshOnline() {
   try {
-    const r = await fetch('/api/real-online');
+    const r = await fetch('/api/real-online', { cache: 'no-store', credentials: 'same-origin' });
+    if (!r.ok) throw new Error('Не удалось обновить онлайн');
     const d = await r.json();
     const countEl = $('#onlineCount');
-    if (countEl) countEl.textContent = d.online || 0;
-  } catch {}
+    if (countEl && Number.isFinite(Number(d.online))) countEl.textContent = String(Math.max(0, Number(d.online)));
+  } catch (e) {
+    // При временной ошибке оставляем последнее известное значение,
+    // вместо того чтобы ошибочно показывать ноль.
+  }
 }
 refreshOnline();
-setInterval(refreshOnline, 60000); // Обновляем раз в минуту
+setInterval(refreshOnline, 20000); // Heartbeat каждые 20 секунд
 
 // ==========================================
 // ЛОГИКА ВХОДА (ЛОГИН/ПАРОЛЬ И TG)
