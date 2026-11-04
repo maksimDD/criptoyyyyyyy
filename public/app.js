@@ -275,14 +275,15 @@ if (tgLoginBtn) {
 
 async function refreshOnline() {
   try {
-    const r = await fetch('/api/real-online');
+    await fetch('/api/online/heartbeat', { method: 'POST', credentials: 'same-origin', cache: 'no-store' });
+    const r = await fetch('/api/real-online', { credentials: 'same-origin', cache: 'no-store' });
     const d = await r.json();
     const countEl = $('#onlineCount');
     if (countEl) countEl.textContent = d.online || 0;
   } catch {}
 }
 refreshOnline();
-setInterval(refreshOnline, 60000); // Обновляем раз в минуту
+setInterval(refreshOnline, 25000); // Heartbeat каждые 25 секунд; активность считается за последние 90 секунд
 
 // ==========================================
 // ЛОГИКА ВХОДА (ЛОГИН/ПАРОЛЬ И TG)

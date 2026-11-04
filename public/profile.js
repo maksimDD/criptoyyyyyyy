@@ -42,7 +42,7 @@ let currentProfile = null;
 
     const tgStatus = $('#p-tg-status');
     if (tgStatus) {
-      tgStatus.textContent = validTgUsername ? '@' + p.telegram_username : 'не привязан';
+      tgStatus.textContent = validTgUsername ? '@' + p.telegram_username : (p.telegram_id ? 'username не задан в Telegram' : 'не привязан');
       tgStatus.style.color = validTgUsername ? '#5ce3a4' : '#8fa8b4';
     }
 
@@ -72,7 +72,7 @@ function initLinkTelegram() {
   const linkTgBtn = $('#linkTgBtn');
   if (!linkTgBtn) return;
 
-  if (currentProfile && currentProfile.is_telegram) {
+  if (currentProfile && (currentProfile.is_telegram || currentProfile.auth_method !== 'password')) {
     linkTgBtn.style.display = 'none';
     return;
   }
