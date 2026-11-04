@@ -399,6 +399,41 @@ app.post('/api/admin/sales/:id/status', adminOnly, (req, res) => {
   });
 });
 
+// Активация промокода из профиля. Привязка к аккаунту обязательна.
+app.post('/api/promos/apply', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт, чтобы активировать промокод' });
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{3,24}$/.test(code)) return res.status(400).json({ error: 'Введите корректный промокод' });
+  db.get('SELECT id,code,reward_type,reward_value,description,active,activation_limit,activation_count FROM promos WHERE code=? COLLATE NOCASE', [code], (findErr, promo) => {
+    if (findErr) return res.status(500).json({ error: 'Ошибка проверки промокода' });
+    if (!promo || !promo.active) return res.status(404).json({ error: 'Промокод не найден или отключён' });
+    if (Number(promo.activation_limit) > 0 && Number(promo.activation_count) >= Number(promo.activation_limit))
+      return res.status(409).json({ error: 'Лимит активаций этого промокода исчерпан' });
+    db.get('SELECT id FROM promo_redemptions WHERE promo_id=? AND user_id=?', [promo.id, req.session.userId], (usedErr, used) => {
+      if (usedErr) return res.status(500).json({ error: 'Ошибка проверки активации' });
+      if (used) return res.status(409).json({ error: 'Вы уже активировали этот промокод' });
+      db.get('SELECT public_id,nickname FROM users WHERE id=?', [req.session.userId], (userErr, user) => {
+        if (userErr || !user) return res.status(500).json({ error: 'Не удалось определить аккаунт' });
+        db.run('INSERT INTO promo_redemptions(promo_id,user_id,public_id,nickname) VALUES(?,?,?,?)', [promo.id, req.session.userId, user.public_id, user.nickname], function(insertErr) {
+          if (insertErr) return res.status(409).json({ error: 'Промокод уже активирован в вашем аккаунте' });
+          db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?', [promo.id], updateErr => {
+            if (updateErr) return res.status(500).json({ error: 'Не удалось завершить активацию' });
+            const percent = promo.reward_type === 'percent' ? Number(promo.reward_value) : 0;
+            if ([1, 3].includes(percent)) {
+              db.run("INSERT INTO user_coupons(user_id,promo_id,percent,source) VALUES(?,?,?,'promo')", [req.session.userId, promo.id, percent], couponErr => {
+                if (couponErr) return res.status(500).json({ error: 'Промокод отмечен, но купон не удалось добавить. Обратитесь в поддержку.' });
+                return res.json({ ok: true, promo: { code: promo.code, description: promo.description, rewardType: promo.reward_type, rewardValue: promo.reward_value } });
+              });
+            } else {
+              return res.json({ ok: true, promo: { code: promo.code, description: promo.description, rewardType: promo.reward_type, rewardValue: promo.reward_value } });
+            }
+          });
+        });
+      });
+    });
+  });
+});
+
 app.post('/api/admin/promos',adminOnly,(req,res)=>{
  const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||''),description=String(req.body?.description||'').slice(0,200),limit=Math.max(0,Math.floor(Number(req.body?.activationLimit||0)));
  const allowed={sell_discount_1:['percent',1,'Скидка 1%'],sell_discount_3:['percent',3,'Скидка 3%'],deposit_150:['deposit_kb',150,'Депозит 150'],deposit_300:['deposit_jab',300,'Депозит 300'],games_deposit_25:['games_deposit_25',25,'+25% Games']};
@@ -453,6 +488,7 @@ app.use('/api', (req, res) => res.status(404).json({ error: `API-маршрут 
 
 app.get('/user/:id', (req,res) => res.sendFile(path.join(__dirname,'public','public-profile.html')));
 
+app.get('/giveaways', (req, res) => res.sendFile(path.join(__dirname, 'public', 'giveaways.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
 app.get('/games', (req, res) => res.sendFile(path.join(__dirname, 'public', 'games.html')));
