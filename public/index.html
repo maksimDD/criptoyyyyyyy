@@ -39,7 +39,7 @@
       <a class="nav-link" href="#how">Как это работает</a>
       <a class="nav-link" href="#faq">FAQ</a>
       <a class="nav-link" href="#contacts">Контакты</a>
-      <a class="nav-link" href="#reviews">Отзывы</a>
+      <a class="nav-link" href="#reviews" id="reviewsNav">Отзывы</a>
       <a class="nav-link" href="#promos" id="promosNav">Промокоды</a>
     </nav>
     <div class="header-actions">
@@ -146,7 +146,6 @@
       </div>
     </section>
 
-    <section class="section-wrap section-block" id="reviews"><div class="section-heading"><div><div class="eyebrow">ОТЗЫВЫ КЛИЕНТОВ</div><h2>Что говорят о <span>BLUP</span></h2></div><p>Отзывы пользователей о завершённых сделках.</p></div><div id="publicReviews" class="feature-grid"><p>Загрузка отзывов…</p></div></section>
   </main>
 
   <footer class="footer section-wrap">
@@ -209,6 +208,15 @@
     </section>
   </div>
   
+  <div class="modal-backdrop" id="reviewsBackdrop" aria-hidden="true">
+    <section class="modal reviews-modal" role="dialog" aria-modal="true" aria-labelledby="reviewsTitle">
+      <button class="modal-close" id="reviewsClose" aria-label="Закрыть">×</button>
+      <div class="modal-eyebrow">BLUP / CLIENTS</div><h2 id="reviewsTitle">Отзывы клиентов</h2>
+      <p class="modal-desc">Реальные отзывы наших пользователей после успешных сделок.</p>
+      <div id="publicReviews" class="reviews-list"><p>Загрузка отзывов…</p></div>
+    </section>
+  </div>
+
   <div class="modal-backdrop" id="historyBackdrop" aria-hidden="true">
     <section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
       <button class="modal-close" id="historyClose" aria-label="Закрыть">×</button>

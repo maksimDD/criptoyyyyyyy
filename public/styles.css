@@ -304,3 +304,6 @@ body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   background: rgba(101, 230, 220, 0.2);
   border-color: rgba(101, 230, 220, 0.8);
 }
+
+/* Reviews modal */
+.reviews-modal{width:min(680px,100%)}.reviews-list{display:grid;gap:12px;max-height:min(58vh,520px);overflow:auto;padding:2px 4px 4px 0}.review-card{background:#101421;border:1px solid rgba(130,185,205,.2);border-radius:15px;padding:16px;color:#eaf5fa}.review-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.review-card-top b{font-size:14px;color:#f3fbff}.review-stars{color:#ffad36;letter-spacing:1px;font-size:16px;white-space:nowrap}.review-sale{font-size:11px;color:#8eabdc;margin-top:7px}.review-card p{font-size:13px;line-height:1.55;color:#dcecf2;margin:20px 0 16px}.review-card small{display:block;text-align:right;color:#718ba0;font-size:10px}.reviews-empty{color:#91a8b6;text-align:center;padding:28px 8px}

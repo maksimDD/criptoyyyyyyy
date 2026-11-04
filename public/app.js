@@ -15,6 +15,8 @@ if ($('#promosNav')) {
   $('#promosNav').addEventListener('click',e=>{e.preventDefault();$('#nav').classList.remove('open');openModal('promoBackdrop');if($('#promoMessage'))$('#promoMessage').textContent='';});
 }
 if ($('#promoClose')) $('#promoClose').addEventListener('click',()=>closeModal('promoBackdrop'));
+if ($('#reviewsNav')) $('#reviewsNav').addEventListener('click',e=>{e.preventDefault();$('#nav').classList.remove('open');openModal('reviewsBackdrop');});
+if ($('#reviewsClose')) $('#reviewsClose').addEventListener('click',()=>closeModal('reviewsBackdrop'));
 
 const userChip=$('#userChip'), loginBtn=$('#loginBtn');
 async function readApiJson(response, label='API') {
@@ -196,7 +198,7 @@ async function showHistory(){
 if ($('#historyBtn')) $('#historyBtn').addEventListener('click',showHistory);
 if ($('#historyCardBtn')) $('#historyCardBtn').addEventListener('click',showHistory);
 
-[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop'],['termsClose','termsBackdrop'],['privacyClose','privacyBackdrop']].forEach(([btn,id])=>{
+[['modalClose','modalBackdrop'],['authClose','authBackdrop'],['historyClose','historyBackdrop'],['promoClose','promoBackdrop'],['reviewsClose','reviewsBackdrop'],['termsClose','termsBackdrop'],['privacyClose','privacyBackdrop']].forEach(([btn,id])=>{
   if($('#'+btn)) $('#'+btn).addEventListener('click',()=>closeModal(id));
 });
 
@@ -337,4 +339,4 @@ if (authForm) {
   });
 }
 
-(async function(){const root=document.getElementById('publicReviews');if(!root)return;try{const r=await fetch('/api/reviews');const rows=await r.json();const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));root.innerHTML=rows.map(x=>`<article class="feature-card"><div style="color:#ffd166">${'★'.repeat(x.stars)}${'☆'.repeat(5-x.stars)}</div><div class="feature-tag">ПРОДАЖА ${Number(x.sale_amount).toLocaleString('ru-RU')} ₽</div><h3>${safe(x.username)}</h3><p>${safe(x.review_text)}</p><small>#${safe(x.user_public_id)}</small></article>`).join('')||'<p>Пока отзывов нет.</p>';}catch{root.innerHTML='<p>Не удалось загрузить отзывы.</p>';}})();
+(async function(){const root=document.getElementById('publicReviews');if(!root)return;try{const r=await fetch('/api/reviews');const rows=await r.json();const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));root.innerHTML=rows.map(x=>`<article class="review-card"><div class="review-card-top"><b>${safe(x.username)}</b><span class="review-stars">${'★'.repeat(x.stars)}${'☆'.repeat(5-x.stars)}</span></div><div class="review-sale">Продал на ${Number(x.sale_amount).toLocaleString('ru-RU')} ₽</div><p>${safe(x.review_text)}</p><small>${new Date(x.created_at).toLocaleDateString('ru-RU')}</small></article>`).join('')||'<p class="reviews-empty">Пока отзывов нет.</p>';}catch{root.innerHTML='<p>Не удалось загрузить отзывы.</p>';}})();;
