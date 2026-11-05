@@ -499,8 +499,51 @@ app.get('/api/public/user/:id', (req,res) => {
 
 app.get('/user/:id', (req,res) => res.sendFile(path.join(__dirname,'public','public-profile.html')));
 
+
+app.get('/tournament', (req, res) => res.sendFile(path.join(__dirname, 'public', 'tournament.html')));
+
+// Заявки на турниры. Право на платную категорию проверяется только сервером.
+app.post('/api/tournament/apply', (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт, чтобы подать заявку' });
+  const category = String(req.body?.category || '').toLowerCase();
+  const steam = String(req.body?.steam || '').trim();
+  const faceit = String(req.body?.faceit || '').trim();
+  const elo = String(req.body?.elo || '').trim().slice(0, 40);
+  const telegram = String(req.body?.telegram || '').trim().slice(0, 80);
+  const validProfile = value => { try { const u = new URL(value); return u.protocol === 'https:' && (u.hostname === 'steamcommunity.com' || u.hostname.endsWith('.steamcommunity.com') || u.hostname === 'faceit.com' || u.hostname.endsWith('.faceit.com')); } catch { return false; } };
+  if (!['free','paid'].includes(category) || !validProfile(steam) || !validProfile(faceit) || !elo || !telegram)
+    return res.status(400).json({ error: 'Проверьте ссылки на Steam и Faceit, ELO и Telegram' });
+  db.get("SELECT COALESCE(SUM(amount),0) AS total FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed'", [req.session.userId], (e, row) => {
+    if (e) return res.status(500).json({ error: 'Не удалось проверить продажи' });
+    if (category === 'paid' && Number(row?.total || 0) < 20) return res.status(403).json({ error: 'Для $$$ турнира нужны завершённые продажи на сумму от $20' });
+    db.get('SELECT id FROM tournament_applications WHERE user_id=? AND category=?', [req.session.userId, category], (e2, existing) => {
+      if (e2) return res.status(500).json({ error: 'Ошибка базы данных' });
+      if (existing) return res.status(409).json({ error: 'Вы уже подали заявку в эту категорию' });
+      db.run('INSERT INTO tournament_applications(user_id,nickname,category,steam_url,faceit_url,elo,telegram) VALUES(?,?,?,?,?,?,?)',
+        [req.session.userId, req.session.nickname || '', category, steam, faceit, elo, telegram], function(e3) {
+          if (e3) return res.status(500).json({ error: 'Не удалось сохранить заявку' });
+          res.json({ ok: true, id: this.lastID });
+        });
+    });
+  });
+});
+app.get('/api/tournament/access', (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
+  db.get("SELECT COALESCE(SUM(amount),0) AS total FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed'", [req.session.userId], (e, row) => {
+    if (e) return res.status(500).json({ error: 'Ошибка проверки доступа' });
+    res.set('Cache-Control','no-store');
+    res.json({ paidAccess: Number(row?.total || 0) >= 20, completedSales: Number(row?.total || 0) });
+  });
+});
+app.get('/api/admin/tournament-applications', adminOnly, (req, res) => {
+  db.all(`SELECT a.id,a.user_id,a.nickname,a.category,a.steam_url,a.faceit_url,a.elo,a.telegram,a.created_at,
+    u.public_id FROM tournament_applications a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC`,
+    [], (e, rows) => e ? res.status(500).json({error:'Не удалось загрузить заявки'}) : res.json(rows || []));
+});
+
 app.get('/giveaways', (req, res) => res.sendFile(path.join(__dirname, 'public', 'giveaways.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/admin/tournament', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-tournament.html')));
 app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
 
 // BLUP Games API. Баланс хранится на сервере; клиент не задаёт результат игры.

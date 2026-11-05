@@ -74,6 +74,8 @@ db.ready = (async () => {
     // Таблицы для мини-игр
     await run(`CREATE TABLE IF NOT EXISTS game_balance (user_id INTEGER PRIMARY KEY, balance REAL DEFAULT 0)`);
     await run(`CREATE TABLE IF NOT EXISTS game_bets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, game TEXT, amount REAL, multiplier REAL, win_amount REAL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    await run(`CREATE TABLE IF NOT EXISTS tournament_applications (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, nickname TEXT, category TEXT NOT NULL CHECK(category IN ('free','paid')), steam_url TEXT NOT NULL, faceit_url TEXT NOT NULL, elo TEXT NOT NULL, telegram TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    await run('CREATE INDEX IF NOT EXISTS idx_tournament_applications_user ON tournament_applications(user_id, category)');
 
     // Реферальная система
     await run(`CREATE TABLE IF NOT EXISTS user_referrals (user_id INTEGER PRIMARY KEY, referrer_id INTEGER, ref_code TEXT UNIQUE, balance REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
