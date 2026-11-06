@@ -84,8 +84,6 @@ db.ready = (async () => {
     await run(`CREATE TABLE IF NOT EXISTS tournament_predictions (id INTEGER PRIMARY KEY AUTOINCREMENT, match_id INTEGER NOT NULL, user_id INTEGER NOT NULL, nickname TEXT, selection TEXT NOT NULL, amount REAL NOT NULL, odds REAL NOT NULL, payout REAL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run('CREATE INDEX IF NOT EXISTS idx_tournament_predictions_match ON tournament_predictions(match_id)');
     await run('CREATE INDEX IF NOT EXISTS idx_tournament_predictions_user ON tournament_predictions(user_id)');
-    await run('DELETE FROM tournament_predictions WHERE id NOT IN (SELECT MAX(id) FROM tournament_predictions GROUP BY match_id,user_id)');
-    await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_tournament_predictions_one_vote ON tournament_predictions(match_id,user_id)');
 
 
     // Реферальная система

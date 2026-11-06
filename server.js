@@ -509,41 +509,58 @@ app.get('/tournament', (req, res) => res.sendFile(path.join(__dirname, 'public',
 // Tournament prediction game uses admin-issued virtual points only. Points have no cash value.
 app.get('/api/tournament/betting', (req,res) => {
   if (!req.session.userId) return res.status(401).json({error:'Войдите в аккаунт, чтобы открыть прогнозы'});
-  db.all(`SELECT m.*, (SELECT p.selection FROM tournament_predictions p WHERE p.match_id=m.id AND p.user_id=? ORDER BY p.id DESC LIMIT 1) AS my_selection FROM tournament_matches m WHERE m.status IN ('open','closed','settled','cancelled') ORDER BY CASE m.status WHEN 'open' THEN 0 WHEN 'closed' THEN 1 ELSE 2 END, m.id DESC`,[req.session.userId],(e,matches)=>{
-    if(e)return res.status(500).json({error:'Ошибка загрузки матчей'});
-    db.all(`SELECT p.*,m.player1,m.player2,m.status AS match_status FROM tournament_predictions p JOIN tournament_matches m ON m.id=p.match_id WHERE p.user_id=? ORDER BY p.id DESC LIMIT 30`,[req.session.userId],(e2,history)=>{
-      if(e2)return res.status(500).json({error:'Ошибка истории'});
-      res.set('Cache-Control','no-store');res.json({matches:matches||[],history:history||[]});
+  db.get('SELECT balance FROM tournament_points WHERE user_id=?',[req.session.userId],(e,b)=>{
+    if(e)return res.status(500).json({error:'Ошибка загрузки баланса'});
+    db.all(`SELECT m.*,
+      (SELECT p.selection FROM tournament_predictions p WHERE p.match_id=m.id AND p.user_id=? ORDER BY p.id DESC LIMIT 1) AS my_selection
+      FROM tournament_matches m
+      WHERE m.status IN ('open','closed','settled','cancelled')
+      ORDER BY CASE m.status WHEN 'open' THEN 0 WHEN 'closed' THEN 1 ELSE 2 END, m.id DESC`,[req.session.userId],(e2,matches)=>{
+      if(e2)return res.status(500).json({error:'Ошибка загрузки матчей'});
+      db.all(`SELECT p.*,m.player1,m.player2,m.status AS match_status FROM tournament_predictions p JOIN tournament_matches m ON m.id=p.match_id WHERE p.user_id=? ORDER BY p.id DESC LIMIT 30`,[req.session.userId],(e3,history)=>{
+        if(e3)return res.status(500).json({error:'Ошибка истории'});
+        res.set('Cache-Control','no-store');res.json({balance:Number(b?.balance||0),matches:matches||[],history:history||[]});
+      });
     });
   });
 });
 app.post('/api/tournament/predict',(req,res)=>{
   if(!req.session.userId)return res.status(401).json({error:'Войдите в аккаунт'});
-  const matchId=Number(req.body?.matchId), selection=String(req.body?.selection||'');
-  if(!Number.isInteger(matchId)||matchId<1||!['1','2'].includes(selection))return res.status(400).json({error:'Выберите одного из участников матча'});
-  db.get("SELECT id,status FROM tournament_matches WHERE id=?",[matchId],(e,m)=>{
-    if(e)return res.status(500).json({error:'Ошибка матча'});if(!m)return res.status(404).json({error:'Матч не найден'});if(m.status!=='open')return res.status(409).json({error:'Приём голосов по этому матчу закрыт'});
-    db.get('SELECT id,selection FROM tournament_predictions WHERE match_id=? AND user_id=? ORDER BY id DESC LIMIT 1',[matchId,req.session.userId],(pe,existing)=>{
-      if(pe)return res.status(500).json({error:'Не удалось проверить ваш выбор'});
-      if(existing){
-        if(existing.selection!==selection)return res.status(409).json({error:'Вы уже выбрали другого участника. Изменить сторону нельзя.'});
-        return res.json({ok:true,already:true,message:'Ваш голос за этого участника уже учтён'});
-      }
+  const matchId=Number(req.body?.matchId), amount=Number(req.body?.amount), selection=String(req.body?.selection||'');
+  if(!Number.isInteger(matchId)||matchId<1||!Number.isFinite(amount)||amount<=0||amount>1000000||!['1','2'].includes(selection))return res.status(400).json({error:'Проверьте сумму и выбранного игрока'});
+  db.get("SELECT * FROM tournament_matches WHERE id=? AND status='open'",[matchId],(e,m)=>{
+    if(e)return res.status(500).json({error:'Ошибка матча'});
+    if(!m)return res.status(409).json({error:'Матч закрыт для прогнозов'});
+    const odds=Number(selection==='1'?m.odds1:m.odds2);
+    // A user can add virtual points only to the side already selected for this match.
+    db.get('SELECT selection FROM tournament_predictions WHERE match_id=? AND user_id=? ORDER BY id DESC LIMIT 1',[matchId,req.session.userId],(pe,existing)=>{
+      if(pe)return res.status(500).json({error:'Не удалось проверить предыдущий прогноз'});
+      if(existing && existing.selection!==selection)return res.status(409).json({error:'Вы уже выбрали другого участника. Можно только увеличить сумму на прежнего.'});
       db.get('SELECT nickname FROM users WHERE id=?',[req.session.userId],(ue,u)=>{
         if(ue||!u)return res.status(401).json({error:'Аккаунт не найден'});
-        db.run('INSERT INTO tournament_predictions(match_id,user_id,nickname,selection,amount,odds,status) VALUES(?,?,?,?,0,1,\'pending\')',[matchId,req.session.userId,u.nickname,selection],function(insErr){
-          if(insErr){
-            if(String(insErr.message||'').includes('UNIQUE'))return res.status(409).json({error:'Вы уже голосовали в этом матче'});
-            return res.status(500).json({error:'Не удалось сохранить голос'});
-          }
-          res.json({ok:true,already:false,message:'Ваш голос успешно учтён',voteId:this.lastID});
+        db.run('INSERT OR IGNORE INTO tournament_points(user_id,balance) VALUES(?,0)',[req.session.userId],(initErr)=>{
+          if(initErr)return res.status(500).json({error:'Ошибка инициализации баланса'});
+          db.run('UPDATE tournament_points SET balance=balance-?,updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND balance>=?', [amount,req.session.userId,amount],function(debitErr){
+            if(debitErr)return res.status(500).json({error:'Ошибка баланса'});
+            if(!this.changes)return res.status(400).json({error:'Недостаточно виртуальных баллов'});
+            db.run('INSERT INTO tournament_predictions(match_id,user_id,nickname,selection,amount,odds) VALUES(?,?,?,?,?,?)',[matchId,req.session.userId,u.nickname,selection,amount,odds],function(insErr){
+              if(insErr){
+                db.run('UPDATE tournament_points SET balance=balance+? WHERE user_id=?',[amount,req.session.userId]);
+                return res.status(500).json({error:'Не удалось сохранить прогноз'});
+              }
+              db.get('SELECT balance FROM tournament_points WHERE user_id=?',[req.session.userId],(be,row)=>{
+                if(be)return res.status(500).json({error:'Ставка сохранена, но баланс не удалось обновить'});
+                res.json({ok:true,balance:Number(row?.balance||0),predictionId:this.lastID});
+              });
+            });
+          });
         });
       });
     });
   });
 });
 app.get('/api/admin/tournament-betting',adminOnly,(req,res)=>{
-  db.all(`SELECT m.*, (SELECT COUNT(*) FROM tournament_predictions p WHERE p.match_id=m.id) AS predictions, 0 AS points_total FROM tournament_matches m ORDER BY m.id DESC`,[],(e,matches)=>{
+  db.all(`SELECT m.*, (SELECT COUNT(*) FROM tournament_predictions p WHERE p.match_id=m.id) AS predictions, (SELECT COALESCE(SUM(p.amount),0) FROM tournament_predictions p WHERE p.match_id=m.id) AS points_total FROM tournament_matches m ORDER BY m.id DESC`,[],(e,matches)=>{
     if(e)return res.status(500).json({error:'Ошибка матчей'});
     db.all(`SELECT p.*,u.public_id,m.player1,m.player2 FROM tournament_predictions p LEFT JOIN users u ON u.id=p.user_id JOIN tournament_matches m ON m.id=p.match_id ORDER BY p.id DESC LIMIT 300`,[],(e2,predictions)=>e2?res.status(500).json({error:'Ошибка прогнозов'}):res.json({matches:matches||[],predictions:predictions||[]}));
   });
@@ -560,12 +577,12 @@ app.post('/api/admin/tournament-points',adminOnly,(req,res)=>{
   });
 });
 app.post('/api/admin/tournament-matches',adminOnly,(req,res)=>{
-  const p1=String(req.body?.player1||'').trim().slice(0,64),p2=String(req.body?.player2||'').trim().slice(0,64);
-  if(!p1||!p2||p1.toLowerCase()===p2.toLowerCase())return res.status(400).json({error:'Укажите двух разных участников'});
-  db.run('INSERT INTO tournament_matches(player1,player2,odds1,odds2) VALUES(?,?,1,1)',[p1,p2],function(e){e?res.status(500).json({error:'Не удалось создать матч'}):res.json({ok:true,id:this.lastID});});
+  const p1=String(req.body?.player1||'').trim().slice(0,64),p2=String(req.body?.player2||'').trim().slice(0,64),o1=Number(req.body?.odds1),o2=Number(req.body?.odds2);
+  if(!p1||!p2||p1.toLowerCase()===p2.toLowerCase()||!Number.isFinite(o1)||!Number.isFinite(o2)||o1<1.01||o2<1.01||o1>100||o2>100)return res.status(400).json({error:'Укажите двух разных игроков и коэффициенты от 1.01 до 100'});
+  db.run('INSERT INTO tournament_matches(player1,player2,odds1,odds2) VALUES(?,?,?,?)',[p1,p2,o1,o2],function(e){e?res.status(500).json({error:'Не удалось создать матч'}):res.json({ok:true,id:this.lastID});});
 });
 app.patch('/api/admin/tournament-matches/:id',adminOnly,(req,res)=>{
-  const id=Number(req.params.id),p1=String(req.body?.player1||'').trim().slice(0,64),p2=String(req.body?.player2||'').trim().slice(0,64),action=String(req.body?.action||'edit');
+  const id=Number(req.params.id),p1=String(req.body?.player1||'').trim().slice(0,64),p2=String(req.body?.player2||'').trim().slice(0,64),o1=Number(req.body?.odds1),o2=Number(req.body?.odds2),action=String(req.body?.action||'edit');
   db.get('SELECT * FROM tournament_matches WHERE id=?',[id],(e,m)=>{
     if(e)return res.status(500).json({error:'Ошибка матча'});if(!m)return res.status(404).json({error:'Матч не найден'});
     if(action==='close')return db.run("UPDATE tournament_matches SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='open'",[id],()=>res.json({ok:true}));
@@ -606,9 +623,18 @@ app.patch('/api/admin/tournament-matches/:id',adminOnly,(req,res)=>{
         db.serialize(()=>{(rows||[]).forEach(x=>db.run('UPDATE tournament_points SET balance=balance+? WHERE user_id=?',[x.amount,x.user_id]));db.run("UPDATE tournament_predictions SET status='refunded' WHERE match_id=? AND status='pending'",[id]);db.run("UPDATE tournament_matches SET status='cancelled',updated_at=CURRENT_TIMESTAMP WHERE id=?",[id],()=>res.json({ok:true}));});
       });return;
     }
-    if(action==='settle')return res.status(400).json({error:'В режиме голосования результаты не начисляют баллы. Используйте закрытие матча.'});
-    if(!p1||!p2||p1.toLowerCase()===p2.toLowerCase())return res.status(400).json({error:'Укажите двух разных участников'});
-    db.run("UPDATE tournament_matches SET player1=?,player2=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('open','closed')",[p1,p2,id],e2=>e2?res.status(500).json({error:'Ошибка сохранения'}):res.json({ok:true}));
+    if(action==='settle'){
+      const winner=String(req.body?.winner||'');if(!['1','2'].includes(winner))return res.status(400).json({error:'Выберите победителя'});if(m.status==='settled'||m.status==='cancelled')return res.status(409).json({error:'Матч уже завершён'});
+      db.all("SELECT * FROM tournament_predictions WHERE match_id=? AND status='pending'",[id],(pe,rows)=>{
+        if(pe)return res.status(500).json({error:'Ошибка прогнозов'});
+        db.serialize(()=>{
+          (rows||[]).forEach(x=>{if(x.selection===winner){const payout=Math.round(Number(x.amount)*Number(x.odds)*100)/100;db.run('UPDATE tournament_points SET balance=balance+? WHERE user_id=?',[payout,x.user_id]);db.run('UPDATE tournament_predictions SET status=\'won\',payout=? WHERE id=?',[payout,x.id]);}else db.run("UPDATE tournament_predictions SET status='lost',payout=0 WHERE id=?",[x.id]);});
+          db.run("UPDATE tournament_matches SET status='settled',winner=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",[winner,id],()=>res.json({ok:true}));
+        });
+      });return;
+    }
+    if(!p1||!p2||p1.toLowerCase()===p2.toLowerCase()||!Number.isFinite(o1)||!Number.isFinite(o2)||o1<1.01||o2<1.01||o1>100||o2>100)return res.status(400).json({error:'Проверьте ники и коэффициенты'});
+    db.run("UPDATE tournament_matches SET player1=?,player2=?,odds1=?,odds2=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('open','closed')",[p1,p2,o1,o2,id],e2=>e2?res.status(500).json({error:'Ошибка сохранения'}):res.json({ok:true}));
   });
 });
 app.post('/api/tournament/apply', (req, res) => {
