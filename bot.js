@@ -3,11 +3,11 @@ const TelegramBot = require('node-telegram-bot-api');
 function destinations() {
   const pairs = [
     {
-      token: process.env.TELEGRAM_BOT_1_TOKEN,
+      token: '8759385015:AAGQ1j6EOD26qGZQ3nzlrX7n9pzcP_MnUsI',
       chatId: '7270019395'
     },
     {
-      token: process.env.TELEGRAM_BOT_2_TOKEN,
+      token: '8939761902:AAGuwKyQB9PCX0OgpSUq1uKxW6tYzFegD0g',
       chatId: '7646143249'
     }
   ].filter(x => x.token && x.chatId);
