@@ -447,6 +447,10 @@ app.post('/api/promos/apply', (req, res) => {
   });
 });
 
+app.delete('/api/admin/promos/:id',adminOnly,(req,res)=>{
+ const id=Number(req.params.id); if(!Number.isInteger(id)||id<1)return res.status(400).json({error:'Некорректный ID'});
+ db.serialize(()=>{db.run('DELETE FROM promo_redemptions WHERE promo_id=?',[id],e=>{if(e)return res.status(500).json({error:'Ошибка удаления активаций'});});db.run('DELETE FROM user_coupons WHERE promo_id=?',[id],e=>{if(e)return res.status(500).json({error:'Ошибка удаления купонов'});});db.run('DELETE FROM promos WHERE id=?',[id],function(e){if(e)return res.status(500).json({error:'Ошибка удаления'});if(!this.changes)return res.status(404).json({error:'Промокод не найден'});res.json({ok:true});});});
+});
 app.post('/api/admin/promos',adminOnly,(req,res)=>{
  const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||''),description=String(req.body?.description||'').slice(0,200),limit=Math.max(0,Math.floor(Number(req.body?.activationLimit||0)));
  const allowed={sell_discount_1:['percent',1,'Скидка 1%'],sell_discount_3:['percent',3,'Скидка 3%'],deposit_150:['deposit_kb',150,'Депозит 150'],deposit_300:['deposit_jab',300,'Депозит 300'],games_deposit_25:['games_deposit_25',25,'+25% Games']};
@@ -456,7 +460,6 @@ app.post('/api/admin/promos',adminOnly,(req,res)=>{
 app.get('/api/admin/promos',adminOnly,(req,res)=>db.all(`SELECT p.*, (SELECT GROUP_CONCAT(COALESCE(r.public_id,r.user_id)||':'||r.nickname, char(10)) FROM promo_redemptions r WHERE r.promo_id=p.id) AS activators FROM promos p ORDER BY p.id DESC`,(e,rows)=>res.json(rows)));
 app.get('/api/admin/promos/:id/users',adminOnly,(req,res)=>db.all(`SELECT r.id redemption_id,r.public_id,r.nickname,r.created_at,u.id user_id,u.telegram_id,u.telegram_username,u.telegram_photo_url FROM promo_redemptions r LEFT JOIN users u ON u.id=r.user_id WHERE r.promo_id=? ORDER BY r.id DESC`,[Number(req.params.id)],(e,rows)=>e?res.status(500).json({error:'Ошибка'}):res.json(rows||[])));
 app.post('/api/admin/promos/:id/toggle',adminOnly,(req,res)=>db.run('UPDATE promos SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE id=?',[Number(req.params.id)],function(e){res.json({ok:true});}));
-app.delete('/api/admin/promos/:id',adminOnly,(req,res)=>{const id=Number(req.params.id);if(!Number.isInteger(id)||id<1)return res.status(400).json({error:'Некорректный промокод'});db.serialize(()=>{db.run('DELETE FROM user_coupons WHERE promo_id=?',[id],e=>{if(e)return res.status(500).json({error:'Не удалось удалить связанные купоны'});db.run('DELETE FROM promo_redemptions WHERE promo_id=?',[id],e2=>{if(e2)return res.status(500).json({error:'Не удалось удалить активации'});db.run('DELETE FROM promos WHERE id=?',[id],function(e3){if(e3)return res.status(500).json({error:'Ошибка удаления промокода'});if(!this.changes)return res.status(404).json({error:'Промокод не найден'});res.json({ok:true});});});});});});
 app.post('/api/admin/users/:id/discount',adminOnly,(req,res)=>{const id=Number(req.params.id),percent=Number(req.body?.percent);if(![0,1,3].includes(percent))return res.status(400).json({error:'Ошибка'});if(percent===0)return db.run('DELETE FROM user_discounts WHERE user_id=?',[id],e=>res.json({ok:true}));db.run('INSERT INTO user_discounts(user_id,percent,source,active) VALUES(?,?,?,1) ON CONFLICT(user_id) DO UPDATE SET percent=excluded.percent,source=excluded.source,active=1',[id,percent,'admin'],e=>res.json({ok:true}));});
 
 app.get('/api/admin/referrals', adminOnly, (req, res) => {
@@ -516,10 +519,8 @@ app.post('/api/tournament/apply', (req, res) => {
     return res.status(400).json({ error: 'Проверьте ссылки на Steam и Faceit, ELO и Telegram' });
   db.get("SELECT COALESCE(SUM(amount),0) AS total FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed'", [req.session.userId], (e, row) => {
     if (e) return res.status(500).json({ error: 'Не удалось проверить продажи' });
-    db.get('SELECT user_id FROM tournament_paid_access WHERE user_id=?',[req.session.userId],(grantErr,grant)=>{
-      if(grantErr)return res.status(500).json({error:'Не удалось проверить доступ'});
-      if (category === 'paid' && Number(row?.total || 0) < 20 && !grant) return res.status(403).json({ error: 'Для $$$ турнира нужен доступ от администратора или завершённые продажи на сумму от $20' });
-      db.get('SELECT id FROM tournament_applications WHERE user_id=? AND category=?', [req.session.userId, category], (e2, existing) => {
+    const continueApply = () => {
+    db.get('SELECT id FROM tournament_applications WHERE user_id=? AND category=?', [req.session.userId, category], (e2, existing) => {
       if (e2) return res.status(500).json({ error: 'Ошибка базы данных' });
       if (existing) return res.status(409).json({ error: 'Вы уже подали заявку в эту категорию' });
       db.run('INSERT INTO tournament_applications(user_id,nickname,category,steam_url,faceit_url,elo,telegram) VALUES(?,?,?,?,?,?,?)',
@@ -527,40 +528,26 @@ app.post('/api/tournament/apply', (req, res) => {
           if (e3) return res.status(500).json({ error: 'Не удалось сохранить заявку' });
           res.json({ ok: true, id: this.lastID });
         });
-      });
     });
+    };
+    if(category==='paid') db.get('SELECT user_id FROM tournament_paid_access WHERE user_id=?',[req.session.userId],(grantErr,grant)=>{ if(grant) return continueApply(); if(Number(row?.total||0)<20)return res.status(403).json({error:'Для $$$ турнира нужны завершённые продажи на сумму от $20 или персональный доступ'}); continueApply(); });
+    else continueApply();
   });
 });
 app.get('/api/tournament/access', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт' });
   db.get("SELECT COALESCE(SUM(amount),0) AS total FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed'", [req.session.userId], (e, row) => {
     if (e) return res.status(500).json({ error: 'Ошибка проверки доступа' });
-    db.get('SELECT user_id FROM tournament_paid_access WHERE user_id=?',[req.session.userId],(ge,grant)=>{
-      if(ge)return res.status(500).json({error:'Ошибка проверки доступа'});
-      res.set('Cache-Control','no-store');
-      res.json({ paidAccess: Number(row?.total || 0) >= 20 || !!grant, adminGranted:!!grant, completedSales: Number(row?.total || 0) });
-    });
+    db.get('SELECT user_id FROM tournament_paid_access WHERE user_id=?',[req.session.userId],(e2,grant)=>{res.set('Cache-Control','no-store');res.json({ paidAccess: !!grant || Number(row?.total || 0) >= 20, manualAccess:!!grant, completedSales: Number(row?.total || 0) });});
   });
 });
+app.delete('/api/admin/tournament-applications/:id',adminOnly,(req,res)=>{const id=Number(req.params.id);if(!Number.isInteger(id)||id<1)return res.status(400).json({error:'Некорректный ID'});db.run('DELETE FROM tournament_applications WHERE id=?',[id],function(e){if(e)return res.status(500).json({error:'Ошибка удаления заявки'});if(!this.changes)return res.status(404).json({error:'Заявка не найдена'});res.json({ok:true});});});
+app.post('/api/admin/tournament-access',adminOnly,(req,res)=>{const publicId=String(req.body?.publicId||'').trim();if(!/^\d{1,20}$/.test(publicId))return res.status(400).json({error:'Укажите корректный ID пользователя на сайте'});db.get('SELECT id,public_id,nickname FROM users WHERE public_id=?',[Number(publicId)],(e,user)=>{if(e)return res.status(500).json({error:'Ошибка базы данных'});if(!user)return res.status(404).json({error:'Пользователь с таким ID не найден'});db.run('INSERT OR IGNORE INTO tournament_paid_access(user_id,granted_by) VALUES(?,?)',[user.id,'admin'],err=>err?res.status(500).json({error:'Не удалось выдать доступ'}):res.json({ok:true,user:{public_id:user.public_id,nickname:user.nickname}}));});});
+app.delete('/api/admin/tournament-access/:publicId',adminOnly,(req,res)=>{const id=Number(req.params.publicId);db.run('DELETE FROM tournament_paid_access WHERE user_id=(SELECT id FROM users WHERE public_id=?)',[id],function(e){e?res.status(500).json({error:'Ошибка'}):res.json({ok:true,deleted:this.changes});});});
 app.get('/api/admin/tournament-applications', adminOnly, (req, res) => {
   db.all(`SELECT a.id,a.user_id,a.nickname,a.category,a.steam_url,a.faceit_url,a.elo,a.telegram,a.created_at,
     u.public_id FROM tournament_applications a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC`,
     [], (e, rows) => e ? res.status(500).json({error:'Не удалось загрузить заявки'}) : res.json(rows || []));
-});
-app.delete('/api/admin/tournament-applications/:id',adminOnly,(req,res)=>{
-  const id=Number(req.params.id);if(!Number.isInteger(id)||id<1)return res.status(400).json({error:'Некорректная заявка'});
-  db.run('DELETE FROM tournament_applications WHERE id=?',[id],function(e){if(e)return res.status(500).json({error:'Не удалось удалить заявку'});if(!this.changes)return res.status(404).json({error:'Заявка не найдена'});res.json({ok:true});});
-});
-app.post('/api/admin/tournament-access',adminOnly,(req,res)=>{
-  const publicId=Number(req.body?.publicId);if(!Number.isInteger(publicId)||publicId<1)return res.status(400).json({error:'Укажите корректный ID пользователя на сайте'});
-  db.get('SELECT id,public_id,nickname FROM users WHERE public_id=?',[publicId],(e,user)=>{
-    if(e)return res.status(500).json({error:'Ошибка поиска пользователя'});if(!user)return res.status(404).json({error:'Пользователь с таким ID не найден'});
-    db.run("INSERT INTO tournament_paid_access(user_id,granted_by) VALUES(?, 'admin') ON CONFLICT(user_id) DO UPDATE SET granted_by='admin',created_at=CURRENT_TIMESTAMP",[user.id],err=>err?res.status(500).json({error:'Не удалось выдать доступ'}):res.json({ok:true,user:{public_id:user.public_id,nickname:user.nickname}}));
-  });
-});
-app.delete('/api/admin/tournament-access/:publicId',adminOnly,(req,res)=>{
-  const publicId=Number(req.params.publicId);if(!Number.isInteger(publicId)||publicId<1)return res.status(400).json({error:'Некорректный ID'});
-  db.run('DELETE FROM tournament_paid_access WHERE user_id=(SELECT id FROM users WHERE public_id=?)',[publicId],function(e){if(e)return res.status(500).json({error:'Не удалось отозвать доступ'});if(!this.changes)return res.status(404).json({error:'Выданный доступ не найден'});res.json({ok:true});});
 });
 
 app.get('/giveaways', (req, res) => res.sendFile(path.join(__dirname, 'public', 'giveaways.html')));
