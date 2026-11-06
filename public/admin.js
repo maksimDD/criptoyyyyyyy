@@ -263,21 +263,12 @@ $('#promoAdminForm').addEventListener('submit',async e=>{
   try{
     await api('/api/admin/promos',{method:'POST',body:JSON.stringify({
       code:f.get('code'),
-      rewardType:f.get('rewardType'),
+      rewardType:'custom',
+      targetText:f.get('targetText'),
       activationLimit:f.get('activationLimit'),
-      description:f.get('description')
+      description:f.get('targetText')
     })});
     e.currentTarget.reset();
-    
-    const sel = e.currentTarget.querySelector('.blup-select');
-    if (sel) {
-      const first = sel.querySelector('li[role="option"]');
-      sel.dataset.value = first.dataset.value;
-      sel.querySelector('input[type="hidden"]').value = first.dataset.value;
-      sel.querySelector('.blup-select-label').textContent = first.querySelector('.opt-text b').textContent;
-      sel.querySelector('.blup-select-icon').textContent = first.dataset.icon || '';
-      sel.querySelectorAll('li').forEach(li => li.classList.toggle('is-selected', li === first));
-    }
 
     toast('Промокод создан');
     loadPromos();
@@ -444,3 +435,17 @@ $('#adminReviewsBtn')?.addEventListener('click',async()=>{ $('#adminReviewsBackd
 $('#adminReviewsClose')?.addEventListener('click',()=>{ $('#adminReviewsBackdrop').classList.remove('open');document.body.style.overflow='';});
 $('#adminReviewForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/admin/reviews',{method:'POST',body:JSON.stringify({userId:f.get('userId'),username:f.get('username'),amount:Number(f.get('amount')),stars:Number(f.get('stars')),text:f.get('text')})});e.currentTarget.reset();$('#adminReviewMessage').textContent='Отзыв добавлен';await loadAdminReviews();}catch(err){$('#adminReviewMessage').textContent=err.message;}});
 $('#adminReviewsTable')?.addEventListener('click',async e=>{const b=e.target.closest('[data-review-delete]');if(!b||!confirm('Удалить этот отзыв?'))return;try{await api('/api/admin/reviews/'+b.dataset.reviewDelete,{method:'DELETE'});await loadAdminReviews();}catch(err){toast(err.message)}});
+
+
+// Tournament virtual-points administration
+const bettingBackdrop=$('#adminBettingBackdrop');
+$('#adminBettingBtn')?.addEventListener('click',async()=>{bettingBackdrop.classList.add('open');document.body.style.overflow='hidden';await loadTournamentAdmin();});
+$('#adminBettingClose')?.addEventListener('click',()=>{bettingBackdrop.classList.remove('open');document.body.style.overflow='';});
+bettingBackdrop?.addEventListener('click',e=>{if(e.target===bettingBackdrop){bettingBackdrop.classList.remove('open');document.body.style.overflow='';}});
+$('#refreshBettingAdmin')?.addEventListener('click',loadTournamentAdmin);
+$('#tPointsForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const d=await api('/api/admin/tournament-points',{method:'POST',body:JSON.stringify({publicId:f.get('publicId'),amount:Number(f.get('amount')),note:f.get('note')})});$('#tPointsMessage').textContent=`Начислено ${Number(f.get('amount'))} баллов пользователю ${d.user.nickname} (#${d.user.publicId}). Баланс: ${d.user.balance}`;e.currentTarget.reset();toast('Баллы начислены');}catch(err){$('#tPointsMessage').textContent=err.message;}});
+$('#tMatchForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/admin/tournament-matches',{method:'POST',body:JSON.stringify({player1:f.get('player1'),player2:f.get('player2'),odds1:Number(f.get('odds1')),odds2:Number(f.get('odds2'))})});e.currentTarget.reset();toast('Матч опубликован');await loadTournamentAdmin();}catch(err){toast(err.message);}});
+async function loadTournamentAdmin(){try{const d=await api('/api/admin/tournament-betting');$('#tMatchesAdmin').innerHTML=(d.matches||[]).map(m=>`<tr><td><b>${esc(m.player1)} — ${esc(m.player2)}</b><small>#${m.id}</small></td><td>${Number(m.odds1).toFixed(2)} / ${Number(m.odds2).toFixed(2)}</td><td>${m.predictions} / ${Number(m.points_total).toFixed(0)}</td><td>${esc(({open:'Открыт',closed:'Закрыт',settled:'Завершён',cancelled:'Отменён'})[m.status]||m.status)}</td><td style="min-width:220px"><button class="table-action" data-t-edit="${m.id}" data-p1="${esc(m.player1)}" data-p2="${esc(m.player2)}" data-o1="${m.odds1}" data-o2="${m.odds2}">Изменить</button> ${m.status==='open'?`<button class="table-action" data-t-action="close" data-id="${m.id}">Закрыть</button>`:''}${m.status==='closed'?`<button class="table-action" data-t-action="reopen" data-id="${m.id}">Открыть</button>`:''}${['open','closed'].includes(m.status)?`<button class="table-action danger" data-t-action="settle" data-id="${m.id}">Результат</button><button class="table-action danger" data-t-action="cancel" data-id="${m.id}">Отменить</button>`:''}</td></tr>`).join('')||'<tr><td colspan="5">Матчей пока нет</td></tr>';
+$('#tPredictionsAdmin').innerHTML=(d.predictions||[]).map(p=>`<tr><td>${esc(p.nickname||'—')} <small>#${esc(p.public_id||'—')}</small></td><td>${esc(p.player1)} — ${esc(p.player2)} <small>#${p.match_id}</small></td><td>${p.selection==='1'?esc(p.player1):esc(p.player2)}</td><td>${Number(p.amount).toFixed(0)}</td><td>${Number(p.odds).toFixed(2)}</td><td>${Number(p.payout||0).toFixed(2)}</td><td>${esc(({pending:'Ожидает',won:'Выиграл',lost:'Не угадал',refunded:'Возвращено'})[p.status]||p.status)}</td></tr>`).join('')||'<tr><td colspan="7">Прогнозов пока нет</td></tr>';
+}catch(e){toast(e.message)}}
+document.addEventListener('click',async e=>{const edit=e.target.closest('[data-t-edit]');if(edit){const id=edit.dataset.tEdit,p1=prompt('Игрок 1',edit.dataset.p1),p2=prompt('Игрок 2',edit.dataset.p2);if(p1===null||p2===null)return;const o1=prompt('Коэффициент игрока 1',edit.dataset.o1),o2=prompt('Коэффициент игрока 2',edit.dataset.o2);if(o1===null||o2===null)return;try{await api(`/api/admin/tournament-matches/${id}`,{method:'PATCH',body:JSON.stringify({player1:p1,player2:p2,odds1:Number(o1),odds2:Number(o2)})});toast('Матч обновлён');loadTournamentAdmin();}catch(err){toast(err.message)}return;}const action=e.target.closest('[data-t-action]');if(!action)return;const id=action.dataset.id,act=action.dataset.tAction;let body={action:act};if(act==='settle'){const winner=prompt('Кто победил? Введите 1 для первого ника или 2 для второго:');if(!['1','2'].includes(winner))return;body.winner=winner;}if(!confirm(act==='cancel'?'Отменить матч и вернуть виртуальные баллы всем участникам?':act==='settle'?'Зафиксировать результат матча?':act==='close'?'Закрыть приём прогнозов?':'Снова открыть матч?'))return;try{await api(`/api/admin/tournament-matches/${id}`,{method:'PATCH',body:JSON.stringify(body)});toast('Матч обновлён');loadTournamentAdmin();}catch(err){toast(err.message)}});
