@@ -514,14 +514,8 @@ app.post('/api/tournament/apply', (req, res) => {
   const faceit = String(req.body?.faceit || '').trim();
   const elo = String(req.body?.elo || '').trim().slice(0, 40);
   const telegram = String(req.body?.telegram || '').trim().slice(0, 80);
-  const validSteam = value => { try { const u = new URL(value); return u.protocol === 'https:' && (u.hostname === 'steamcommunity.com' || u.hostname.endsWith('.steamcommunity.com')); } catch { return false; } };
-  const validFaceit = value => {
-    if (!value) return false;
-    try { const u = new URL(value); return u.protocol === 'https:' && (u.hostname === 'faceit.com' || u.hostname.endsWith('.faceit.com')); }
-    catch { return /^[a-zA-Z0-9_.-]{2,40}$/.test(value.replace(/^@/, '')); }
-  };
-  if (!['free','paid'].includes(category) || !validSteam(steam) || !validFaceit(faceit) || !elo || !telegram)
-    return res.status(400).json({ error: 'Проверьте ссылку на Steam, ссылку или ник Faceit, ELO и Telegram' });
+  if (!['free','paid'].includes(category) || !steam || !faceit || !elo || !telegram)
+    return res.status(400).json({ error: 'Заполните Steam, Faceit, ELO и Telegram' });
   db.get("SELECT COALESCE(SUM(amount),0) AS total FROM sales WHERE user_id=? AND operation_type='sell' AND status='completed'", [req.session.userId], (e, row) => {
     if (e) return res.status(500).json({ error: 'Не удалось проверить продажи' });
     const continueApply = () => {
