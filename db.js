@@ -77,14 +77,6 @@ db.ready = (async () => {
     await run(`CREATE TABLE IF NOT EXISTS tournament_applications (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, nickname TEXT, category TEXT NOT NULL CHECK(category IN ('free','paid')), steam_url TEXT NOT NULL, faceit_url TEXT NOT NULL, elo TEXT NOT NULL, telegram TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run('CREATE INDEX IF NOT EXISTS idx_tournament_applications_user ON tournament_applications(user_id, category)');
     await run(`CREATE TABLE IF NOT EXISTS tournament_paid_access (user_id INTEGER PRIMARY KEY, granted_by TEXT DEFAULT 'admin', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-    // Tournament prediction points: virtual-only, non-purchasable and non-withdrawable.
-    await run(`CREATE TABLE IF NOT EXISTS tournament_points (user_id INTEGER PRIMARY KEY, balance REAL NOT NULL DEFAULT 0, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-    await run(`CREATE TABLE IF NOT EXISTS tournament_points_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, amount REAL NOT NULL, reason TEXT NOT NULL, admin_note TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-    await run(`CREATE TABLE IF NOT EXISTS tournament_matches (id INTEGER PRIMARY KEY AUTOINCREMENT, player1 TEXT NOT NULL, player2 TEXT NOT NULL, odds1 REAL NOT NULL, odds2 REAL NOT NULL, status TEXT NOT NULL DEFAULT 'open', winner TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-    await run(`CREATE TABLE IF NOT EXISTS tournament_predictions (id INTEGER PRIMARY KEY AUTOINCREMENT, match_id INTEGER NOT NULL, user_id INTEGER NOT NULL, nickname TEXT, selection TEXT NOT NULL, amount REAL NOT NULL, odds REAL NOT NULL, payout REAL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
-    await run('CREATE INDEX IF NOT EXISTS idx_tournament_predictions_match ON tournament_predictions(match_id)');
-    await run('CREATE INDEX IF NOT EXISTS idx_tournament_predictions_user ON tournament_predictions(user_id)');
-
 
     // Реферальная система
     await run(`CREATE TABLE IF NOT EXISTS user_referrals (user_id INTEGER PRIMARY KEY, referrer_id INTEGER, ref_code TEXT UNIQUE, balance REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
