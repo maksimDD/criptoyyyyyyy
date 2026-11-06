@@ -569,6 +569,36 @@ app.patch('/api/admin/tournament-matches/:id',adminOnly,(req,res)=>{
     if(e)return res.status(500).json({error:'Ошибка матча'});if(!m)return res.status(404).json({error:'Матч не найден'});
     if(action==='close')return db.run("UPDATE tournament_matches SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='open'",[id],()=>res.json({ok:true}));
     if(action==='reopen')return db.run("UPDATE tournament_matches SET status='open',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('closed','open')",[id],()=>res.json({ok:true}));
+    if(action==='delete'){
+      // Permanently remove the match. Return virtual points from unresolved predictions first.
+      db.serialize(()=>{
+        db.run('BEGIN IMMEDIATE');
+        db.all("SELECT user_id,SUM(amount) AS amount FROM tournament_predictions WHERE match_id=? AND status='pending' GROUP BY user_id",[id],(refundErr,rows)=>{
+          if(refundErr){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось подготовить удаление матча'});}
+          const refunds=rows||[];
+          let index=0;
+          const refundNext=()=>{
+            if(index>=refunds.length){
+              db.run('DELETE FROM tournament_predictions WHERE match_id=?',[id],delPredErr=>{
+                if(delPredErr){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось удалить прогнозы'});}
+                db.run('DELETE FROM tournament_matches WHERE id=?',[id],delMatchErr=>{
+                  if(delMatchErr){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось удалить матч'});}
+                  db.run('COMMIT',commitErr=>commitErr?res.status(500).json({error:'Не удалось завершить удаление'}):res.json({ok:true,refunded:refunds.length}));
+                });
+              });
+              return;
+            }
+            const item=refunds[index++];
+            db.run('UPDATE tournament_points SET balance=balance+? WHERE user_id=?',[Number(item.amount)||0,item.user_id],err=>{
+              if(err){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось вернуть виртуальные баллы'});}
+              refundNext();
+            });
+          };
+          refundNext();
+        });
+      });
+      return;
+    }
     if(action==='cancel'){
       if(m.status==='settled'||m.status==='cancelled')return res.status(409).json({error:'Матч уже завершён'});
       db.all("SELECT user_id,SUM(amount) amount FROM tournament_predictions WHERE match_id=? AND status='pending' GROUP BY user_id",[id],(pe,rows)=>{
