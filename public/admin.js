@@ -232,7 +232,7 @@ async function loadPromos(){
           <small>${esc(x.description||x.reward_type)} · активаций ${x.activation_count||0}${x.activation_limit?'/'+x.activation_limit:' / без лимита'} · ${x.active?'Активен':'Выключен'}</small>
           <small>Нажми на код, чтобы открыть список активаций и Telegram-профили пользователей</small>
         </span>
-        <button data-promo-toggle="${x.id}">${x.active?'Отключить':'Включить'}</button>
+        <span style="display:flex;gap:6px;flex-wrap:wrap"><button data-promo-toggle="${x.id}">${x.active?'Отключить':'Включить'}</button><button data-promo-delete="${x.id}" style="background:#731f31;color:#fff">Удалить</button></span>
       </div>
     `).join('')||'<div class="empty-cell">Промокодов пока нет</div>';
   }catch(e){toast(e.message);}
@@ -294,6 +294,8 @@ $('#discountGrantForm').addEventListener('submit',async e=>{
 });
 
 document.addEventListener('click',async e=>{
+  const del=e.target.closest('[data-promo-delete]');
+  if(del){if(!confirm('Полностью удалить промокод и связанные активации?'))return;try{await api(`/api/admin/promos/${del.dataset.promoDelete}`,{method:'DELETE'});toast('Промокод удалён');loadPromos()}catch(err){toast(err.message)}return;}
   const b=e.target.closest('[data-promo-toggle]');
   if(!b)return;
   try{

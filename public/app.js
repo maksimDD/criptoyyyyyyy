@@ -69,14 +69,14 @@ refreshMaintenance();
 setInterval(refreshMaintenance,10000);
 setInterval(refreshUser,15000);
 
-// Интерактивная 3D-карта: зажмите и двигайте мышь/палец, чтобы вращать её.
+// Интерактивная 3D-карта BLUP.
 (function enableCardDrag(){
  const card=document.querySelector('.glass-card');
  if(!card)return;
  let active=false,startX=0,startY=0,rotX=13,rotY=-28,baseX=0,baseY=0;
  card.style.touchAction='none';
  card.setAttribute('role','img');
- card.setAttribute('aria-label','Интерактивная 3D-карта BLUP. Зажмите и перетаскивайте для вращения.');
+ card.setAttribute('aria-label','Интерактивная 3D-карта BLUP.');
  card.addEventListener('pointerdown',e=>{
    active=true;startX=e.clientX;startY=e.clientY;baseX=rotY;baseY=rotX;
    card.classList.add('is-dragging');card.style.animation='none';
