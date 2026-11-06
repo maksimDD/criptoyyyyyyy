@@ -6,9 +6,20 @@
 <div class="t-tabs" style="display:flex;gap:10px;margin:18px 0"><button class="btn btn-primary btn-small" data-cat="free">Free <span id="freeCount">0</span></button><button class="btn btn-outline btn-small" data-cat="paid">$$$ <span id="paidCount">0</span></button></div>
 <section class="admin-card table-card"><div class="table-scroll"><table><thead><tr><th>ID заявки</th><th>ID пользователя</th><th>Пользователь</th><th>Steam</th><th>Faceit</th><th>ELO</th><th>Telegram</th><th>Дата</th><th>Действие</th></tr></thead><tbody id="rows"><tr><td colspan="9">Загрузка…</td></tr></tbody></table></div></section><p id="error" class="admin-error"></p></main>
 <script>
-const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let allRows=[],activeCat='free';
+const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function renderFaceit(value){
+  const raw=String(value??'').trim();
+  if(!raw)return '—';
+  const isUrl=/^(https?:\/\/|www\.)/i.test(raw) || /^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/:?#].*)?$/i.test(raw);
+  if(!isUrl)return esc(raw);
+  const href=/^https?:\/\//i.test(raw)?raw:'https://'+raw;
+  try{const u=new URL(href);if(!['http:','https:'].includes(u.protocol))return esc(raw);}
+  catch{return esc(raw);}
+  return `<a href="${esc(href)}" target="_blank" rel="noopener"> ${esc(raw)} ↗</a>`;
+}
+let allRows=[],activeCat='free';
 async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Ошибка');return d}
-function render(){const rows=allRows.filter(a=>a.category===activeCat);document.querySelector('#freeCount').textContent=allRows.filter(a=>a.category==='free').length;document.querySelector('#paidCount').textContent=allRows.filter(a=>a.category==='paid').length;document.querySelectorAll('[data-cat]').forEach(b=>{b.className='btn btn-small '+(b.dataset.cat===activeCat?'btn-primary':'btn-outline')});document.querySelector('#rows').innerHTML=rows.length?rows.map(a=>`<tr><td><b>#${a.id}</b></td><td>${esc(a.public_id||'—')}</td><td>${esc(a.nickname)}</td><td><a href="${esc(a.steam_url)}" target="_blank" rel="noopener">Steam ↗</a></td><td><a href="${esc(a.faceit_url)}" target="_blank" rel="noopener">Faceit ↗</a></td><td>${esc(a.elo)}</td><td>${esc(a.telegram)}</td><td>${esc(a.created_at)}</td><td><button class="btn btn-outline btn-small" data-delete="${a.id}" style="border-color:#a33;color:#ff9aa8">Удалить</button></td></tr>`).join(''):'<tr><td colspan="9">Заявок в категории пока нет</td></tr>'}
+function render(){const rows=allRows.filter(a=>a.category===activeCat);document.querySelector('#freeCount').textContent=allRows.filter(a=>a.category==='free').length;document.querySelector('#paidCount').textContent=allRows.filter(a=>a.category==='paid').length;document.querySelectorAll('[data-cat]').forEach(b=>{b.className='btn btn-small '+(b.dataset.cat===activeCat?'btn-primary':'btn-outline')});document.querySelector('#rows').innerHTML=rows.length?rows.map(a=>`<tr><td><b>#${a.id}</b></td><td>${esc(a.public_id||'—')}</td><td>${esc(a.nickname)}</td><td><a href="${esc(a.steam_url)}" target="_blank" rel="noopener">Steam ↗</a></td><td>${renderFaceit(a.faceit_url)}</td><td>${esc(a.elo)}</td><td>${esc(a.telegram)}</td><td>${esc(a.created_at)}</td><td><button class="btn btn-outline btn-small" data-delete="${a.id}" style="border-color:#a33;color:#ff9aa8">Удалить</button></td></tr>`).join(''):'<tr><td colspan="9">Заявок в категории пока нет</td></tr>'}
 async function load(){const body=document.querySelector('#rows');document.querySelector('#error').textContent='';body.innerHTML='<tr><td colspan="9">Загрузка…</td></tr>';try{allRows=await api('/api/admin/tournament-applications');render()}catch(e){document.querySelector('#error').textContent=e.message;body.innerHTML=''}}
 document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{activeCat=b.dataset.cat;render()});document.querySelector('#refresh').onclick=load;
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-delete]');if(!b)return;if(!confirm('Удалить заявку #'+b.dataset.delete+'?'))return;try{await api('/api/admin/tournament-applications/'+b.dataset.delete,{method:'DELETE'});allRows=allRows.filter(x=>String(x.id)!==b.dataset.delete);render()}catch(err){alert(err.message)}});
