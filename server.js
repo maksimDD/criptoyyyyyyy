@@ -9,7 +9,7 @@ const { notifyAdmin } = require('./bot');
 const { notifyNewUser } = require('./bot_register');
 
 const app = express();
-const BLUP_WALLETS = { USDT: { BEP20:'0x4eb35b332de372683aD24d7377abFa53F89451E4', TRC20:'TWCzWBarQUEfDd9pHYUwT5Chxr37e6Cdod', ERC20:'0xefF29984a72b0CFf45c57210f7Df8B60340724C5', TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2', SPL:'3J5d7AadxyoVwh97ALxPW1h1m35bSVcgoPY3cHdMuMmR' }, GRAM: { TON:'UQDm8YmLVhliKT_SLlxw0yvi3rv91FFkxlbDnY0dDZ_Kb5r2' } };
+const BLUP_WALLETS = { USDT: { BEP20:'0x88EdAc4B11E87EB124A5270CfD4Dc04dEB843184', TRC20:'TCphExgGrK3TBWtfeubGQ7QXDCKTuMoTZA', ERC20:'0xa6511569eF753c10E4e145E447D619a3186d0509', TON:'UQCgljUWsZtjfBcGLZj72Yqq5pir-auWZtD5soVvWZnEVS7H', SPL:'8ztJwQUPr4iHyRrdaUT77KqDmKxzu6qJi2Emy14bsb5f' }, GRAM: { TON:'UQCgljUWsZtjfBcGLZj72Yqq5pir-auWZtD5soVvWZnEVS7H' } };
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET_FILE = path.join(__dirname, '.blup-session-secret');
 
