@@ -91,3 +91,13 @@ TELEGRAM SETUP (UPDATED)
 Курс TON для пересчёта в баланс берётся из действующих настроек TON/USDT (gram_rate / usdt_rate).
 
 Цены скинов в каталоге — ориентировочные рыночные значения в USD, не live-котировки и не гарантия цены продажи. Изображения подгружаются из публичного каталога CS2-скинов ByMykel/CSGO-API. Выигрыши пока сохраняются во внутреннем инвентаре BLUP; Steam trade / реальная выдача предметов не подключены.
+
+=== BLUP CASES UPDATE (14.11.2026) ===
+- Case mode remains hidden from the main homepage; direct route: /cases.
+- Case profile/inventory and Steam Trade URL settings: /cases/profile.
+- 25 generated case cover images are served as WebP URLs: /assets/cases/case-01.webp ... case-25.webp.
+- Case catalogue contains 25 cases with 18-22 items each. All configured skin prices are between $0.20 and $50.00.
+- The case page currency selector displays USDT or RUB. RUB uses the admin usdt_rate setting; if unset, a fallback market snapshot is used until the admin configures the rate.
+- Users can sell an inventory skin for 90% of the configured reference price, credited to their BLUP case balance.
+- Users can request a Steam skin withdrawal after saving a valid Steam Trade URL in their profile. The request is visible in /admin/cases. Admin must manually send the Steam trade and then approve the request; approving removes the item from BLUP inventory.
+- Market prices are indicative snapshots, not guaranteed live executable quotes. Refresh prices and verify exact wear/float before using the catalogue for real-money operations.

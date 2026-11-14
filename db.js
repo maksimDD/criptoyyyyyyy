@@ -38,7 +38,7 @@ db.ready = (async () => {
 
     const migrations = {
       users: { last_ip:'TEXT', last_seen:'TEXT', is_banned:'INTEGER DEFAULT 0', ban_reason:'TEXT', session_version:'INTEGER DEFAULT 0', public_id:'INTEGER', telegram_username:'TEXT',
-        telegram_id:'INTEGER', telegram_first_name:'TEXT', telegram_last_name:'TEXT', telegram_photo_url:'TEXT', referred_by:'INTEGER' },
+        telegram_id:'INTEGER', telegram_first_name:'TEXT', telegram_last_name:'TEXT', telegram_photo_url:'TEXT', referred_by:'INTEGER', steam_trade_url:'TEXT' },
       sales: { operation_type:"TEXT DEFAULT 'sell'", memo:'TEXT', payout_type:'TEXT', amount:'REAL DEFAULT 0', status:"TEXT DEFAULT 'pending'", destination_wallet:'TEXT', parent_sale_id:'INTEGER', payout_rub:'REAL', comment:'TEXT' }
     };
     for (const [table, columns] of Object.entries(migrations)) {
@@ -81,6 +81,8 @@ db.ready = (async () => {
     await run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_pending_promo ON case_deposits(user_id,promo_id) WHERE promo_id IS NOT NULL AND status='pending'`);
     await run(`CREATE TABLE IF NOT EXISTS case_withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,nickname TEXT,amount REAL NOT NULL,payout_type TEXT,phone TEXT,bank TEXT,status TEXT DEFAULT 'pending',created_at TEXT DEFAULT CURRENT_TIMESTAMP,reviewed_at TEXT)`);
     await run(`CREATE TABLE IF NOT EXISTS case_inventory (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,case_id TEXT NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,price REAL NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    await run(`CREATE TABLE IF NOT EXISTS case_skin_withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,nickname TEXT,inventory_id INTEGER NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,price REAL NOT NULL,steam_trade_url TEXT NOT NULL,status TEXT DEFAULT 'pending',created_at TEXT DEFAULT CURRENT_TIMESTAMP,reviewed_at TEXT)`);
+    await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_case_skin_withdraw_pending ON case_skin_withdrawals(inventory_id) WHERE status=\'pending\'');
     await run(`CREATE TABLE IF NOT EXISTS case_openings (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,case_id TEXT NOT NULL,case_name TEXT NOT NULL,cost REAL NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,skin_price REAL NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run('CREATE INDEX IF NOT EXISTS idx_case_inventory_user ON case_inventory(user_id,id DESC)');
     await run(`CREATE TABLE IF NOT EXISTS game_bets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, game TEXT, amount REAL, multiplier REAL, win_amount REAL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
