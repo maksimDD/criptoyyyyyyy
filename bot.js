@@ -62,7 +62,7 @@ async function notifyAdmin(item) {
   const lines = [
     isWithdraw ? '💸 ЗАПРОС НА ВЫВОД' : '🪙 НОВАЯ ПРОДАЖА',
     `👤 Имя пользователя: ${item.nickname || '—'}`,
-    `🪙 Монета: ${item.coin || '—'}`,
+    `🪙 Монета: ${item.coin === 'GRAM' ? 'TON' : (item.coin || '—')}`,
     `🌐 Сеть: ${item.network || '—'}`,
     `🕐 Время МСК: ${moscowTime(item.created_at)}`
   ];
@@ -75,8 +75,8 @@ async function notifyAdmin(item) {
     );
   } else {
     lines.push(
-      `💵 Сумма: ${item.amount || '—'} USD`,
-      `💱 Курс: ${item.rate || '—'} RUB за 1 ${item.coin || ''}`,
+      `💵 Сумма: ${item.amount || '—'} TON`,
+      `💱 Курс: ${item.rate || '—'} RUB за 1 TON`,
       `💴 К выплате: ${item.payoutRub || '—'} RUB`,
       ...(item.discountPercent ? [`🎟️ Скидка: ${item.discountPercent}%`] : []),
       `📥 Кошелёк BLUP: ${item.wallet || '—'}`,
