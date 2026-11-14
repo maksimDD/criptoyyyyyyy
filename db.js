@@ -97,6 +97,24 @@ db.ready = (async () => {
     await run('CREATE INDEX IF NOT EXISTS idx_tournament_applications_user ON tournament_applications(user_id, category)');
     await run(`CREATE TABLE IF NOT EXISTS tournament_paid_access (user_id INTEGER PRIMARY KEY, granted_by TEXT DEFAULT 'admin', created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
 
+    // Управляемые розыгрыши BLUP
+    await run(`CREATE TABLE IF NOT EXISTS giveaways (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT DEFAULT '',
+      minimum_sales REAL NOT NULL DEFAULT 0, winner_slots INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'active', winners_json TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP, ended_at TEXT
+    )`);
+    await run(`CREATE TABLE IF NOT EXISTS giveaway_prizes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, giveaway_id INTEGER NOT NULL,
+      image_data TEXT NOT NULL, caption TEXT DEFAULT '', slot INTEGER NOT NULL
+    )`);
+    await run(`CREATE TABLE IF NOT EXISTS giveaway_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, giveaway_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(giveaway_id,user_id)
+    )`);
+    await run('CREATE INDEX IF NOT EXISTS idx_giveaway_entries_giveaway ON giveaway_entries(giveaway_id)');
+
     // Реферальная система
     await run(`CREATE TABLE IF NOT EXISTS user_referrals (user_id INTEGER PRIMARY KEY, referrer_id INTEGER, ref_code TEXT UNIQUE, balance REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS referral_commissions (sale_id INTEGER PRIMARY KEY, referrer_id INTEGER NOT NULL, sale_amount_usd REAL DEFAULT 0, sale_amount_rub REAL DEFAULT 0, commission_usd REAL DEFAULT 0, commission_rub REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);

@@ -26,7 +26,7 @@ if (!SESSION_SECRET) {
 if (!process.env.BLUP_ADMIN_PASSWORD) console.warn('Админ-вход отключён.');
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '16mb' }));
 
 class SQLiteSessionStore extends session.Store {
   get(sid, cb) { db.get('SELECT sess, expires FROM sessions WHERE sid=?', [sid], (err, row) => { if (err) return cb(err); if (!row) return cb(null, null); if (row.expires < Date.now()) return this.destroy(sid, () => cb(null, null)); try { cb(null, JSON.parse(row.sess)); } catch (e) { cb(e); } }); }
@@ -559,6 +559,103 @@ app.get('/api/admin/tournament-applications', adminOnly, (req, res) => {
     [], (e, rows) => e ? res.status(500).json({error:'Не удалось загрузить заявки'}) : res.json(rows || []));
 });
 
+
+// BLUP Giveaways: one active giveaway at a time; entry eligibility is checked on the server.
+function giveawayPayload(g, cb) {
+  if (!g) return cb(null, null);
+  db.all('SELECT id,image_data,caption,slot FROM giveaway_prizes WHERE giveaway_id=? ORDER BY slot', [g.id], (pe, prizes) => {
+    if (pe) return cb(pe);
+    db.all(`SELECT e.user_id,e.created_at,u.nickname,u.public_id
+      FROM giveaway_entries e JOIN users u ON u.id=e.user_id
+      WHERE e.giveaway_id=? ORDER BY e.id`, [g.id], (ee, entries) => {
+      if (ee) return cb(ee);
+      let winners=[]; try { winners=JSON.parse(g.winners_json||'[]'); } catch {}
+      cb(null, {...g, prizes:prizes||[], entries:entries||[], winners});
+    });
+  });
+}
+app.get('/api/giveaways/current', (req,res) => {
+  db.get("SELECT * FROM giveaways ORDER BY id DESC LIMIT 1", [], (e,g) => {
+    if(e) return res.status(500).json({error:'Не удалось загрузить розыгрыш'});
+    giveawayPayload(g,(err,data)=>err?res.status(500).json({error:'Ошибка загрузки'}):res.json({giveaway:data}));
+  });
+});
+app.post('/api/giveaways/:id/participate', (req,res) => {
+  if(!req.session?.userId) return res.status(401).json({error:'Войди в аккаунт, чтобы участвовать'});
+  const id=Number(req.params.id);
+  db.get("SELECT * FROM giveaways WHERE id=? AND status='active'",[id],(e,g)=>{
+    if(e) return res.status(500).json({error:'Ошибка базы данных'});
+    if(!g) return res.status(404).json({error:'Розыгрыш уже завершён'});
+    const enter=()=>db.run('INSERT INTO giveaway_entries(giveaway_id,user_id) VALUES(?,?)',[id,req.session.userId],function(err){
+      if(err) return res.status(String(err.message).includes('UNIQUE')?409:500).json({error:String(err.message).includes('UNIQUE')?'Ты уже участвуешь':'Не удалось записать участие'});
+      res.json({ok:true});
+    });
+    if(Number(g.minimum_sales||0)<=0) return enter();
+    db.get("SELECT COALESCE(SUM(amount),0) AS total FROM sales WHERE user_id=? AND status='completed' AND COALESCE(operation_type,'sell')='sell'",[req.session.userId],(se,row)=>{
+      if(se) return res.status(500).json({error:'Не удалось проверить сумму продаж'});
+      if(Number(row?.total||0)+1e-8<Number(g.minimum_sales)) return res.status(403).json({error:`Для участия нужны завершённые продажи на сумму не менее $${Number(g.minimum_sales).toFixed(2)}`});
+      enter();
+    });
+  });
+});
+app.get('/api/admin/giveaways',adminOnly,(req,res)=>{
+  db.get('SELECT * FROM giveaways ORDER BY id DESC LIMIT 1',[],(e,g)=>{
+    if(e)return res.status(500).json({error:'Ошибка базы данных'});
+    giveawayPayload(g,(err,data)=>err?res.status(500).json({error:'Ошибка загрузки'}):res.json({giveaway:data}));
+  });
+});
+app.post('/api/admin/giveaways',adminOnly,(req,res)=>{
+  const title=String(req.body?.title||'').trim().slice(0,100);
+  const description=String(req.body?.description||'').trim().slice(0,1500);
+  const minimumSales=Number(req.body?.minimumSales||0), slots=Number(req.body?.slots||1), prizes=Array.isArray(req.body?.prizes)?req.body.prizes:[];
+  if(!title)return res.status(400).json({error:'Укажи название розыгрыша'});
+  if(!Number.isFinite(minimumSales)||minimumSales<0||minimumSales>1000000)return res.status(400).json({error:'Некорректная сумма продаж'});
+  if(!Number.isInteger(slots)||slots<1||slots>5)return res.status(400).json({error:'Количество мест — от 1 до 5'});
+  if(prizes.length>5)return res.status(400).json({error:'Можно загрузить не более 5 PNG'});
+  for(const prize of prizes){
+    const data=String(prize?.image||'');
+    if(!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(data)||data.length>2800000)return res.status(400).json({error:'Каждое изображение должно быть PNG до 2 МБ'});
+  }
+  db.serialize(()=>{
+    db.run('BEGIN IMMEDIATE');
+    db.run('DELETE FROM giveaway_entries');
+    db.run('DELETE FROM giveaway_prizes');
+    db.run('DELETE FROM giveaways');
+    db.run('INSERT INTO giveaways(title,description,minimum_sales,winner_slots,status) VALUES(?,?,?,?,?)',[title,description,minimumSales,slots,'active'],function(e){
+      if(e){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось создать розыгрыш'});}
+      const id=this.lastID;
+      let failed=false, pending=prizes.length;
+      if(!pending){db.run('COMMIT',err=>err?res.status(500).json({error:'Ошибка сохранения'}):res.json({ok:true,id}));return;}
+      prizes.forEach((prize,i)=>db.run('INSERT INTO giveaway_prizes(giveaway_id,image_data,caption,slot) VALUES(?,?,?,?)',[id,prize.image,String(prize.caption||'').slice(0,100),i+1],err=>{
+        if(err&&!failed){failed=true;db.run('ROLLBACK');return res.status(500).json({error:'Не удалось сохранить PNG'});}
+        if(--pending===0&&!failed)db.run('COMMIT',ce=>ce?res.status(500).json({error:'Ошибка сохранения'}):res.json({ok:true,id}));
+      }));
+    });
+  });
+});
+app.post('/api/admin/giveaways/:id/finish',adminOnly,(req,res)=>{
+  const id=Number(req.params.id);
+  db.get("SELECT * FROM giveaways WHERE id=? AND status='active'",[id],(e,g)=>{
+    if(e)return res.status(500).json({error:'Ошибка базы данных'});
+    if(!g)return res.status(404).json({error:'Активный розыгрыш не найден'});
+    db.all(`SELECT e.user_id,u.nickname,u.public_id FROM giveaway_entries e
+      JOIN users u ON u.id=e.user_id WHERE e.giveaway_id=?`,[id],(ee,rows)=>{
+      if(ee)return res.status(500).json({error:'Не удалось получить участников'});
+      const pool=(rows||[]).slice();
+      for(let i=pool.length-1;i>0;i--){const j=crypto.randomInt(i+1);[pool[i],pool[j]]=[pool[j],pool[i]];}
+      const winners=pool.slice(0,Math.min(Number(g.winner_slots),pool.length)).map((u,i)=>({...u,place:i+1}));
+      db.run("UPDATE giveaways SET status='finished',winners_json=?,ended_at=CURRENT_TIMESTAMP WHERE id=?",[JSON.stringify(winners),id],function(ue){
+        if(ue)return res.status(500).json({error:'Не удалось завершить розыгрыш'});
+        res.json({ok:true,winners});
+      });
+    });
+  });
+});
+app.delete('/api/admin/giveaways/:id',adminOnly,(req,res)=>{
+  const id=Number(req.params.id);
+  db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run('DELETE FROM giveaway_entries WHERE giveaway_id=?',[id]);db.run('DELETE FROM giveaway_prizes WHERE giveaway_id=?',[id]);db.run('DELETE FROM giveaways WHERE id=?',[id],function(e){if(e){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось удалить'});}const deleted=this.changes;db.run('COMMIT',()=>res.json({ok:true,deleted}));});});
+});
+
 app.get('/giveaways', (req, res) => res.sendFile(path.join(__dirname, 'public', 'giveaways.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/admin/tournament', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-tournament.html')));
@@ -738,8 +835,8 @@ app.post('/api/cases/promo-preview',caseUser,(req,res)=>{
 app.post('/api/cases/deposit',caseUser,(req,res)=>{
   const amount=Number(req.body?.amount),tokenAmount=Number(req.body?.tokenAmount||0),unitRate=Number(req.body?.unitRate||1),coin=String(req.body?.coin||'').toUpperCase(),network=String(req.body?.network||'').toUpperCase(),tx=String(req.body?.tx||'').trim().slice(0,180),code=String(req.body?.code||'').trim().slice(0,40);
   if(!Number.isFinite(amount)||amount<1||amount>10000||!Number.isFinite(tokenAmount)||tokenAmount<=0||!Number.isFinite(unitRate)||unitRate<=0)return res.status(400).json({error:'Проверь сумму и курс перевода'});
-  const wallet=coin==='TON'?CASE_WALLETS.GRAM?.[network]:CASE_WALLETS[coin]?.[network];if(!wallet)return res.status(400).json({error:'Недопустимая валютная сеть'});if(!tx)return res.status(400).json({error:'Укажи хэш транзакции после отправки'});
-  const create=(promo=null)=>{const percent=promo?Math.min(100,Math.max(0,Number(promo.reward_value)||0)):0;const bonus=Number((amount*percent/100).toFixed(2));db.run('INSERT INTO case_deposits(user_id,nickname,amount,token_amount,unit_rate,coin,network,wallet,tx_hash,promo_id,promo_code,promo_percent,bonus_amount,credited_amount) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[req.session.userId,req.session.nickname,amount,tokenAmount,unitRate,coin,network,wallet,tx||null,promo?.id||null,promo?.code||null,percent,bonus,Number((amount+bonus).toFixed(2))],function(e){if(e){if(String(e.message).includes('UNIQUE'))return res.status(409).json({error:'Этот хэш транзакции уже отправляли'});return res.status(500).json({error:'Не удалось создать заявку'});}notifyAdmin({operation:'case_deposit',nickname:req.session.nickname,amount,tokenAmount,coin,network,wallet,tx_hash:tx,promoPercent:percent,bonusAmount:bonus,id:this.lastID}).catch(()=>{});res.json({ok:true,id:this.lastID,credited:amount+bonus});});};
+  const wallet=coin==='TON'?CASE_WALLETS.GRAM?.[network]:CASE_WALLETS[coin]?.[network];if(!wallet)return res.status(400).json({error:'Недопустимая валютная сеть'});
+  const create=(promo=null)=>{const percent=promo?Math.min(100,Math.max(0,Number(promo.reward_value)||0)):0;const bonus=Number((amount*percent/100).toFixed(2));db.run('INSERT INTO case_deposits(user_id,nickname,amount,token_amount,unit_rate,coin,network,wallet,tx_hash,promo_id,promo_code,promo_percent,bonus_amount,credited_amount) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[req.session.userId,req.session.nickname,amount,tokenAmount,unitRate,coin,network,wallet,tx||null,promo?.id||null,promo?.code||null,percent,bonus,Number((amount+bonus).toFixed(2))],function(e){if(e){if(String(e.message).includes('UNIQUE'))return res.status(409).json({error:'Этот хэш транзакции уже отправляли'});return res.status(500).json({error:'Не удалось создать заявку'});}notifyAdmin({operation:'case_deposit',nickname:req.session.nickname,amount,tokenAmount,coin,network,wallet,tx_hash:tx||null,promoPercent:percent,bonusAmount:bonus,id:this.lastID}).catch(()=>{});res.json({ok:true,id:this.lastID,credited:amount+bonus});});};
   if(!code)return create();
   db.get('SELECT * FROM promos WHERE code=? COLLATE NOCASE AND active=1',[code],(e,promo)=>{if(e)return res.status(500).json({error:'Ошибка базы данных'});if(!promo)return res.status(404).json({error:'Промокод не найден'});if(promo.reward_type!=='deposit_bonus')return res.status(400).json({error:'Промокод не подходит для пополнения'});if(Number(promo.activation_limit)>0&&Number(promo.activation_count)>=Number(promo.activation_limit))return res.status(400).json({error:'Лимит промокода исчерпан'});db.get('SELECT id FROM promo_redemptions WHERE promo_id=? AND user_id=?',[promo.id,req.session.userId],(e2,used)=>{if(e2)return res.status(500).json({error:'Ошибка базы данных'});if(used)return res.status(409).json({error:'Ты уже использовал этот промокод'});db.get("SELECT id FROM case_deposits WHERE promo_id=? AND user_id=? AND status='pending'",[promo.id,req.session.userId],(e3,pending)=>pending?res.status(409).json({error:'У тебя уже есть пополнение с этим промокодом на проверке'}):create(promo));});});
 });
