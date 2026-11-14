@@ -11,8 +11,8 @@
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
 <header class="header cases-profile-header">
   <a class="brand" href="/" aria-label="BLUP — главная"><span class="brand-orb"></span><span>BLUP</span><span class="cases-brand">CASES</span></a>
-  <nav class="nav"><a class="nav-link" href="/">Главная</a><a class="nav-link active" href="/cases">Кейсы</a><a class="nav-link" href="/cases/upgrader">Апгрейды</a></nav>
-  <div class="header-actions"><a class="btn btn-ghost btn-small" href="/cases">← К кейсам</a><button class="btn btn-outline btn-small" id="cp-logout">Выйти</button></div>
+  <nav class="nav"><a class="nav-link active" href="/cases">Кейсы</a><a class="nav-link" href="/cases/upgrader">Апгрейды</a></nav>
+  <div class="header-actions"><label class="cp-currency">Валюта <select id="cp-currency"><option value="USDT">USDT</option><option value="RUB">RUB</option></select></label><a class="btn btn-ghost btn-small" href="/cases">← К кейсам</a><button class="btn btn-outline btn-small" id="cp-logout">Выйти</button></div>
 </header>
 <main class="profile-shell cases-profile-shell">
   <div class="profile-error" id="cp-error"></div>
@@ -21,7 +21,7 @@
       <div class="profile-head-info"><span class="profile-eyebrow">BLUP / CASES</span><h1 id="cp-nick">Загрузка…</h1><div class="profile-meta"><span class="pill">Инвентарь скинов</span><a class="pill cases-tab-pill" href="/cases">Кейсы ↗</a></div></div>
     </div>
   </section>
-  <section class="profile-card"><div class="profile-card-head"><span class="profile-eyebrow">BLUP / CASES INVENTORY</span><h2>Инвентарь скинов</h2><p class="muted">Продавай скины за 90% от указанной рыночной цены или создавай заявку на вывод в Steam.</p></div>
+  <section class="profile-card"><div class="profile-card-head"><span class="profile-eyebrow">BLUP / CASES INVENTORY</span><h2>Инвентарь скинов</h2><p class="muted">Продавай скины по полной указанной цене или создавай заявку на вывод в Steam.</p></div>
     <div id="cp-inventory" class="cases-profile-inventory"><p class="muted">Загрузка инвентаря…</p></div>
   </section>
   <section class="profile-card"><div class="profile-card-head"><span class="profile-eyebrow">BLUP / STEAM</span><h2>Steam Trade URL</h2><p class="muted">Добавь личную ссылку обмена Steam, чтобы оформлять заявки на вывод скинов.</p></div>

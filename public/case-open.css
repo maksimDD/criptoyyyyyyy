@@ -52,3 +52,5 @@ body.case-opening-page{background:var(--case-bg);color:var(--case-text);font-fam
 .hero-case-art.cover-fallback:after{content:'📦';position:absolute;inset:0;display:grid;place-items:center;font-size:100px;filter:drop-shadow(0 10px 20px #000)}
 .showcase-item img,.roulette-item img,.possible-skin img{object-fit:contain;max-width:100%;filter:drop-shadow(0 5px 9px #0009)}
 .possible-skin{overflow:visible}
+
+.open-wallet{display:flex;align-items:center;gap:10px;color:#eaf4ff;font-size:12px}.open-wallet label{display:flex;align-items:center;gap:5px;color:#8e9db4;font-size:9px}.open-wallet select{background:#111a2b;border:1px solid #34435b;color:#eaf4ff;border-radius:8px;padding:7px;font:800 10px Manrope}.open-wallet b{white-space:nowrap}@media(max-width:600px){.open-wallet{order:3;width:100%;justify-content:center}.case-top{flex-wrap:wrap}}
