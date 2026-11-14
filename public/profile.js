@@ -34,6 +34,7 @@ let currentProfile = null;
     }
 
     $('#p-nick').textContent = p.nickname || '—';
+    const tradeInput = $('#steamTradeUrl'); if (tradeInput) tradeInput.value = p.steam_trade_url || '';
     const publicId = p.public_id || '—';
     const publicLink = $('#p-user-link');
     if (publicLink) {
@@ -249,3 +250,35 @@ function initProfilePromoForm() {
     finally { submit.disabled = false; }
   });
 }
+
+
+// Steam Trade URL для получения предметов из инвентаря BLUP.
+$('#steamTradeForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = $('#steamTradeUrl'), message = $('#steamTradeMessage');
+  const url = input.value.trim(); message.textContent = 'Сохраняем…';
+  try {
+    const r = await fetch('/api/profile/steam-trade', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+    const d = await readProfileApiJson(r, 'Steam Trade URL');
+    if (!r.ok) throw new Error(d.error || 'Не удалось сохранить ссылку');
+    input.value = d.url; message.textContent = 'Ссылка обмена сохранена.';
+  } catch (err) { message.textContent = err.message; }
+});
+
+
+// Inventory visible from /cases/profile as well as the regular profile page.
+async function loadCasesInventory(){
+  const grid=$('#casesInventoryGrid'); if(!grid)return;
+  try{
+    const [inv,art]=await Promise.all([
+      fetch('/api/cases/inventory',{credentials:'same-origin'}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Не удалось загрузить инвентарь');return d}),
+      fetch('https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json').then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    const images={};for(const x of art)if(x.name&&x.image)images[x.name]=x.image;
+    if(!inv.items?.length){grid.innerHTML='<p class="muted">Пока нет скинов. Открой кейс, чтобы получить первый предмет.</p>';return;}
+    grid.innerHTML=inv.items.map(x=>`<article class="profile-skin"><img loading="lazy" src="${esc(images[x.skin_name]||'')}" alt="${esc(x.skin_name)}"><b>${esc(x.skin_name)}</b><span>$${Number(x.price).toFixed(2)} · продажа $${(Number(x.price)*.9).toFixed(2)}</span><div class="profile-skin-actions"><button data-profile-sell="${x.id}">Продать за $${(Number(x.price)*.9).toFixed(2)}</button><button data-profile-withdraw="${x.id}" ${x.withdrawal_pending?'disabled':''}>${x.withdrawal_pending?'Заявка отправлена':'Вывести в Steam'}</button></div></article>`).join('');
+    grid.querySelectorAll('[data-profile-sell]').forEach(btn=>btn.addEventListener('click',async()=>{if(!confirm('Продать скин за 90% от указанной рыночной цены?'))return;try{const r=await fetch(`/api/cases/inventory/${btn.dataset.profileSell}/sell`,{method:'POST',credentials:'same-origin'});const d=await readProfileApiJson(r,'Продажа скина');if(!r.ok)throw new Error(d.error||'Ошибка');alert(`Скин продан. На игровой баланс начислено $${Number(d.credited).toFixed(2)}.`);loadCasesInventory()}catch(e){alert(e.message)}}));
+    grid.querySelectorAll('[data-profile-withdraw]').forEach(btn=>btn.addEventListener('click',async()=>{if(!confirm('Создать заявку на вывод этого скина в Steam?'))return;try{const r=await fetch(`/api/cases/inventory/${btn.dataset.profileWithdraw}/withdraw`,{method:'POST',credentials:'same-origin'});const d=await readProfileApiJson(r,'Вывод скина');if(!r.ok)throw new Error(d.error||'Ошибка');alert(`Заявка №${d.id} создана. Отправка Steam-трейда будет выполнена администратором.`);loadCasesInventory()}catch(e){alert(e.message);if(e.message.includes('Trade URL'))$('#steamTradeCard')?.scrollIntoView({behavior:'smooth'})}}));
+  }catch(e){grid.innerHTML=`<p class="muted">${esc(e.message)}</p>`;}
+}
+loadCasesInventory();

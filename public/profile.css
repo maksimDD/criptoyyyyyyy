@@ -24,3 +24,14 @@
 .coupon span{font-size:11px;color:#8fa8b4}
 @media(max-width:720px){.profile-shell{width:calc(100% - 32px);padding-top:28px}.profile-grid{grid-template-columns:1fr 1fr}.profile-card{padding:20px}}
 @media(max-width:460px){.profile-grid{grid-template-columns:1fr}.profile-avatar-wrap{width:84px;height:84px}}
+
+.profile-skin-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+.profile-skin{min-width:0;padding:12px;border:1px solid #26364b;border-radius:13px;background:#0b1522;display:flex;flex-direction:column;gap:8px}
+.profile-skin img{width:100%;height:90px;object-fit:contain}
+.profile-skin b{font-size:11px;line-height:1.4;min-height:30px;color:#eaf4ff}
+.profile-skin span{font-size:11px;color:#5ce3c0;font-weight:900}
+.profile-skin-actions{display:flex;flex-direction:column;gap:6px}
+.profile-skin-actions button{border:1px solid #2e806e;background:#16483e;color:#eafff8;border-radius:8px;padding:8px 5px;font-size:10px;font-weight:800;cursor:pointer}
+.profile-skin-actions button+button{border-color:#394c70;background:#1b2941}
+.profile-skin-actions button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:720px){.profile-skin-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
