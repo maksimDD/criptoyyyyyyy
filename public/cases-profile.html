@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090b16">
+<title>BLUP / CASES — Инвентарь</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/profile.css"><link rel="stylesheet" href="/cases-profile.css">
+</head>
+<body class="profile-body cases-profile-body">
+<div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+<header class="header cases-profile-header">
+  <a class="brand" href="/" aria-label="BLUP — главная"><span class="brand-orb"></span><span>BLUP</span><span class="cases-brand">CASES</span></a>
+  <nav class="nav"><a class="nav-link" href="/">Главная</a><a class="nav-link active" href="/cases">Кейсы</a></nav>
+  <div class="header-actions"><a class="btn btn-ghost btn-small" href="/cases">← К кейсам</a><button class="btn btn-outline btn-small" id="cp-logout">Выйти</button></div>
+</header>
+<main class="profile-shell cases-profile-shell">
+  <div class="profile-error" id="cp-error"></div>
+  <section class="profile-card cases-profile-card">
+    <div class="profile-head"><div class="profile-avatar-wrap"><img id="cp-avatar" class="profile-avatar" alt="Аватар" referrerpolicy="no-referrer"><div id="cp-avatar-fallback" class="profile-avatar-fallback" style="display:none">B</div></div>
+      <div class="profile-head-info"><span class="profile-eyebrow">BLUP / CASES</span><h1 id="cp-nick">Загрузка…</h1><div class="profile-meta"><span class="pill">Инвентарь скинов</span><a class="pill cases-tab-pill" href="/cases">Кейсы ↗</a></div></div>
+    </div>
+  </section>
+  <section class="profile-card"><div class="profile-card-head"><span class="profile-eyebrow">BLUP / CASES INVENTORY</span><h2>Инвентарь скинов</h2><p class="muted">Продавай скины за 90% от указанной рыночной цены или создавай заявку на вывод в Steam.</p></div>
+    <div id="cp-inventory" class="cases-profile-inventory"><p class="muted">Загрузка инвентаря…</p></div>
+  </section>
+  <section class="profile-card"><div class="profile-card-head"><span class="profile-eyebrow">BLUP / STEAM</span><h2>Steam Trade URL</h2><p class="muted">Добавь личную ссылку обмена Steam, чтобы оформлять заявки на вывод скинов.</p></div>
+    <form id="cp-trade-form" class="form-grid" style="margin-top:16px"><label class="full">Ссылка на обмен Steam<input id="cp-trade-url" name="url" type="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=...&token=..." maxlength="300" required></label><button class="btn btn-primary btn-submit full" type="submit">Сохранить Trade URL <span>→</span></button><p id="cp-trade-message" class="form-message full" aria-live="polite"></p><a class="full" href="https://steamcommunity.com/my/tradeoffers/privacy" target="_blank" rel="noopener">Где найти ссылку обмена Steam ↗</a></form>
+  </section>
+</main>
+<script src="/cases-profile.js?v=20261114-2"></script>
+</body></html>
