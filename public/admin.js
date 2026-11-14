@@ -74,7 +74,7 @@ async function load(){
     $('#salesTable').innerHTML=d.sales.length?d.sales.map(x=>`
       <tr>
         <td><b>#${x.id} · ${esc(x.nickname||'—')}</b><small>${date(x.created_at)}</small></td>
-        <td>${esc('Продажа')} · ${esc(x.coin)} · ${Number(x.amount||0)} USD${x.payout_rub?` / ${Number(x.payout_rub).toFixed(2)} RUB`:''}</td>
+        <td>${esc('Продажа')} · ${esc(x.coin)} · ${Number(x.amount||0)} ${x.coin==='GRAM'?'TON':'USD'}${x.payout_rub?` / ${Number(x.payout_rub).toFixed(2)} RUB`:''}</td>
         <td><small>${esc(x.network||'—')} · ${esc(x.bank||'—')}</small><small>${esc(x.wallet||'—')}</small><small>Кошелёк BLUP: ${esc(x.destination_wallet||'—')}</small><small>${esc('Реквизиты выплаты')}: ${esc(x.phone||'—')}</small>${x.memo?`<small>MEMO: ${esc(x.memo)}</small>`:''}${x.comment?`<small>Комментарий: ${esc(x.comment)}</small>`:''}</td>
         <td>${date(x.created_at)}</td>
         <td><span class="status-pill ${x.status==='completed'?'completed':x.status==='rejected'?'rejected':''}">${esc(statusLabel(x.status))}</span></td>

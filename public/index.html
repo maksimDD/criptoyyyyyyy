@@ -82,7 +82,7 @@
       <div class="hero-bottom-note"><span class="line"></span> BLUP DIGITAL EXPERIENCE <span class="line"></span></div>
     </section>
 
-    <section class="reserve-strip section-wrap" id="reserveStrip"><div class="reserve-copy"><b class="deal-limit">Сумма максимальной сделки составляет до <strong>$200</strong> <span id="dealRate">| сумма в рублях</span></b></div><div class="rate-pills"><span>USDT <b id="usdtRateDisplay">— ₽</b></span><span>GRAM <b id="gramRateDisplay">— ₽</b></span></div></section>
+    <section class="reserve-strip section-wrap" id="reserveStrip"><div class="reserve-copy"><b class="deal-limit">Сумма максимальной сделки составляет до <strong>$200</strong> <span id="dealRate">| сумма в рублях</span></b></div><div class="rate-pills"><span>USDT <b id="usdtRateDisplay">— ₽</b></span><span>TON <b id="gramRateDisplay">— ₽</b></span></div></section>
 
     <section class="intro-strip section-wrap">
       <div><span class="strip-kicker">BLUP — ЭТО</span><h2>Технологичный подход<br>к криптооперациям</h2></div>
@@ -159,10 +159,19 @@
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <button class="modal-close" id="modalClose" aria-label="Закрыть">×</button>
       <div class="modal-eyebrow" id="modalEyebrow">BLUP / ЗАЯВКА</div><h2 id="modalTitle">Продажа криптовалюты</h2><p class="modal-desc" id="modalDesc">Заполни данные для оформления заявки.</p>
+      <div class="sell-steps" aria-label="Этапы оформления"><div class="sell-step active" id="sellStepTab1"><span>01</span> Отправка TON</div><div class="sell-step" id="sellStepTab2"><span>02</span> Заявка</div></div>
       <form id="operationForm">
-        <div class="form-grid" id="operationFields"></div>
-        <p class="form-message" id="operationMessage"></p>
-        <div class="operation-actions"><button class="btn btn-glass btn-submit" type="button" id="sendCryptoBtn">ОТПРАВИТЬ <span>↗</span></button><button class="btn btn-primary btn-submit" type="submit" id="operationSubmitBtn">ПОДАТЬ ЗАЯВКУ <span>→</span></button></div>
+        <section id="sellStep1" class="sell-step-panel">
+          <p class="field-note full">Сначала отправь TON на кошелёк BLUP в сети TON. Проверь адрес и сеть перед переводом.</p>
+          <div id="sellTonWallet"></div>
+          <label class="sell-confirm"><input type="checkbox" id="tonSentConfirm"> Я отправил TON на указанный кошелёк</label>
+          <button class="btn btn-primary btn-submit" type="button" id="goToApplication" disabled>ПЕРЕЙТИ К ЗАЯВКЕ →</button>
+        </section>
+        <section id="sellStep2" class="sell-step-panel hidden">
+          <div class="form-grid" id="operationFields"></div>
+          <p class="form-message" id="operationMessage"></p>
+          <div class="operation-actions"><button class="btn btn-glass btn-submit" type="button" id="backToCrypto">← НАЗАД</button><button class="btn btn-primary btn-submit" type="submit" id="operationSubmitBtn">ПОДАТЬ ЗАЯВКУ <span>→</span></button></div>
+        </section>
       </form>
     </section>
   </div>

@@ -109,91 +109,26 @@ function walletPanel(coin,network){const address=walletFor(coin,network);return 
 
 function renderOperationFields(){
  if(!operationFields) return;
- operationFields.innerHTML=`${labelSelect('Криптовалюта','coin',[{value:'USDT',label:'USDT — Tether'},{value:'GRAM',label:'GRAM'}])}<div id="networkField">${labelSelect('Сеть USDT','network',['TRC20','BEP20','ERC20','TON','SPL'].map(x=>({value:x,label:x})))}</div><div id="platformWallet">${walletPanel('USDT','TRC20')}</div>${labelInput('Сумма для продажи (USD)','amount','Например, 100','number',true)}<div id="rubPreview" class="field-note full">Итого к выплате: укажи сумму и курс</div><div id="discountOffer" class="field-note full hidden"></div>${labelSelect('Куда отправить выплату','payoutType',[{value:'phone',label:'На номер телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text',true)}${labelSelect('Банк получателя','bank',bankOptions(),true)}${labelInput('Telegram username','telegramUsername','Например, @username','text',true)}${labelInput('Комментарий к продаже','comment','Комментарий (необязательно)','text',true,false)}<p class="field-note full">Проверь адрес и сеть, отправь криптовалюту на кошелёк BLUP. Укажи реквизиты для выплаты. После отправки заявки администратор проверит поступление и вручную отправит рубли. Не вводи CVV, PIN или SMS-коды.</p>`;
- const coin=operationFields.querySelector('[name="coin"]');
- function updateWallet(){const net=coin.value==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'TRC20');$('#platformWallet').innerHTML=walletPanel(coin.value,net);}
- function networkWrap(){const gram=coin.value==='GRAM';$('#networkField').innerHTML=gram?'<div class="static-field"><span>Сеть</span><b>TON</b></div>':labelSelect('Сеть USDT','network',['TRC20','BEP20','ERC20','TON','SPL'].map(x=>({value:x,label:x})));updateWallet();}
- coin.addEventListener('change',networkWrap);operationFields.addEventListener('change',e=>{if(e.target.name==='network')updateWallet();});
- const amountInput=operationFields.querySelector('[name="amount"]');amountInput.max='200';amountInput.placeholder='До 200 USD';let discountPercent=0;
- function updateRub(){const coinName=coin.value,rate=Number(window.blupRates?.[coinName]||0),amount=Number(amountInput.value||0);const base=amount*rate;const apply=!!operationFields.querySelector('#applyDiscount')?.checked;const total=base*(apply?1+discountPercent/100:1);$('#rubPreview').textContent=rate>0&&amount>0?`Курс: ${rate.toLocaleString('ru-RU')} ₽ за 1 ${coinName}. Итого к выплате: ${total.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})} ₽`:'Итого к выплате:';}
- amountInput.addEventListener('input',updateRub);coin.addEventListener('change',updateRub);
- 
- // Скидка: берём максимум из постоянной (админ) и одноразовых купонов.
- if($('#userName').textContent){
-   api('/api/profile').then(profile=>{
-     const manual=Number(profile.discount_percent||0);
-     const coupon=(profile.coupons||[]).reduce((m,c)=>Math.max(m,Number(c.percent)||0),0);
-     discountPercent=Math.max(manual,coupon);
-     if(discountPercent){
-       const isCoupon=coupon>=manual&&coupon>0;
-       $('#discountOffer').classList.remove('hidden');
-       $('#discountOffer').innerHTML=`У тебя есть ${isCoupon?'одноразовый купон':'скидка'} <b>${discountPercent}%</b>. <label><input type="checkbox" id="applyDiscount"> Применить ${discountPercent}% к этой продаже${isCoupon?' (купон сгорит)':''}</label>`;
-       $('#applyDiscount').addEventListener('change',updateRub);
-     }
-     updateRub();
-   }).catch(updateRub);
- }else updateRub();
+ operationFields.innerHTML=`${labelInput('Сумма для продажи (TON)','amount','Например, 10','number',true)}<div id="rubPreview" class="field-note full">Итого к выплате: укажи сумму в TON</div><div id="discountOffer" class="field-note full hidden"></div>${labelSelect('Куда отправить выплату','payoutType',[{value:'phone',label:'На номер телефона (СБП)'},{value:'card',label:'На банковскую карту'}])}${labelInput('Номер телефона или карты','payoutValue','Без CVV и срока действия','text',true)}${labelSelect('Банк получателя','bank',bankOptions(),true)}${labelInput('Telegram username','telegramUsername','Например, @username','text',true)}${labelInput('Комментарий к продаже','comment','Комментарий (необязательно)','text',true,false)}<p class="field-note full">Сумма заявки указывается в TON. После отправки заявки администратор проверит поступление криптовалюты и вручную отправит рубли. Не вводи CVV, PIN или SMS-коды.</p>`;
+ const amountInput=operationFields.querySelector('[name="amount"]');amountInput.min='0.000000001';amountInput.step='0.000000001';let discountPercent=0;
+ function updateRub(){const rate=Number(window.blupRates?.GRAM||0),amount=Number(amountInput.value||0);const base=amount*rate;const apply=!!operationFields.querySelector('#applyDiscount')?.checked;const total=base*(apply?1+discountPercent/100:1);$('#rubPreview').textContent=rate>0&&amount>0?`Курс: ${rate.toLocaleString('ru-RU')} ₽ за 1 TON. Итого к выплате: ${total.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})} ₽`:'Итого к выплате: укажи сумму в TON';}
+ amountInput.addEventListener('input',updateRub);
+ if($('#userName').textContent){api('/api/profile').then(profile=>{const manual=Number(profile.discount_percent||0);const coupon=(profile.coupons||[]).reduce((m,c)=>Math.max(m,Number(c.percent)||0),0);discountPercent=Math.max(manual,coupon);if(discountPercent){const isCoupon=coupon>=manual&&coupon>0;$('#discountOffer').classList.remove('hidden');$('#discountOffer').innerHTML=`У тебя есть ${isCoupon?'одноразовый купон':'скидка'} <b>${discountPercent}%</b>. <label><input type="checkbox" id="applyDiscount"> Применить ${discountPercent}% к этой продаже${isCoupon?' (купон сгорит)':''}</label>`;$('#applyDiscount').addEventListener('change',updateRub);}updateRub();}).catch(updateRub);}else updateRub();
 }
 
+function setSellStep(step){
+ const first=step===1;$('#sellStep1').classList.toggle('hidden',!first);$('#sellStep2').classList.toggle('hidden',first);$('#sellStepTab1').classList.toggle('active',first);$('#sellStepTab2').classList.toggle('active',!first);
+}
 function showOperation(){
-  operationType='sell';
-  $('#operationMessage').textContent='';
-  $('#modalEyebrow').textContent='BLUP / ПРОДАЖА';
-  $('#modalTitle').textContent='Продажа криптовалюты';
-  $('#modalDesc').textContent='Укажи сумму, выбери сеть, проверь кошелёк BLUP и заполни реквизиты для выплаты.';
-  renderOperationFields();
-  const sendBtn=$('#sendCryptoBtn');
-  if(sendBtn)sendBtn.classList.remove('hidden');
-  $('#operationSubmitBtn').textContent='ПОДАТЬ ЗАЯВКУ';
-  openModal('modalBackdrop');
+ operationType='sell';$('#operationMessage').textContent='';$('#modalEyebrow').textContent='BLUP / ПРОДАЖА';$('#modalTitle').textContent='Продажа TON';$('#modalDesc').textContent='Сначала отправь TON, затем заполни заявку на выплату.';
+ $('#sellTonWallet').innerHTML=walletPanel('GRAM','TON');$('#tonSentConfirm').checked=false;$('#goToApplication').disabled=true;setSellStep(1);renderOperationFields();$('#operationSubmitBtn').textContent='ПОДАТЬ ЗАЯВКУ';openModal('modalBackdrop');
 }
 $$('[data-open="sell"]').forEach(b=>b.addEventListener('click',showOperation));
-
-async function copyCurrentBlupWallet(){
-  const coin=operationFields.querySelector('[name="coin"]')?.value||'USDT';
-  const network=coin==='GRAM'?'TON':(operationFields.querySelector('[name="network"]')?.value||'TRC20');
-  const address=walletFor(coin,network);
-  if(!address){toast('Адрес кошелька не найден');return;}
-  try{await navigator.clipboard.writeText(address);toast('Адрес BLUP скопирован. Отправь криптовалюту из своего кошелька.');}
-  catch{toast('Не удалось скопировать. Нажми на адрес и скопируй его вручную.');}
-}
-if ($('#sendCryptoBtn')) $('#sendCryptoBtn').addEventListener('click',copyCurrentBlupWallet);
-
-if (operationFields) {
-  operationFields.addEventListener('click',e=>{
-    const b=e.target.closest('[data-copy-wallet]');
-    if(b&&b.dataset.copyWallet)navigator.clipboard?.writeText(b.dataset.copyWallet).then(()=>toast('Адрес скопирован')).catch(()=>toast('Не удалось скопировать адрес'));
-  });
-}
-
-if ($('#operationForm')) {
-  $('#operationForm').addEventListener('submit',async e=>{
-    e.preventDefault();
-    const form=e.currentTarget;
-    if(!$('#userName').textContent){
-      closeModal('modalBackdrop');
-      openModal('authBackdrop');
-      toast('Сначала войди через Telegram');
-      return;
-    }
-    const payload=Object.fromEntries(new FormData(form).entries());
-    payload.applyDiscount=!!form.querySelector('#applyDiscount')?.checked;
-    const endpoint='/api/sell';
-    payload.coin=payload.coin||'USDT';
-    payload.network=payload.coin==='GRAM'?'TON':payload.network;
-    $('#operationMessage').textContent='Отправляем заявку…';
-    try{
-      const d=await api(endpoint,{method:'POST',body:JSON.stringify(payload)});
-      $('#operationMessage').textContent='';
-      form.reset();
-      closeModal('modalBackdrop');
-      toast(`Заявка №${d.id} отправлена`);
-      refreshConfig();
-    }catch(err){
-      $('#operationMessage').textContent=err.message;
-    }
-  });
-}
+$('#tonSentConfirm')?.addEventListener('change',e=>$('#goToApplication').disabled=!e.target.checked);
+$('#goToApplication')?.addEventListener('click',()=>{if(!$('#tonSentConfirm').checked)return;setSellStep(2);});
+$('#backToCrypto')?.addEventListener('click',()=>setSellStep(1));
+if(operationFields){operationFields.addEventListener('click',e=>{const b=e.target.closest('[data-copy-wallet]');if(b&&b.dataset.copyWallet)navigator.clipboard?.writeText(b.dataset.copyWallet).then(()=>toast('Адрес скопирован')).catch(()=>toast('Не удалось скопировать адрес'));});}
+if($('#operationForm')){$('#operationForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;if(!$('#userName').textContent){closeModal('modalBackdrop');openModal('authBackdrop');toast('Сначала войди через Telegram');return;}const payload=Object.fromEntries(new FormData(form).entries());payload.applyDiscount=!!form.querySelector('#applyDiscount')?.checked;payload.coin='GRAM';payload.network='TON';$('#operationMessage').textContent='Отправляем заявку…';try{const d=await api('/api/sell',{method:'POST',body:JSON.stringify(payload)});$('#operationMessage').textContent='';form.reset();closeModal('modalBackdrop');toast(`Заявка №${d.id} отправлена`);refreshConfig();}catch(err){$('#operationMessage').textContent=err.message;}});}
 
 // ==========================================
 // АВТОРИЗАЦИЯ И ИСТОРИЯ
@@ -212,7 +147,7 @@ async function showHistory(){
       box.innerHTML='<div class="empty-state"><span>◷</span><b>Здесь пока пусто</b><small>Твои заявки появятся здесь после отправки.</small></div>';
       return;
     }
-    box.innerHTML=rows.map(x=>`<div class="history-row"><div><b>${escapeHtml(x.coin||'Операция')}</b><small>${escapeHtml(x.network||'—')}</small></div><div><b>${'Продажа'}</b><small>${escapeHtml(x.status||'pending')}</small></div><div><b>${formatDate(x.created_at)}</b><small>${x.amount?escapeHtml(x.amount)+' USD':'Заявка №'+x.id}</small></div></div>`).join('');
+    box.innerHTML=rows.map(x=>`<div class="history-row"><div><b>${escapeHtml(x.coin||'Операция')}</b><small>${escapeHtml(x.network||'—')}</small></div><div><b>${'Продажа'}</b><small>${escapeHtml(x.status||'pending')}</small></div><div><b>${formatDate(x.created_at)}</b><small>${x.amount?escapeHtml(x.amount)+(x.coin==='GRAM'?' TON':' USD'):'Заявка №'+x.id}</small></div></div>`).join('');
   }catch(err){
     box.innerHTML=`<div class="empty-state"><b>${escapeHtml(err.message)}</b></div>`;
   }
