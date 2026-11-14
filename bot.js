@@ -46,7 +46,22 @@ async function sendToAll(message, options = {}) {
 async function notifyAdmin(item) {
   const isWithdraw =
     item.operation === 'withdraw' ||
-    item.operation === 'ref_withdraw';
+    item.operation === 'ref_withdraw' ||
+    item.operation === 'case_withdraw';
+
+  if (item.operation === 'case_deposit') {
+    return sendToAll(
+      `🪙 ПОПОЛНЕНИЕ BLUP CASES
+👤 Пользователь: ${item.nickname || '—'}
+💰 Перевод: ${item.tokenAmount || '—'} ${item.coin || '—'} (~$${Number(item.amount || 0).toFixed(2)})
+🌐 Сеть: ${item.network || '—'}
+🎟️ Промо-бонус: ${item.promoPercent || 0}% · $${Number(item.bonusAmount || 0).toFixed(2)}
+📥 Кошелёк: ${item.wallet || '—'}
+🔎 TX: ${item.tx_hash || '—'}
+🧾 Заявка: #${item.id || '—'}
+🕐 Время МСК: ${moscowTime()}`
+    );
+  }
 
   if (item.operation === 'promo') {
     return sendToAll(
@@ -71,7 +86,8 @@ async function notifyAdmin(item) {
     lines.push(
       `💵 Сумма: ${item.amount || '—'} USD`,
       `📱 Реквизиты: ${item.phone || '—'}`,
-      `🏦 Банк: ${item.bank || '—'}`
+      `🏦 Банк: ${item.bank || '—'}`,
+      ...(item.id ? [`🧾 Заявка: #${item.id}`] : [])
     );
   } else {
     lines.push(

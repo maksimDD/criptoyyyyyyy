@@ -453,7 +453,7 @@ app.delete('/api/admin/promos/:id',adminOnly,(req,res)=>{
 });
 app.post('/api/admin/promos',adminOnly,(req,res)=>{
  const code=String(req.body?.code||'').trim().toUpperCase(),type=String(req.body?.rewardType||''),description=String(req.body?.description||'').slice(0,200),limit=Math.max(0,Math.floor(Number(req.body?.activationLimit||0)));
- const allowed={sell_discount_1:['percent',1,'Скидка 1%'],sell_discount_3:['percent',3,'Скидка 3%'],deposit_150:['deposit_kb',150,'Депозит 150'],deposit_300:['deposit_jab',300,'Депозит 300'],games_deposit_25:['games_deposit_25',25,'+25% Games']};
+ const allowed={sell_discount_1:['percent',1,'Скидка 1%'],sell_discount_3:['percent',3,'Скидка 3%'],case_bonus_5:['deposit_bonus',5,'Бонус +5% к пополнению кейсов'],case_bonus_10:['deposit_bonus',10,'Бонус +10% к пополнению кейсов'],case_bonus_25:['deposit_bonus',25,'Бонус +25% к пополнению кейсов'],deposit_150:['deposit_kb',150,'Депозит 150'],deposit_300:['deposit_jab',300,'Депозит 300']};
  const preset=allowed[type];if(!/^[A-Z0-9_-]{3,24}$/.test(code)||!preset)return res.status(400).json({error:'Ошибка'});
  db.run('INSERT INTO promos(code,reward_type,reward_value,description,activation_limit) VALUES(?,?,?,?,?)',[code,preset[0],preset[1],description||preset[2],limit],e=>e?res.status(409).json({error:'Существует'}):res.json({ok:true}));
 });
@@ -554,133 +554,60 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 app.get('/admin/tournament', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-tournament.html')));
 app.get('/profile', (req, res) => res.sendFile(path.join(__dirname, 'public', 'profile.html')));
 
-// BLUP Games API. Баланс хранится на сервере; клиент не задаёт результат игры.
-function requireGameUser(req, res, next) {
-  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Войдите в аккаунт, чтобы играть' });
-  next();
-}
+// BLUP Cases API: баланс и результат открытия обрабатываются на сервере.
 function ensureGameBalance(userId, cb) {
   db.run('INSERT OR IGNORE INTO game_balance(user_id,balance) VALUES(?,0)', [userId], err => {
     if (err) return cb(err);
     db.get('SELECT balance FROM game_balance WHERE user_id=?', [userId], (e, row) => cb(e, row));
   });
 }
-app.get('/api/games/balance', requireGameUser, (req, res) => ensureGameBalance(req.session.userId, (e, row) => {
-  if (e) return res.status(500).json({ error: 'Не удалось загрузить игровой баланс' });
-  res.set('Cache-Control', 'no-store'); res.json({ balance: Number(row.balance || 0) });
-}));
-// Платёжного провайдера Games в текущем проекте нет: не зачисляем деньги по одному запросу браузера.
-app.post('/api/games/deposit', requireGameUser, (req, res) => res.status(503).json({ error: 'Пополнение Games пока не подключено к платёжному провайдеру. Средства не списаны.' }));
-app.post('/api/games/promo', requireGameUser, (req, res) => {
-  const code = String(req.body?.code || '').trim().slice(0, 40);
-  if (!code) return res.status(400).json({ error: 'Введите промокод' });
-  db.get('SELECT * FROM promos WHERE code=? COLLATE NOCASE', [code], (e, promo) => {
-    if (e) return res.status(500).json({ error: 'Ошибка базы данных' });
-    if (!promo || !promo.active) return res.status(404).json({ error: 'Промокод не найден или отключён' });
-    if (Number(promo.activation_limit) > 0 && Number(promo.activation_count) >= Number(promo.activation_limit)) return res.status(400).json({ error: 'Лимит активаций промокода исчерпан' });
-    if (promo.reward_type !== 'games_deposit_25') return res.status(400).json({ error: 'Этот промокод не предназначен для BLUP Games' });
-    db.get('SELECT id FROM promo_redemptions WHERE promo_id=? AND user_id=?', [promo.id, req.session.userId], (e2, used) => {
-      if (e2) return res.status(500).json({ error: 'Ошибка базы данных' });
-      if (used) return res.status(409).json({ error: 'Вы уже активировали этот промокод' });
-      ensureGameBalance(req.session.userId, (e3) => {
-        if (e3) return res.status(500).json({ error: 'Ошибка игрового баланса' });
-        const bonus = Math.max(0, Number(promo.reward_value) || 0);
-        db.serialize(() => {
-          db.run('BEGIN IMMEDIATE');
-          db.run('INSERT INTO promo_redemptions(promo_id,user_id,nickname) VALUES(?,?,?)', [promo.id, req.session.userId, req.session.nickname], function(e4) {
-            if (e4) { db.run('ROLLBACK'); return res.status(409).json({ error: 'Промокод уже использован' }); }
-            db.run('UPDATE game_balance SET balance=balance+? WHERE user_id=?', [bonus, req.session.userId], e5 => {
-              if (e5) { db.run('ROLLBACK'); return res.status(500).json({ error: 'Не удалось начислить бонус' }); }
-              db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?', [promo.id], e6 => {
-                if (e6) { db.run('ROLLBACK'); return res.status(500).json({ error: 'Не удалось завершить активацию' }); }
-                db.run('COMMIT', e7 => e7 ? res.status(500).json({ error: 'Ошибка сохранения' }) : ensureGameBalance(req.session.userId, (e8,row) => res.json({ ok:true, bonus, balance:Number(row?.balance||0) })));
-              });
-            });
-          });
-        });
-      });
-    });
+const CASE_CATALOG = require('./cases-data.json');
+const CASE_WALLETS = BLUP_WALLETS;
+function caseUser(req,res,next){ if(!req.session?.userId) return res.status(401).json({error:'Войди в аккаунт, чтобы пользоваться кейсами'}); next(); }
+function getCaseBalance(userId,cb){ ensureGameBalance(userId,cb); }
+app.get('/api/cases/balance',caseUser,(req,res)=>getCaseBalance(req.session.userId,(e,row)=>e?res.status(500).json({error:'Не удалось загрузить баланс'}):res.set('Cache-Control','no-store').json({balance:Number(row?.balance||0)})));
+app.get('/api/cases/inventory',caseUser,(req,res)=>db.all('SELECT id,case_id,skin_id,skin_name,price,created_at FROM case_inventory WHERE user_id=? ORDER BY id DESC LIMIT 30',[req.session.userId],(e,rows)=>e?res.status(500).json({error:'Не удалось загрузить инвентарь'}):res.json({items:rows||[]})));
+app.post('/api/cases/promo-preview',caseUser,(req,res)=>{
+  const code=String(req.body?.code||'').trim().slice(0,40); if(!code)return res.status(400).json({error:'Введи промокод'});
+  db.get('SELECT * FROM promos WHERE code=? COLLATE NOCASE AND active=1',[code],(e,promo)=>{
+    if(e)return res.status(500).json({error:'Ошибка базы данных'}); if(!promo)return res.status(404).json({error:'Промокод не найден или отключён'});
+    if(promo.reward_type!=='deposit_bonus')return res.status(400).json({error:'Этот промокод не даёт бонус к пополнению'});
+    if(Number(promo.activation_limit)>0&&Number(promo.activation_count)>=Number(promo.activation_limit))return res.status(400).json({error:'Лимит активаций промокода исчерпан'});
+    db.get('SELECT id FROM promo_redemptions WHERE promo_id=? AND user_id=?',[promo.id,req.session.userId],(e2,used)=>e2?res.status(500).json({error:'Ошибка базы данных'}):used?res.status(409).json({error:'Ты уже использовал этот промокод'}):res.json({ok:true,code:promo.code,percent:Math.min(100,Math.max(0,Number(promo.reward_value)||0))}));
   });
 });
-app.post('/api/games/play', requireGameUser, (req, res) => {
-  const game = String(req.body?.game || ''), bet = Math.round(Number(req.body?.bet) * 100) / 100;
-  if (!Number.isFinite(bet) || bet < 0.1 || bet > 10000) return res.status(400).json({ error: 'Ставка должна быть от $0.10 до $10,000' });
-  let result = {}, payout = 0, multiplier = 0, won = false;
-  if (game === 'dice') {
-    const chance = Number(req.body?.chance);
-    if (!Number.isInteger(chance) || chance < 2 || chance > 96) return res.status(400).json({ error: 'Некорректный шанс' });
-    const roll = crypto.randomInt(0, 10000) / 100;
-    won = roll < chance; multiplier = 98 / chance; payout = won ? Math.floor(bet * multiplier * 100) / 100 : 0; result = { roll, chance };
-  } else if (game === 'flip') {
-    const side = req.body?.side;
-    if (!['heads','tails'].includes(side)) return res.status(400).json({ error: 'Выберите орла или решку' });
-    const landed = crypto.randomInt(0,2) ? 'heads' : 'tails'; won = landed === side; multiplier = 1.96; payout = won ? Math.floor(bet * multiplier * 100) / 100 : 0; result = { result: landed };
-  } else if (game === 'keno') {
-    const picks = [...new Set((Array.isArray(req.body?.picks) ? req.body.picks : []).map(Number))];
-    if (picks.length < 1 || picks.length > 10 || picks.some(n => !Number.isInteger(n) || n < 1 || n > 40)) return res.status(400).json({ error: 'Выберите от 1 до 10 чисел от 1 до 40' });
-    const pool = Array.from({length:40},(_,i)=>i+1), drawn=[];
-    for(let i=0;i<10;i++) drawn.push(pool.splice(crypto.randomInt(0,pool.length),1)[0]);
-    const hits = picks.filter(n=>drawn.includes(n)).length;
-    const tables = {1:[0,3.8],2:[0,1.5,5],3:[0,1,2.5,25],4:[0,.5,1.5,5,60],5:[0,0,1,3,15,120],6:[0,0,.5,2,8,40,300],7:[0,0,.5,1.5,5,20,100,500],8:[0,0,0,1,3,10,50,250,1000],9:[0,0,0,.5,2,5,20,100,500,1500],10:[0,0,0,.5,1.5,4,15,50,250,1000,2000]};
-    multiplier = tables[picks.length][hits] || 0; payout = Math.floor(bet * multiplier * 100) / 100; won = payout > 0; result = { drawn, hits };
-  } else return res.status(400).json({ error: 'Неизвестная игра' });
-  ensureGameBalance(req.session.userId, (e,row) => {
-    if(e) return res.status(500).json({error:'Ошибка баланса'});
-    const current = Number(row.balance || 0);
-    if(current < bet) return res.status(400).json({error:'Недостаточно средств на игровом балансе'});
-    const newBalance = Math.round((current - bet + payout) * 100) / 100;
-    db.run('UPDATE game_balance SET balance=? WHERE user_id=?', [newBalance, req.session.userId], e2 => {
-      if(e2) return res.status(500).json({error:'Не удалось обновить баланс'});
-      db.run('INSERT INTO game_bets(user_id,game,amount,multiplier,win_amount) VALUES(?,?,?,?,?)',[req.session.userId,game,bet,multiplier,payout], e3 => {
-        if(e3) console.error('game_bets insert:',e3.message);
-        res.json({ok:true,balance:newBalance,payout,multiplier,won,...result});
-      });
-    });
+app.post('/api/cases/deposit',caseUser,(req,res)=>{
+  const amount=Number(req.body?.amount),tokenAmount=Number(req.body?.tokenAmount||0),unitRate=Number(req.body?.unitRate||1),coin=String(req.body?.coin||'').toUpperCase(),network=String(req.body?.network||'').toUpperCase(),tx=String(req.body?.tx||'').trim().slice(0,180),code=String(req.body?.code||'').trim().slice(0,40);
+  if(!Number.isFinite(amount)||amount<1||amount>10000||!Number.isFinite(tokenAmount)||tokenAmount<=0||!Number.isFinite(unitRate)||unitRate<=0)return res.status(400).json({error:'Проверь сумму и курс перевода'});
+  const wallet=coin==='TON'?CASE_WALLETS.GRAM?.[network]:CASE_WALLETS[coin]?.[network];if(!wallet)return res.status(400).json({error:'Недопустимая валютная сеть'});if(!tx)return res.status(400).json({error:'Укажи хэш транзакции после отправки'});
+  const create=(promo=null)=>{const percent=promo?Math.min(100,Math.max(0,Number(promo.reward_value)||0)):0;const bonus=Number((amount*percent/100).toFixed(2));db.run('INSERT INTO case_deposits(user_id,nickname,amount,token_amount,unit_rate,coin,network,wallet,tx_hash,promo_id,promo_code,promo_percent,bonus_amount,credited_amount) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[req.session.userId,req.session.nickname,amount,tokenAmount,unitRate,coin,network,wallet,tx||null,promo?.id||null,promo?.code||null,percent,bonus,Number((amount+bonus).toFixed(2))],function(e){if(e){if(String(e.message).includes('UNIQUE'))return res.status(409).json({error:'Этот хэш транзакции уже отправляли'});return res.status(500).json({error:'Не удалось создать заявку'});}notifyAdmin({operation:'case_deposit',nickname:req.session.nickname,amount,tokenAmount,coin,network,wallet,tx_hash:tx,promoPercent:percent,bonusAmount:bonus,id:this.lastID}).catch(()=>{});res.json({ok:true,id:this.lastID,credited:amount+bonus});});};
+  if(!code)return create();
+  db.get('SELECT * FROM promos WHERE code=? COLLATE NOCASE AND active=1',[code],(e,promo)=>{if(e)return res.status(500).json({error:'Ошибка базы данных'});if(!promo)return res.status(404).json({error:'Промокод не найден'});if(promo.reward_type!=='deposit_bonus')return res.status(400).json({error:'Промокод не подходит для пополнения'});if(Number(promo.activation_limit)>0&&Number(promo.activation_count)>=Number(promo.activation_limit))return res.status(400).json({error:'Лимит промокода исчерпан'});db.get('SELECT id FROM promo_redemptions WHERE promo_id=? AND user_id=?',[promo.id,req.session.userId],(e2,used)=>{if(e2)return res.status(500).json({error:'Ошибка базы данных'});if(used)return res.status(409).json({error:'Ты уже использовал этот промокод'});db.get("SELECT id FROM case_deposits WHERE promo_id=? AND user_id=? AND status='pending'",[promo.id,req.session.userId],(e3,pending)=>pending?res.status(409).json({error:'У тебя уже есть пополнение с этим промокодом на проверке'}):create(promo));});});
+});
+app.post('/api/cases/withdraw',caseUser,(req,res)=>{
+  const amount=Number(req.body?.amount),phone=String(req.body?.phone||'').trim().slice(0,80),bank=String(req.body?.bank||'').trim().slice(0,80),type=String(req.body?.type||'phone');
+  if(!Number.isFinite(amount)||amount<10||amount>10000)return res.status(400).json({error:'Минимальная сумма вывода — $10'});if(!phone||!bank)return res.status(400).json({error:'Заполни реквизиты и банк'});if(!['phone','card'].includes(type))return res.status(400).json({error:'Недопустимый способ вывода'});
+  getCaseBalance(req.session.userId,(e,row)=>{if(e)return res.status(500).json({error:'Ошибка баланса'});if(Number(row?.balance||0)<amount)return res.status(400).json({error:'Недостаточно средств'});db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run('UPDATE game_balance SET balance=balance-? WHERE user_id=? AND balance>=?',[amount,req.session.userId,amount],function(e2){if(e2||this.changes!==1){db.run('ROLLBACK');return res.status(400).json({error:'Недостаточно средств'});}db.run('INSERT INTO case_withdrawals(user_id,nickname,amount,payout_type,phone,bank) VALUES(?,?,?,?,?,?)',[req.session.userId,req.session.nickname,amount,type,phone,bank],function(e3){if(e3){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось создать заявку'});}const id=this.lastID;db.run('COMMIT',e4=>{if(e4)return res.status(500).json({error:'Ошибка сохранения заявки'});notifyAdmin({operation:'case_withdraw',nickname:req.session.nickname,amount,phone,bank,id}).catch(()=>{});db.get('SELECT balance FROM game_balance WHERE user_id=?',[req.session.userId],(e5,b)=>res.json({ok:true,id,balance:Number(b?.balance||0)}));});});});});});
+});
+app.post('/api/cases/open',caseUser,(req,res)=>{
+  const caseId=String(req.body?.caseId||'');const c=CASE_CATALOG.cases.find(x=>x.id===caseId);if(!c)return res.status(404).json({error:'Кейс не найден'});
+  const options=c.items.map(id=>CASE_CATALOG.skins[id]).filter(Boolean);if(options.length<15)return res.status(500).json({error:'Каталог кейса повреждён'});
+  // Серверная случайность: вес обратно пропорционален корню цены предмета.
+  const weights=options.map(x=>Math.max(1,Math.floor(1000000000000/Math.pow(Math.max(.01,x.price),4)) ));const total=weights.reduce((a,b)=>a+b,0);let roll=crypto.randomInt(total),chosen=options[0];for(let i=0;i<options.length;i++){roll-=weights[i];if(roll<0){chosen=options[i];break;}}
+  getCaseBalance(req.session.userId,(e,row)=>{if(e)return res.status(500).json({error:'Ошибка баланса'});if(Number(row?.balance||0)<c.price)return res.status(400).json({error:'Недостаточно средств для открытия кейса'});
+    db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run('UPDATE game_balance SET balance=balance-? WHERE user_id=? AND balance>=?',[c.price,req.session.userId,c.price],function(e2){if(e2||this.changes!==1){db.run('ROLLBACK');return res.status(400).json({error:'Недостаточно средств'});}db.run('INSERT INTO case_openings(user_id,case_id,case_name,cost,skin_id,skin_name,skin_price) VALUES(?,?,?,?,?,?,?)',[req.session.userId,c.id,c.name,c.price,chosen.id,chosen.name,chosen.price],function(e3){if(e3){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось сохранить открытие'});}db.run('INSERT INTO case_inventory(user_id,case_id,skin_id,skin_name,price) VALUES(?,?,?,?,?)',[req.session.userId,c.id,chosen.id,chosen.name,chosen.price],e4=>{if(e4){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось сохранить предмет'});}db.run('COMMIT',e5=>{if(e5)return res.status(500).json({error:'Ошибка завершения открытия'});db.get('SELECT balance FROM game_balance WHERE user_id=?',[req.session.userId],(e6,b)=>res.json({ok:true,balance:Number(b?.balance||0),item:chosen}));});});});});});
   });
 });
-// Stateful rounds: mine locations and crash point stay on the server.
-const activeGameRounds = new Map();
-app.post('/api/games/start', requireGameUser, (req,res) => {
-  const game=String(req.body?.game||''), bet=Math.round(Number(req.body?.bet)*100)/100;
-  if(!['mines','crash'].includes(game) || !Number.isFinite(bet) || bet<0.1 || bet>10000) return res.status(400).json({error:'Некорректная ставка или игра'});
-  const mineCount=Math.max(1,Math.min(24,Number(req.body?.mines)||5));
-  ensureGameBalance(req.session.userId,(e,row)=>{if(e)return res.status(500).json({error:'Ошибка баланса'});if(Number(row.balance)<bet)return res.status(400).json({error:'Недостаточно средств на игровом балансе'});
-    const id=crypto.randomBytes(18).toString('hex'),round={userId:req.session.userId,game,bet,started:Date.now(),opened:[],mines:[],mineCount,crashPoint:1+crypto.randomInt(0,50001)/10000};
-    if(game==='mines'){while(round.mines.length<mineCount){const n=crypto.randomInt(0,25);if(!round.mines.includes(n))round.mines.push(n)}}
-    db.run('UPDATE game_balance SET balance=balance-? WHERE user_id=?',[bet,req.session.userId],err=>{if(err)return res.status(500).json({error:'Не удалось списать ставку'});activeGameRounds.set(id,round);res.json({ok:true,roundId:id,balance:Number(row.balance)-bet})});
-  });
-});
-app.post('/api/games/pick', requireGameUser, (req,res)=>{
-  const id=String(req.body?.roundId||''),index=Number(req.body?.index),round=activeGameRounds.get(id);
-  if(!round||round.userId!==req.session.userId||round.game!=='mines')return res.status(400).json({error:'Раунд не найден или уже завершён'});
-  if(!Number.isInteger(index)||index<0||index>24||round.opened.includes(index))return res.status(400).json({error:'Некорректная ячейка'});
-  round.opened.push(index);
-  if(round.mines.includes(index)){activeGameRounds.delete(id);db.run('INSERT INTO game_bets(user_id,game,amount,multiplier,win_amount) VALUES(?,?,?,?,0)',[round.userId,'mines',round.bet,0]);return res.json({safe:false,opened:round.opened,mines:round.mines,balance:null})}
-  const k=round.opened.length,safe=25-round.mineCount;let m=1;for(let i=0;i<k;i++)m*= (25-i)/(safe-i);m*=.99;const multiplier=Math.floor(m*100)/100;
-  res.json({safe:true,opened:round.opened,multiplier,potential:Math.floor(round.bet*multiplier*100)/100});
-});
-app.get('/api/games/status', requireGameUser, (req,res)=>{
-  const round=activeGameRounds.get(String(req.query.roundId||''));
-  if(!round||round.userId!==req.session.userId||round.game!=='crash')return res.status(404).json({error:'Раунд не найден'});
-  const current=Math.exp((Date.now()-round.started)/5200);
-  if(current>=round.crashPoint){activeGameRounds.delete(String(req.query.roundId));db.run('INSERT INTO game_bets(user_id,game,amount,multiplier,win_amount) VALUES(?,?,?,?,0)',[round.userId,'crash',round.bet,0]);return res.json({crashed:true,point:round.crashPoint});}
-  res.json({crashed:false,current});
-});
-app.post('/api/games/settle', requireGameUser, (req,res)=>{
-  const id=String(req.body?.roundId||''),round=activeGameRounds.get(id);
-  if(!round||round.userId!==req.session.userId)return res.status(400).json({error:'Раунд не найден или уже завершён'});
-  let multiplier=0;
-  if(round.game==='mines'){if(!round.opened.length)return res.status(400).json({error:'Сначала открой хотя бы одну безопасную ячейку'});const safe=25-round.mineCount;let m=1;for(let i=0;i<round.opened.length;i++)m*=(25-i)/(safe-i);multiplier=Math.floor(m*.99*100)/100}
-  else if(round.game==='crash'){const elapsed=(Date.now()-round.started)/5200;const current=Math.exp(elapsed);if(current>=round.crashPoint){activeGameRounds.delete(id);db.run('INSERT INTO game_bets(user_id,game,amount,multiplier,win_amount) VALUES(?,?,?,?,0)',[round.userId,'crash',round.bet,0]);return res.status(400).json({error:'Краш! Раунд проигран'});}multiplier=Math.floor(current*100)/100;}
-  else return res.status(400).json({error:'Неподдерживаемый раунд'});
-  const payout=Math.floor(round.bet*multiplier*100)/100;activeGameRounds.delete(id);
-  db.run('UPDATE game_balance SET balance=balance+? WHERE user_id=?',[payout,round.userId],e=>{if(e)return res.status(500).json({error:'Ошибка выплаты'});db.get('SELECT balance FROM game_balance WHERE user_id=?',[round.userId],(e2,row)=>{db.run('INSERT INTO game_bets(user_id,game,amount,multiplier,win_amount) VALUES(?,?,?,?,?)',[round.userId,round.game,round.bet,multiplier,payout]);res.json({ok:true,payout,multiplier,balance:Number(row?.balance||0)})})});
-});
-
-app.get('/games', (req, res) => res.sendFile(path.join(__dirname, 'public', 'games.html')));
+app.get('/api/admin/cases/deposits',adminOnly,(req,res)=>db.all(`SELECT d.*,u.public_id FROM case_deposits d LEFT JOIN users u ON u.id=d.user_id ORDER BY d.id DESC LIMIT 200`,[],(e,rows)=>e?res.status(500).json({error:'Ошибка загрузки'}):res.json(rows||[])));
+app.get('/api/admin/cases/withdrawals',adminOnly,(req,res)=>db.all(`SELECT w.*,u.public_id FROM case_withdrawals w LEFT JOIN users u ON u.id=w.user_id ORDER BY w.id DESC LIMIT 200`,[],(e,rows)=>e?res.status(500).json({error:'Ошибка загрузки'}):res.json(rows||[])));
+app.post('/api/admin/cases/deposits/:id/status',adminOnly,(req,res)=>{const id=Number(req.params.id),status=String(req.body?.status||'');if(!['approved','rejected'].includes(status))return res.status(400).json({error:'Недопустимый статус'});db.get('SELECT * FROM case_deposits WHERE id=?',[id],(e,d)=>{if(e||!d)return res.status(404).json({error:'Заявка не найдена'});if(d.status!=='pending')return res.status(409).json({error:'Заявка уже обработана'});db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run("UPDATE case_deposits SET status=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",[status,id],function(e2){if(e2||this.changes!==1){db.run('ROLLBACK');return res.status(409).json({error:'Заявка уже обработана'});}const finish=()=>db.run('COMMIT',e3=>e3?res.status(500).json({error:'Ошибка сохранения'}):res.json({ok:true}));if(status==='approved'){db.run('INSERT OR IGNORE INTO game_balance(user_id,balance) VALUES(?,0)',[d.user_id],e3=>{if(e3){db.run('ROLLBACK');return res.status(500).json({error:'Ошибка баланса'});}db.run('UPDATE game_balance SET balance=balance+? WHERE user_id=?',[d.credited_amount,d.user_id],e4=>{if(e4){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось зачислить баланс'});}if(d.promo_id){db.run('INSERT OR IGNORE INTO promo_redemptions(promo_id,user_id,nickname) VALUES(?,?,?)',[d.promo_id,d.user_id,d.nickname]);db.run('UPDATE promos SET activation_count=activation_count+1 WHERE id=?',[d.promo_id]);}finish();});});}else finish();});});});});
+app.post('/api/admin/cases/withdrawals/:id/status',adminOnly,(req,res)=>{const id=Number(req.params.id),status=String(req.body?.status||'');if(!['approved','rejected'].includes(status))return res.status(400).json({error:'Недопустимый статус'});db.get('SELECT * FROM case_withdrawals WHERE id=?',[id],(e,w)=>{if(e||!w)return res.status(404).json({error:'Заявка не найдена'});if(w.status!=='pending')return res.status(409).json({error:'Заявка уже обработана'});db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run("UPDATE case_withdrawals SET status=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",[status,id],function(e2){if(e2||this.changes!==1){db.run('ROLLBACK');return res.status(409).json({error:'Заявка уже обработана'});}if(status==='rejected')db.run('UPDATE game_balance SET balance=balance+? WHERE user_id=?',[w.amount,w.user_id],e3=>{if(e3){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось вернуть средства'});}db.run('COMMIT',e4=>e4?res.status(500).json({error:'Ошибка'}):res.json({ok:true}));});else db.run('COMMIT',e3=>e3?res.status(500).json({error:'Ошибка'}):res.json({ok:true}));});});});});
+app.get('/cases', (req,res)=>res.sendFile(path.join(__dirname,'public','cases.html')));
+app.get('/games', (req,res)=>res.redirect(302,'/cases'));
+app.get('/admin/cases',(req,res)=>res.sendFile(path.join(__dirname,'public','admin-cases.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// API 404 — только после всех API-маршрутов, в том числе Games.
+// API 404 — только после всех API-маршрутов, в том числе BLUP Cases.
 app.use('/api', (req, res) => res.status(404).json({ error: `API-маршрут не найден: ${req.method} ${req.originalUrl}` }));
 
 db.ready.then(() => app.listen(PORT, () => console.log(`BLUP запущен на порту ${PORT}`))).catch(err => { console.error('Ошибка:', err); process.exit(1); });

@@ -71,8 +71,18 @@ db.ready = (async () => {
       if (!reviewCols.has(column)) await run(`ALTER TABLE reviews ADD COLUMN ${column} ${definition}`);
     }
     
-    // Таблицы для мини-игр
+    // Баланс BLUP Cases и журнал операций
     await run(`CREATE TABLE IF NOT EXISTS game_balance (user_id INTEGER PRIMARY KEY, balance REAL DEFAULT 0)`);
+    await run(`CREATE TABLE IF NOT EXISTS case_deposits (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,nickname TEXT,amount REAL NOT NULL,token_amount REAL DEFAULT 0,unit_rate REAL DEFAULT 1,coin TEXT NOT NULL,network TEXT NOT NULL,wallet TEXT NOT NULL,tx_hash TEXT,promo_id INTEGER,promo_code TEXT,promo_percent REAL DEFAULT 0,bonus_amount REAL DEFAULT 0,credited_amount REAL DEFAULT 0,status TEXT DEFAULT 'pending',created_at TEXT DEFAULT CURRENT_TIMESTAMP,reviewed_at TEXT)`);
+    const caseDepositCols = new Set((await all('PRAGMA table_info(case_deposits)')).map(x=>x.name));
+    if (!caseDepositCols.has('token_amount')) await run('ALTER TABLE case_deposits ADD COLUMN token_amount REAL DEFAULT 0');
+    if (!caseDepositCols.has('unit_rate')) await run('ALTER TABLE case_deposits ADD COLUMN unit_rate REAL DEFAULT 1');
+    await run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_deposit_tx ON case_deposits(tx_hash) WHERE tx_hash IS NOT NULL AND tx_hash<>''`);
+    await run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_pending_promo ON case_deposits(user_id,promo_id) WHERE promo_id IS NOT NULL AND status='pending'`);
+    await run(`CREATE TABLE IF NOT EXISTS case_withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,nickname TEXT,amount REAL NOT NULL,payout_type TEXT,phone TEXT,bank TEXT,status TEXT DEFAULT 'pending',created_at TEXT DEFAULT CURRENT_TIMESTAMP,reviewed_at TEXT)`);
+    await run(`CREATE TABLE IF NOT EXISTS case_inventory (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,case_id TEXT NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,price REAL NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    await run(`CREATE TABLE IF NOT EXISTS case_openings (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,case_id TEXT NOT NULL,case_name TEXT NOT NULL,cost REAL NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,skin_price REAL NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    await run('CREATE INDEX IF NOT EXISTS idx_case_inventory_user ON case_inventory(user_id,id DESC)');
     await run(`CREATE TABLE IF NOT EXISTS game_bets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, game TEXT, amount REAL, multiplier REAL, win_amount REAL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS tournament_applications (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, nickname TEXT, category TEXT NOT NULL CHECK(category IN ('free','paid')), steam_url TEXT NOT NULL, faceit_url TEXT NOT NULL, elo TEXT NOT NULL, telegram TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run('CREATE INDEX IF NOT EXISTS idx_tournament_applications_user ON tournament_applications(user_id, category)');
