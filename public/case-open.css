@@ -38,3 +38,13 @@ body.case-opening-page{background:var(--case-bg);color:var(--case-text);font-fam
  .showcase-strip.is-spinning .roulette-frame{height:65px}
  .showcase-strip.is-spinning .roulette-item{flex-basis:76px;min-height:52px}
 }
+
+/* Item quality colors and chance hover */
+.possible-skin{position:relative;overflow:visible}
+.possible-skin.rarity-common{background:linear-gradient(145deg,#243d59,#15253b 78%);border-color:#477bb355}
+.possible-skin.rarity-rare{background:linear-gradient(145deg,#442b63,#241a3b 78%);border-color:#9560c455}
+.possible-skin.rarity-epic{background:linear-gradient(145deg,#642c58,#321b3a 78%);border-color:#d45aa855}
+.possible-skin.rarity-legendary{background:linear-gradient(145deg,#725126,#3a2b1a 78%);border-color:#e8b65a77}
+.possible-skin .chance-info{position:absolute;right:7px;top:7px;width:19px;height:19px;border:1px solid #dce8ff88;border-radius:50%;background:#111a2acc;color:#eaf3ff;font:800 11px Manrope;cursor:help;padding:0}
+.possible-skin .chance-tooltip{display:none;position:absolute;right:0;top:24px;z-index:15;width:165px;padding:9px 10px;border:1px solid #62769a;background:#0b1221;color:#eaf1ff;border-radius:8px;text-align:left;font:600 10px Manrope;box-shadow:0 8px 25px #0009}
+.possible-skin .chance-info:hover .chance-tooltip,.possible-skin .chance-info:focus .chance-tooltip{display:block}
