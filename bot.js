@@ -75,8 +75,8 @@ async function notifyAdmin(item) {
     );
   } else {
     lines.push(
-      `💵 Сумма: ${item.amount || '—'} TON`,
-      `💱 Курс: ${item.rate || '—'} RUB за 1 TON`,
+      `💵 Сумма: ${item.amount || '—'} ${item.coin === 'GRAM' ? 'TON' : 'USDT'}` ,
+      `💱 Курс: ${item.rate || '—'} RUB за 1 ${item.coin === 'GRAM' ? 'TON' : 'USDT'}`,
       `💴 К выплате: ${item.payoutRub || '—'} RUB`,
       ...(item.discountPercent ? [`🎟️ Скидка: ${item.discountPercent}%`] : []),
       `📥 Кошелёк BLUP: ${item.wallet || '—'}`,

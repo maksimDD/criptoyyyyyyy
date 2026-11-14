@@ -243,8 +243,8 @@ app.get('/api/profile', (req,res) => {
 app.post('/api/sell',(req,res)=>{
  if(!req.session.userId)return res.status(401).json({error:'Войдите'});
  getSetting('stopped','0',(me,stopped)=>{if(stopped==='1'&&req.session.isAdmin!==true)return res.status(403).json({error:'Техработы'});
- const coin='GRAM', network='TON', amount=Number(req.body?.amount), comment=String(req.body?.comment||'').slice(0,500), tg=String(req.body?.telegramUsername||'').trim().replace(/^@/, ''), payoutType=String(req.body?.payoutType||'phone'), payout=String(req.body?.payoutValue||'').trim(), bank=String(req.body?.bank||'').trim();
- if(!BLUP_WALLETS[coin]?.[network] || !amount || !tg || !payout || !bank)return res.status(400).json({error:'Ошибка данных'});
+ const requestedCoin=String(req.body?.coin||'USDT').toUpperCase(), coin=requestedCoin==='TON'?'GRAM':requestedCoin, network=String(req.body?.network||''), amount=Number(req.body?.amount), comment=String(req.body?.comment||'').slice(0,500), tg=String(req.body?.telegramUsername||'').trim().replace(/^@/, ''), payoutType=String(req.body?.payoutType||'phone'), payout=String(req.body?.payoutValue||'').trim(), bank=String(req.body?.bank||'').trim();
+ if(!['GRAM','USDT'].includes(coin) || !BLUP_WALLETS[coin]?.[network] || !Number.isFinite(amount) || amount<=0 || (coin==='USDT'&&amount>200) || !tg || !payout || !bank)return res.status(400).json({error:'Ошибка данных'});
  db.get('SELECT value FROM settings WHERE key=?',['usdt_rate'],(rateErr,usdtRow)=>{db.get('SELECT value FROM settings WHERE key=?',['gram_rate'],(gramErr,gramRow)=>{const rate=Number(coin==='USDT'?usdtRow?.value:gramRow?.value)||0;if(rate<=0)return res.status(400).json({error:'Курс не задан'});
    db.get('SELECT percent FROM user_discounts WHERE user_id=? AND active=1',[req.session.userId],(de,discountRow)=>{
      const manualPercent=[1,3].includes(Number(discountRow?.percent))?Number(discountRow.percent):0;
