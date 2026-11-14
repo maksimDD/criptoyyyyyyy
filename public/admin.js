@@ -3,7 +3,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const date=v=>{if(!v)return '—';const d=new Date(String(v).replace(' ','T')+'Z');return isNaN(d)?esc(v):d.toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'});};
 function toast(s){const e=$('#adminToast');e.textContent=s;e.classList.add('show');clearTimeout(window.__at);window.__at=setTimeout(()=>e.classList.remove('show'),2800)}
 async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Ошибка');return d;}
-function showDashboard(){ $('#adminLoginView').classList.add('hidden');$('#adminDashboard').classList.remove('hidden');$('#adminLogout').classList.remove('hidden');load(); }
+function showDashboard(){ $('#adminLoginView').classList.add('hidden');$('#adminDashboard').classList.remove('hidden');$('#adminLogout').classList.remove('hidden');load();loadAdminGiveaway().catch(e=>toast(e.message)); }
 async function check(){try{const d=await api('/api/admin/me');if(d.isAdmin)showDashboard()}catch{}}
 
 $('#adminLoginForm').addEventListener('submit',async e=>{
@@ -444,3 +444,34 @@ $('#adminReviewsBtn')?.addEventListener('click',async()=>{ $('#adminReviewsBackd
 $('#adminReviewsClose')?.addEventListener('click',()=>{ $('#adminReviewsBackdrop').classList.remove('open');document.body.style.overflow='';});
 $('#adminReviewForm')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/admin/reviews',{method:'POST',body:JSON.stringify({userId:f.get('userId'),username:f.get('username'),amount:Number(f.get('amount')),stars:Number(f.get('stars')),text:f.get('text')})});e.currentTarget.reset();$('#adminReviewMessage').textContent='Отзыв добавлен';await loadAdminReviews();}catch(err){$('#adminReviewMessage').textContent=err.message;}});
 $('#adminReviewsTable')?.addEventListener('click',async e=>{const b=e.target.closest('[data-review-delete]');if(!b||!confirm('Удалить этот отзыв?'))return;try{await api('/api/admin/reviews/'+b.dataset.reviewDelete,{method:'DELETE'});await loadAdminReviews();}catch(err){toast(err.message)}});
+
+
+// Управление пользовательскими розыгрышами
+const giveawayFiles=$('#giveawayImages');
+giveawayFiles?.addEventListener('change',()=>{
+  const files=[...(giveawayFiles.files||[])];
+  $('#giveawayFilesHint').textContent=files.length>5?'Можно выбрать не более 5 PNG.':files.map(f=>`${f.name} (${(f.size/1024/1024).toFixed(2)} МБ)`).join(' · ')||'Можно загрузить до пяти изображений.';
+  $('#giveawayImageCaptions').innerHTML=files.slice(0,5).map((f,i)=>`<label style="display:block;margin:8px 0">Подпись к фото ${i+1}<input data-giveaway-caption="${i}" maxlength="100" placeholder="${esc(f.name.replace(/\.png$/i,''))}"></label>`).join('');
+});
+function fileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(new Error('Не удалось прочитать PNG'));r.readAsDataURL(file);});}
+async function loadAdminGiveaway(){
+ const d=await api('/api/admin/giveaways'),g=d.giveaway,el=$('#giveawayAdminCurrent');if(!el)return;
+ if(!g){el.innerHTML='<p class="admin-footnote">Сейчас активного розыгрыша нет.</p>';return;}
+ el.innerHTML=`<div class="admin-card-head"><div><span class="eyebrow">ТЕКУЩИЙ РОЗЫГРЫШ</span><h3>${esc(g.title)}</h3><p class="admin-footnote">${g.status==='active'?'Активен':'Завершён'} · порог $${Number(g.minimum_sales).toFixed(2)} · мест ${g.winner_slots} · участников ${g.entries.length}</p></div></div>
+ <div class="table-scroll"><table><thead><tr><th>Участник</th><th>ID сайта</th><th>Дата</th></tr></thead><tbody>${g.entries.map(u=>`<tr><td>${esc(u.nickname)}</td><td>#${esc(u.public_id)}</td><td>${date(u.created_at)}</td></tr>`).join('')||'<tr><td colspan="3">Участников пока нет</td></tr>'}</tbody></table></div>
+ ${g.winners?.length?`<h3>Победители</h3>${g.winners.map(w=>`<p>${w.place} место — ${esc(w.nickname)} (#${esc(w.public_id)})</p>`).join('')}`:''}
+ <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">${g.status==='active'?`<button class="btn btn-primary btn-small" id="finishGiveaway">Завершить и выбрать победителей</button>`:''}<button class="btn btn-ghost btn-small" id="deleteGiveaway">Удалить розыгрыш</button></div>`;
+ $('#finishGiveaway')?.addEventListener('click',async()=>{if(!confirm('Завершить розыгрыш и случайно выбрать победителей?'))return;try{const r=await api(`/api/admin/giveaways/${g.id}/finish`,{method:'POST'});toast(`Итоги подведены. Победителей: ${r.winners.length}`);await loadAdminGiveaway();}catch(e){toast(e.message)}});
+ $('#deleteGiveaway')?.addEventListener('click',async()=>{if(!confirm('Удалить розыгрыш, участников и загруженные фото?'))return;try{await api(`/api/admin/giveaways/${g.id}`,{method:'DELETE'});toast('Розыгрыш удалён');await loadAdminGiveaway();}catch(e){toast(e.message)}});
+}
+$('#giveawayAdminForm')?.addEventListener('submit',async e=>{
+ e.preventDefault();const f=e.currentTarget,files=[...(giveawayFiles.files||[])],msg=$('#giveawayAdminMessage');msg.textContent='Сохранение…';
+ try{
+  if(files.length>5)throw new Error('Можно загрузить не более 5 PNG');
+  for(const file of files){if(file.type!=='image/png'||file.size>2*1024*1024)throw new Error('Каждый файл должен быть PNG до 2 МБ');}
+  const prizes=await Promise.all(files.map(async(file,i)=>({image:await fileAsDataUrl(file),caption:$('#giveawayImageCaptions [data-giveaway-caption="'+i+'"]')?.value||file.name.replace(/\.png$/i,'')})));
+  const fd=new FormData(f);
+  await api('/api/admin/giveaways',{method:'POST',body:JSON.stringify({title:fd.get('title'),description:fd.get('description'),minimumSales:Number(fd.get('minimumSales')),slots:Number(fd.get('slots')),prizes})});
+  f.reset();$('#giveawayImageCaptions').innerHTML='';$('#giveawayFilesHint').textContent='Можно загрузить до пяти изображений.';msg.textContent='Розыгрыш запущен';toast('Розыгрыш запущен');await loadAdminGiveaway();
+ }catch(err){msg.textContent=err.message;}
+});
