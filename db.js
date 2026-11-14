@@ -87,6 +87,8 @@ db.ready = (async () => {
     if (!skinWithdrawalCols.has('expires_at')) await run('ALTER TABLE case_skin_withdrawals ADD COLUMN expires_at TEXT');
 
     await run(`CREATE TABLE IF NOT EXISTS case_promos (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE COLLATE NOCASE, case_id TEXT NOT NULL DEFAULT '*', discount_percent REAL NOT NULL DEFAULT 0, active INTEGER DEFAULT 1, activation_limit INTEGER DEFAULT 0, activation_count INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
+    const casePromoCols = new Set((await all('PRAGMA table_info(case_promos)')).map(x=>x.name));
+    if (!casePromoCols.has('promo_type')) await run("ALTER TABLE case_promos ADD COLUMN promo_type TEXT NOT NULL DEFAULT 'discount'");
     await run(`CREATE TABLE IF NOT EXISTS case_promo_redemptions (id INTEGER PRIMARY KEY AUTOINCREMENT, promo_id INTEGER NOT NULL, user_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(promo_id,user_id))`);
     await run(`CREATE TABLE IF NOT EXISTS case_openings (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,case_id TEXT NOT NULL,case_name TEXT NOT NULL,cost REAL NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,skin_price REAL NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run('CREATE INDEX IF NOT EXISTS idx_case_inventory_user ON case_inventory(user_id,id DESC)');
