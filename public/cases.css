@@ -43,3 +43,24 @@
 /* BLUP case cards: clean cover + title */
 .case-card{min-height:210px;padding:12px}.case-art{height:145px}.case-art img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .25s}.case-card h3{margin:8px 0 2px;font-size:14px}.case-bottom{justify-content:flex-start}.case-bottom span,.case-tier{display:none!important}.hero-agent{position:relative;z-index:2;width:min(82%,390px);height:390px;object-fit:contain;filter:drop-shadow(0 22px 35px #0009);animation:agentIdle 3.2s ease-in-out infinite}@keyframes agentIdle{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 .rarity-industrial{border-color:#5e98d9!important}.rarity-consumer{border-color:#b0c3d9!important}.rarity-classified{border-color:#d32ce6!important}.rarity-covert{border-color:#eb4b4b!important}
+
+
+/* Transparent CS2 PNG cut-outs: keep card styling behind the image, not inside it */
+.skin-card img,.reel-item img,.case-prize img,.inventory-card img,.case-art img{
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  object-fit:contain!important;
+  mix-blend-mode:normal;
+}
+.skin-card img,.reel-item img,.case-prize img,.inventory-card img{
+  filter:drop-shadow(0 5px 10px #0008);
+}
+
+
+/* Transparent PNG case cut-outs */
+.case-card img,.case-item img,.case-cover img,.case-art img,.case-image img,.case-detail-cover img,.case-preview img{
+ background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+ object-fit:contain!important;mix-blend-mode:normal!important;
+}

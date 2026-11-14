@@ -23,3 +23,28 @@ body.case-opening-page{margin:0;min-height:100vh;overflow-x:hidden;background:ra
 .showcase-strip.is-spinning{display:block;padding:0;background:#081321}.showcase-strip.is-spinning #rouletteGrid{height:100%;width:100%;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-content:center;gap:5px;padding:7px 8px;box-sizing:border-box}.showcase-strip.is-spinning .roulette-card{grid-column:span 2;min-width:0}.showcase-strip.is-spinning .roulette-caption{display:none}.showcase-strip.is-spinning .roulette-frame{height:100%;min-height:0;border-radius:8px}.showcase-strip.is-spinning .roulette-item{flex-basis:110px;height:calc(100% - 12px);min-height:90px;padding:5px}.showcase-strip.is-spinning .roulette-card:only-child{grid-column:1/-1}.showcase-strip.is-spinning .roulette-card:nth-child(4):nth-last-child(2){grid-column:2/span 2}.showcase-strip.is-spinning .roulette-card:nth-child(5):last-child{grid-column:4/span 2}.showcase-strip.is-spinning .roulette-card:nth-child(4):last-child{grid-column:3/span 2}
 @media(max-width:800px){.showcase-strip.is-spinning #rouletteGrid{gap:4px;padding:5px}.showcase-strip.is-spinning .roulette-item{flex-basis:88px;min-height:70px}}
 @media(max-width:560px){.showcase-strip.is-spinning #rouletteGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.showcase-strip.is-spinning .roulette-card,.showcase-strip.is-spinning .roulette-card:nth-child(4):nth-last-child(2),.showcase-strip.is-spinning .roulette-card:nth-child(5):last-child,.showcase-strip.is-spinning .roulette-card:nth-child(4):last-child{grid-column:span 1}.showcase-strip.is-spinning .roulette-card:last-child:nth-child(odd){grid-column:1/-1}.showcase-strip.is-spinning .roulette-frame{height:65px}.showcase-strip.is-spinning .roulette-item{flex-basis:76px;min-height:52px}}
+
+
+/* CS2 item renders: transparent PNG cut-outs, never framed photo thumbnails */
+.showcase-item img,
+.roulette-item img,
+.drop-result img,
+.possible-skin img{
+  display:block;
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  object-fit:contain!important;
+  mix-blend-mode:normal;
+}
+.showcase-item img{filter:drop-shadow(0 7px 13px #0008)}
+.roulette-item img{filter:drop-shadow(0 5px 9px #0008)}
+.drop-result img,.possible-skin img{filter:drop-shadow(0 5px 10px #0008)}
+
+
+/* Transparent PNG case cut-outs */
+.case-card img,.case-item img,.case-cover img,.case-art img,.case-image img,.case-detail-cover img,.case-preview img{
+ background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+ object-fit:contain!important;mix-blend-mode:normal!important;
+}

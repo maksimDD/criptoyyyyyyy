@@ -1,4 +1,12 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+function cs2TransparentPng(url){
+  const value=String(url||'');
+  if(!value)return '';
+  // ByMykel's *_light_png.png assets are CS2's transparent item renders.
+  if(/\.png(?:\?|$)/i.test(value))return value;
+  return value;
+}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let displayCurrency=localStorage.getItem('blupDisplayCurrency')==='RUB'?'RUB':'USDT',rubPerUsd=0;const money=n=>{const v=Number(n||0)*(displayCurrency==='RUB'?(rubPerUsd||1):1);return v.toLocaleString(displayCurrency==='RUB'?'ru-RU':'en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+(displayCurrency==='RUB'?' ₽':' USDT')};
 async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Ошибка запроса');return d}
@@ -8,7 +16,7 @@ function openModal(id){$('#'+id).classList.add('open');document.body.style.overf
 $$('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));$$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id)}));document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.modal-backdrop.open').forEach(m=>closeModal(m.id))});
 function skin(id){return data.skins[id]||{name:id,price:0,rarity:'common'}}
 function rarityMeta(r){return ({common:['Армейское','rarity-common'],mil_spec:['Армейское','rarity-common'],industrial:['Промышленное','rarity-industrial'],consumer:['Потребительское','rarity-consumer'],rare:['Запрещённое','rarity-rare'],restricted:['Запрещённое','rarity-rare'],classified:['Засекреченное','rarity-classified'],epic:['Засекреченное','rarity-classified'],covert:['Тайное','rarity-covert'],legendary:['Тайное','rarity-covert'],contraband:['Контрабандное','rarity-legendary'],extraordinary:['Экстраординарное','rarity-legendary']})[String(r||'common').toLowerCase().replace(/[ -]/g,'_')]||['Армейское','rarity-common']}
-function caseCover(c){const n=String(c.id||'').match(/(\d+)$/);return n?`/assets/cases/case-${n[1].padStart(2,'0')}.webp`:String(c.image||'')}
+function caseCover(c){const n=String(c.id||'').match(/(\d+)$/);return n?`/assets/cases/case-${n[1].padStart(2,'0')}.png`:String(c.image||'')}
 window.blupSkinImageFail=function(img){if(!img.dataset.retry&&img.src.includes('raw.githubusercontent.com')){img.dataset.retry='1';img.src=img.src.replace('raw.githubusercontent.com/ByMykel/','cdn.jsdelivr.net/gh/ByMykel/').replace('/main/','@main/');return}const el=document.createElement('div');el.className='skin-placeholder';el.textContent='CS2';img.replaceWith(el)};
 function skinCard(id,showChance=false){const item=skin(id),img=skinImages[item.name]||item.image,[tier,tierClass]=rarityMeta(item.rarity);let chance=0;if(showChance&&selectedCase){const explicit=selectedCase.chances&&Object.keys(selectedCase.chances).length>0,weights=selectedCase.items.map(k=>{const q=skin(k);return explicit?Math.max(0,Number(selectedCase.chances[k]||0)):Math.max(1,Math.floor(1000000000000/Math.pow(Math.max(.2,Number(q.price)||.2),2.5)))}),total=weights.reduce((a,b)=>a+b,0),idx=selectedCase.items.indexOf(id);chance=idx>=0?weights[idx]/total*100:0;}return `<article class="skin-card ${tierClass}">${img?`<img loading="lazy" src="${esc(img)}" alt="${esc(item.name)}" onerror="window.blupSkinImageFail(this)"/>`:'<div class="skin-placeholder">CS2</div>'}<span class="rarity-label">${tier}</span><b>${esc(item.name)}</b><span>${money(item.price)}</span>${showChance?`<button class="chance-info" type="button" aria-label="Шанс выпадения">i<span class="chance-tooltip">Шанс выпадения: <strong>${chance.toFixed(4)}%</strong></span></button>`:''}</article>`}
 
