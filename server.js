@@ -580,49 +580,87 @@ function getCaseBalance(userId,cb){ ensureGameBalance(userId,cb); }
 app.get('/api/cases/balance',caseUser,(req,res)=>getCaseBalance(req.session.userId,(e,row)=>e?res.status(500).json({error:'Не удалось загрузить баланс'}):res.set('Cache-Control','no-store').json({balance:Number(row?.balance||0)})));
 app.get('/api/cases/inventory',caseUser,(req,res)=>{db.run("UPDATE case_skin_withdrawals SET status='expired',reviewed_at=CURRENT_TIMESTAMP WHERE user_id=? AND status='pending' AND expires_at IS NOT NULL AND julianday(expires_at)<=julianday('now')",[req.session.userId],e0=>{if(e0)return res.status(500).json({error:'Не удалось проверить таймер заявок'});db.all(`SELECT i.id,i.case_id,i.skin_id,i.skin_name,i.price,i.created_at,w.expires_at AS withdrawal_expires_at,EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') AS withdrawal_pending FROM case_inventory i LEFT JOIN case_skin_withdrawals w ON w.inventory_id=i.id AND w.status='pending' WHERE i.user_id=? ORDER BY i.id DESC LIMIT 50`,[req.session.userId],(e,rows)=>e?res.status(500).json({error:'Не удалось загрузить инвентарь'}):res.json({items:rows||[]}));});});
 
-app.get('/api/cases/upgrader/catalog',caseUser,(req,res)=>{
+app.get('/api/cases/upgrader/catalog',(req,res)=>{
   const skins=Object.values(CASE_CATALOG.skins||{}).filter(s=>Number(s.price)>=0.2&&Number(s.price)<=50).map(s=>({id:s.id,name:s.name,price:Number(s.price),rarity:s.rarity||'common'}));
   res.set('Cache-Control','no-store').json({skins});
+});
+
+let casesSkinImageCache={at:0,images:{}};
+app.get('/api/cases/skin-images',async(req,res)=>{
+  res.set('Cache-Control','public, max-age=3600');
+  if(casesSkinImageCache.at>Date.now()-6*60*60*1000&&Object.keys(casesSkinImageCache.images).length)return res.json({images:casesSkinImageCache.images});
+  const sources=[
+    'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json',
+    'https://cdn.jsdelivr.net/gh/ByMykel/CSGO-API@main/public/api/en/skins.json',
+    'https://bymykel.github.io/CSGO-API/api/en/skins.json'
+  ];
+  const wanted=new Set(Object.values(CASE_CATALOG.skins||{}).map(s=>s.name));
+  for(const url of sources){
+    try{
+      const response=await fetch(url,{signal:AbortSignal.timeout(18000)});
+      if(!response.ok)continue;
+      const list=await response.json();
+      const images={};
+      for(const item of list||[])if(item&&wanted.has(item.name)&&typeof item.image==='string'&&/^https:\/\//.test(item.image))images[item.name]=item.image;
+      if(Object.keys(images).length){casesSkinImageCache={at:Date.now(),images};return res.json({images});}
+    }catch(err){console.warn('CS2 skin image source failed:',url,err.message);}
+  }
+  return res.json({images:casesSkinImageCache.images||{}});
 });
 app.post('/api/cases/upgrader',caseUser,(req,res)=>{
   const ids=Array.isArray(req.body?.sourceIds)?[...new Set(req.body.sourceIds.map(Number))]:[];
   const targetId=String(req.body?.targetSkinId||'');
-  if(!ids.length||ids.length>5||ids.some(n=>!Number.isSafeInteger(n)||n<1))return res.status(400).json({error:'Выбери от 1 до 5 своих скинов'});
+  const balanceAmount=Math.round(Number(req.body?.balanceAmount||0)*100)/100;
   const target=CASE_CATALOG.skins[targetId];
+  if(ids.length>5||ids.some(n=>!Number.isSafeInteger(n)||n<1)||!Number.isFinite(balanceAmount)||balanceAmount<0||balanceAmount>100000)
+    return res.status(400).json({error:'Проверь выбранные скины и сумму баланса'});
+  if(!ids.length&&balanceAmount<=0)return res.status(400).json({error:'Выбери скины или добавь баланс'});
   if(!target||Number(target.price)<0.2||Number(target.price)>50)return res.status(400).json({error:'Целевой скин недоступен: максимум $50'});
-  const marks=ids.map(()=>'?').join(',');
-  db.all(`SELECT i.*,EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') AS withdrawal_pending FROM case_inventory i WHERE i.user_id=? AND i.id IN (${marks})`,[req.session.userId,...ids],(e,items)=>{
-    if(e)return res.status(500).json({error:'Ошибка базы данных'});
-    if(!items||items.length!==ids.length)return res.status(404).json({error:'Один из выбранных предметов не найден'});
-    if(items.some(x=>x.withdrawal_pending))return res.status(409).json({error:'Нельзя улучшать предмет с активной заявкой на вывод'});
-    const stake=Number(items.reduce((a,x)=>a+Number(x.price||0),0).toFixed(2));
-    if(Number(target.price)<=stake)return res.status(400).json({error:'Выбери скин дороже суммы выбранных предметов'});
-    const chance=Math.min(80,Number((stake/Number(target.price)*90).toFixed(4)));
-    if(chance<0.01)return res.status(400).json({error:'Шанс ниже минимального порога 0.01%'});
-    const roll=crypto.randomInt(0,1000000)/10000;
-    const won=roll<chance;
-    db.serialize(()=>{
-      db.run('BEGIN IMMEDIATE');
-      let removed=0,failed=false;
-      const removeNext=()=>{
-        if(removed>=ids.length){
-          if(failed)return;
-          if(won){
-            db.run('INSERT INTO case_inventory(user_id,case_id,skin_id,skin_name,price) VALUES(?,?,?,?,?)',[req.session.userId,'upgrader',target.id,target.name,target.price],function(err){
-              if(err){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось сохранить выигранный скин'});}
-              const newId=this.lastID;
-              db.run('COMMIT',err2=>err2?res.status(500).json({error:'Не удалось завершить апгрейд'}):res.json({ok:true,won:true,chance,roll,stake,target:{id:target.id,name:target.name,price:target.price},inventoryId:newId}));
+  db.serialize(()=>{
+    db.run('BEGIN IMMEDIATE',err=>{
+      if(err)return res.status(500).json({error:'Не удалось начать апгрейд'});
+      const rollback=(status,message)=>db.run('ROLLBACK',()=>res.status(status).json({error:message}));
+      const finishItems=(items)=>{
+        if(!items||items.length!==ids.length)return rollback(404,'Один из выбранных предметов не найден');
+        if(items.some(x=>x.withdrawal_pending))return rollback(409,'Нельзя улучшать предмет с активной заявкой на вывод');
+        db.get('SELECT balance FROM game_balance WHERE user_id=?',[req.session.userId],(be,balRow)=>{
+          if(be)return rollback(500,'Не удалось проверить баланс');
+          const currentBalance=Number(balRow?.balance||0);
+          if(balanceAmount>currentBalance)return rollback(400,'На балансе недостаточно средств');
+          const itemStake=items.reduce((a,x)=>a+Number(x.price||0),0);
+          const stake=Number((itemStake+balanceAmount).toFixed(2));
+          if(Number(target.price)<=stake)return rollback(400,'Выбери скин дороже общей суммы ставки');
+          const chance=Math.min(80,Number((stake/Number(target.price)*90).toFixed(4)));
+          if(chance<0.01)return rollback(400,'Шанс ниже минимального порога 0.01%');
+          const roll=crypto.randomInt(0,1000000)/10000,won=roll<chance;
+          const removeItems=idx=>{
+            if(idx>=ids.length){
+              const commitResult=inventoryId=>{
+                db.run('COMMIT',commitErr=>commitErr?res.status(500).json({error:'Не удалось завершить апгрейд'}):res.json({ok:true,won,chance,roll,stake,balanceUsed:balanceAmount,balanceLeft:Number((currentBalance-balanceAmount).toFixed(2)),target:{id:target.id,name:target.name,price:target.price},...(inventoryId?{inventoryId}:{})}));
+              };
+              if(won)db.run('INSERT INTO case_inventory(user_id,case_id,skin_id,skin_name,price) VALUES(?,?,?,?,?)',[req.session.userId,'upgrader',target.id,target.name,target.price],function(insertErr){if(insertErr)return rollback(500,'Не удалось сохранить выигранный скин');commitResult(this.lastID)});
+              else commitResult(null);
+              return;
+            }
+            const itemId=ids[idx];
+            db.run('DELETE FROM case_inventory WHERE id=? AND user_id=?',[itemId,req.session.userId],function(delErr){
+              if(delErr||this.changes!==1)return rollback(409,'Предмет уже использован или изменился');
+              removeItems(idx+1);
             });
-          }else db.run('COMMIT',err=>err?res.status(500).json({error:'Не удалось завершить апгрейд'}):res.json({ok:true,won:false,chance,roll,stake,target:{id:target.id,name:target.name,price:target.price}}));
-          return;
-        }
-        const itemId=ids[removed++];
-        db.run('DELETE FROM case_inventory WHERE id=? AND user_id=?',[itemId,req.session.userId],function(err){
-          if(err||this.changes!==1){failed=true;db.run('ROLLBACK');return res.status(409).json({error:'Предмет уже использован или изменился'});}
-          removeNext();
+          };
+          const spendBalance=()=>{
+            if(balanceAmount<=0)return removeItems(0);
+            db.run('UPDATE game_balance SET balance=balance-? WHERE user_id=? AND balance>=?',[balanceAmount,req.session.userId,balanceAmount],function(updateErr){
+              if(updateErr||this.changes!==1)return rollback(409,'Баланс изменился. Обнови страницу и попробуй снова');
+              removeItems(0);
+            });
+          };
+          spendBalance();
         });
       };
-      removeNext();
+      if(!ids.length)return finishItems([]);
+      const marks=ids.map(()=>'?').join(',');
+      db.all(`SELECT i.*,EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') AS withdrawal_pending FROM case_inventory i WHERE i.user_id=? AND i.id IN (${marks})`,[req.session.userId,...ids],(e,items)=>e?rollback(500,'Ошибка базы данных'):finishItems(items));
     });
   });
 });
