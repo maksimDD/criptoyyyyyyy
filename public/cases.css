@@ -31,3 +31,11 @@
 .chance-info:hover .chance-tooltip,.chance-info:focus .chance-tooltip{display:block}
 .case-art{height:145px}
 .case-art img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 12px 16px #0008)}
+
+/* Reliable local case covers: the 25 WebP covers are shipped in /assets/cases */
+.case-art{overflow:hidden;border-radius:12px}
+.case-art img{display:block;position:relative;z-index:1;width:100%;height:100%;object-fit:contain;padding:4px;filter:drop-shadow(0 12px 15px #000a);transition:transform .3s}
+.case-card:hover .case-art img{transform:translateY(-4px) scale(1.06)}
+.case-art:after{z-index:0}
+.case-art.cover-fallback:before{content:'📦';position:absolute;z-index:2;font-size:54px;filter:drop-shadow(0 8px 15px #000)}
+.skin-placeholder{height:90px;display:grid;place-items:center;color:#aab4c8;font-size:30px;background:radial-gradient(ellipse,#39465e,#141a27 70%);border-radius:8px}

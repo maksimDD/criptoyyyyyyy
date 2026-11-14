@@ -48,3 +48,7 @@ body.case-opening-page{background:var(--case-bg);color:var(--case-text);font-fam
 .possible-skin .chance-info{position:absolute;right:7px;top:7px;width:19px;height:19px;border:1px solid #dce8ff88;border-radius:50%;background:#111a2acc;color:#eaf3ff;font:800 11px Manrope;cursor:help;padding:0}
 .possible-skin .chance-tooltip{display:none;position:absolute;right:0;top:24px;z-index:15;width:165px;padding:9px 10px;border:1px solid #62769a;background:#0b1221;color:#eaf1ff;border-radius:8px;text-align:left;font:600 10px Manrope;box-shadow:0 8px 25px #0009}
 .possible-skin .chance-info:hover .chance-tooltip,.possible-skin .chance-info:focus .chance-tooltip{display:block}
+
+.hero-case-art.cover-fallback:after{content:'📦';position:absolute;inset:0;display:grid;place-items:center;font-size:100px;filter:drop-shadow(0 10px 20px #000)}
+.showcase-item img,.roulette-item img,.possible-skin img{object-fit:contain;max-width:100%;filter:drop-shadow(0 5px 9px #0009)}
+.possible-skin{overflow:visible}

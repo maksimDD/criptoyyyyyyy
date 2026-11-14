@@ -1,9 +1,42 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090b16"><title>BLUP — Апгрейды</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="/cases.css"><link rel="stylesheet" href="/cases-upgrader.css"></head>
-<body><div class="bg-glow glow-a"></div><div class="bg-glow glow-b"></div>
-<header class="topbar"><a class="brand" href="/"><span class="brand-mark">B</span><span>BLUP</span></a><nav><a href="/">Главная</a><a href="/cases">Кейсы</a><a class="active" href="/cases/upgrader">Апгрейды</a><a href="/cases/profile">Профиль</a></nav><div class="wallet-actions"><div class="balance-chip"><small>РЕЖИМ CASES</small><b>UPGRADER</b></div><a class="user-btn" href="/cases/profile">Инвентарь</a></div></header>
-<main class="up-wrap"><div class="up-heading"><div class="eyebrow">BLUP / CASES</div><h1>Апгрейд <span>скинов</span></h1><p>Выбери предметы из своего инвентаря и цель дороже. Шанс рассчитывается по сумме выбранных скинов.</p></div>
-<div class="upgrade-layout"><section class="up-panel"><div class="up-panel-head"><div><small>ШАГ 01</small><h2>Твои скины</h2></div><b id="stakeTotal">$0.00</b></div><p class="up-hint">Выбери до 5 предметов из инвентаря. Предметы с активной заявкой на вывод недоступны.</p><div id="sourceGrid" class="up-grid"><div class="loading-state">Загрузка инвентаря…</div></div></section>
-<section class="up-center"><div class="up-orb"><div class="up-orb-inner"><span id="chanceValue">0.00%</span><small>ШАНС ПОБЕДЫ</small></div></div><div class="up-multiplier" id="multiplier">× —</div><div class="up-stake-line"><span>Ставка</span><b id="stakeLabel">$0.00</b></div><div class="up-stake-line"><span>Цель</span><b id="targetLabel">Не выбрана</b></div><button id="upgradeBtn" class="action-btn deposit-btn full" disabled>Выбери скины и цель</button><p id="upMessage" class="up-message" aria-live="polite"></p></section>
-<section class="up-panel"><div class="up-panel-head"><div><small>ШАГ 02</small><h2>Целевой скин</h2></div><span class="up-cap">МАКС. $50</span></div><label class="up-search"><span>⌕</span><input id="targetSearch" placeholder="Найти скин…"></label><div id="targetGrid" class="up-grid target-grid"><div class="loading-state">Загрузка каталога…</div></div></section></div>
-<div class="up-footnote">Шанс: 90% × стоимость выбранных предметов / стоимость цели, максимум 80%. При проигрыше выбранные предметы списываются. При победе они обмениваются на целевой скин. Цены ориентировочные, до $50 включительно.</div></main><div id="upToast" class="toast"></div><script src="/cases-upgrader.js"></script></body></html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090b12"><title>BLUP — Апгрейд скинов</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="/cases.css"><link rel="stylesheet" href="/cases-upgrader.css"></head>
+<body class="upgrade-page">
+<header class="topbar"><a class="brand" href="/"><span class="brand-mark">B</span><span>BLUP</span></a><nav><a href="/">Главная</a><a href="/cases">Кейсы</a><a class="active" href="/cases/upgrader">Апгрейды</a><a href="/cases/profile">Профиль</a></nav><div class="wallet-actions"><a class="user-btn" href="/cases/profile">Мой инвентарь ↗</a></div></header>
+<main class="up-wrap">
+  <div class="up-topline"><div><span class="up-eyebrow">BLUP / CASES</span><h1>АПГРЕЙД <span>СКИНОВ</span></h1><p>Выбирай предметы из своего инвентаря и пробуй получить скин дороже</p></div><div class="up-live"><i></i> ЧЕСТНЫЙ РЕЗУЛЬТАТ</div></div>
+  <section class="upgrade-stage">
+    <div class="stage-pick stage-source"><div class="stage-title">ВЫБЕРИ СКИНЫ ИЛИ СКИНЫ ДЛЯ ИСПОЛЬЗОВАНИЯ <span>ШАГ 01</span></div><div id="sourcePreview" class="stage-preview"><div class="stage-empty"><b>⌁</b><strong>ТВОИ СКИНЫ</strong><small>Выбери предметы в инвентаре ниже</small></div></div><div class="stage-foot"><span>Сумма выбранного</span><b id="stakeTotal">$0.00</b></div></div>
+    <div class="stage-wheel-wrap">
+      <div class="wheel-shell" id="wheelShell" style="--chance:0deg">
+        <div class="wheel-ticks"></div><div class="wheel-ring"></div><div class="wheel-win-arc" id="chanceArc"></div>
+        <div class="wheel-face"><div class="wheel-percent" id="chanceValue">0.00%</div><small>ШАНС ПОБЕДЫ</small><div class="wheel-multiplier" id="multiplier">× —</div></div>
+        <div class="wheel-needle" id="wheelNeedle"><span></span></div>
+        <div class="wheel-pin"></div>
+      </div>
+      <div class="wheel-status" id="wheelStatus">ВЫБЕРИ СКИН И ЦЕЛЬ</div>
+      <button id="upgradeBtn" class="upgrade-main-btn" disabled><span>⌁</span> УЛУЧШИТЬ</button>
+      <div class="wheel-cost"><span>Ставка: <b id="stakeLabel">$0.00</b></span><span>Цель: <b id="targetLabel">не выбрана</b></span></div>
+    </div>
+    <div class="stage-pick stage-target"><div class="stage-title">ВЫБЕРИ СКИН ДЛЯ АПГРЕЙДА <span>ШАГ 02</span></div><div id="targetPreview" class="stage-preview"><div class="stage-empty"><b>⌃</b><strong>ТВОЯ ЦЕЛЬ</strong><small>Выбери желаемый предмет справа</small></div></div><div class="stage-foot"><span>Максимальная цена цели</span><b>$50.00</b></div></div>
+  </section>
+  <section class="up-controls">
+    <div class="balance-slider-box"><div><span>СУММА БАЛАНСА ДЛЯ СТАВКИ</span><b id="balanceAvailable">Доступно $0.00</b></div><input id="balanceAmountRange" type="range" min="0" max="0" step="0.01" value="0" disabled><div class="balance-range-foot"><span>Использовать: <b id="balanceAmountLabel">$0.00</b></span><span id="selectedCount">0 / 5 скинов</span></div><div class="selection-meter"><i id="selectionMeter"></i></div><small>Можно использовать баланс вместе со скинами или отдельно</small></div>
+    <div class="quick-filters"><span>МНОЖИТЕЛЬ</span><button data-mult="2">x2</button><button data-mult="4">x4</button><button data-mult="5">x5</button><button data-mult="all" class="active">ВСЕ</button></div>
+    <div class="chance-filters"><span>ШАНС</span><button data-chance="1">1%</button><button data-chance="3">3%</button><button data-chance="5">5%</button><button data-chance="all" class="active">ВСЕ</button></div>
+  </section>
+  <section class="up-bottom">
+    <div class="inventory-panel">
+      <div class="list-head"><div class="list-tab active">◈</div><div><b>МОИ СКИНЫ</b><small>Только предметы из твоего CASES-инвентаря</small></div><strong id="inventoryCount">0</strong></div>
+      <div class="inventory-toolbar"><input id="sourceSearch" placeholder="Найти в инвентаре…"><select id="sourceSort"><option value="price-desc">Сначала дорогие</option><option value="price-asc">Сначала дешёвые</option><option value="name">По названию</option></select></div>
+      <div id="sourceGrid" class="skin-grid"><div class="loading-state">Загружаем инвентарь…</div></div>
+      <div class="panel-note">Предметы с активной заявкой на вывод выбрать нельзя.</div>
+    </div>
+    <div class="catalog-panel">
+      <div class="list-head"><div class="list-tab target-tab">⌁</div><div><b>ВЫБЕРИ ЦЕЛЕВОЙ СКИН</b><small>Предметы стоимостью от $0.20 до $50</small></div><strong id="targetCount">0</strong></div>
+      <div class="inventory-toolbar target-toolbar"><input id="targetSearch" placeholder="Поиск скина…"><input id="priceFrom" type="number" min="0.2" step="0.01" placeholder="Цена от $"><input id="priceTo" type="number" min="0.2" max="50" step="0.01" placeholder="Цена до $"><select id="targetSort"><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option><option value="name">По названию</option></select></div>
+      <div id="targetGrid" class="skin-grid target-grid"><div class="loading-state">Загружаем каталог…</div></div>
+      <div class="panel-note">Выбери цель дороже общей стоимости поставленных предметов.</div>
+    </div>
+  </section>
+  <div class="up-disclaimer">Шанс рассчитывается сервером: 90% × сумма выбранных предметов / цена цели, максимум 80%. При проигрыше выбранные предметы списываются. При победе целевой скин поступает в твой инвентарь.</div>
+</main><div id="upToast" class="up-toast" aria-live="polite"></div><script src="/cases-upgrader.js"></script></body></html>
