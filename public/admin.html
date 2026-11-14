@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#08091a"><title>BLUP — Администрирование</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/admin.css"></head>
 <body class="admin-body"><div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
-<header class="admin-top"><a class="brand" href="/"><span class="brand-orb"></span><span>BLUP</span></a><span class="admin-top-label">CONTROL CENTER <i></i></span><div class="admin-top-actions"><a class="btn btn-ghost btn-small" href="/">На сайт ↗</a><button class="btn btn-outline btn-small hidden" id="adminLogout">Выйти</button></div></header>
+<header class="admin-top"><a class="brand" href="/"><span class="brand-orb"></span><span>BLUP</span></a><span class="admin-top-label">CONTROL CENTER <i></i></span><div class="admin-top-actions"><a class="btn btn-ghost btn-small" href="/">На сайт ↗</a><button class="btn btn-outline btn-small hidden" id="adminLogout">Выйти</button></div><a href="/admin/cases" style="margin-left:12px;color:#9fafff;font-weight:800">Кейсы: платежи и выводы ↗</a></header>
 <main class="admin-shell">
 <section class="admin-login" id="adminLoginView"><div class="admin-login-mark">B</div><div class="eyebrow">BLUP / PRIVATE ACCESS</div><h1>Добро пожаловать</h1><p>Закрытый доступ к настройкам и операционным инструментам BLUP.</p><form id="adminLoginForm"><label>Пароль администратора<input name="password" type="password" required autocomplete="current-password" placeholder="Введите пароль"></label><p class="admin-error" id="adminLoginError"></p><button class="btn btn-primary btn-submit">Открыть панель ↗</button></form></section>
 <section class="admin-dashboard hidden" id="adminDashboard">
@@ -59,10 +59,9 @@
            <span class="opt-icon">₽</span>
            <span class="opt-text"><b>Депозит 300 ₽ на Жабу</b><small>Зачисление на жабу-кошелёк</small></span>
          </li>
-         <li role="option" data-value="games_deposit_25" data-icon="🎮">
-           <span class="opt-icon">🎮</span>
-           <span class="opt-text"><b>Депозит +25% на Games</b><small>Бонус к игровому балансу</small></span>
-         </li>
+         <li role="option" data-value="case_bonus_5" data-icon="✦"><span class="opt-icon">✦</span><span class="opt-text"><b>Пополнение кейсов +5%</b><small>Бонус к балансу BLUP Cases</small></span></li>
+         <li role="option" data-value="case_bonus_10" data-icon="✦"><span class="opt-icon">✦</span><span class="opt-text"><b>Пополнение кейсов +10%</b><small>Бонус к балансу BLUP Cases</small></span></li>
+         <li role="option" data-value="case_bonus_25" data-icon="✦"><span class="opt-icon">✦</span><span class="opt-text"><b>Пополнение кейсов +25%</b><small>Бонус к балансу BLUP Cases</small></span></li>
        </ul>
        <input type="hidden" name="rewardType" value="sell_discount_1">
      </div>

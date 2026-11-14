@@ -57,6 +57,7 @@ async function refreshConfig(){
   }catch{}
 }
 refreshUser();refreshConfig();
+if(new URLSearchParams(location.search).get('login')==='1'){setTimeout(()=>openModal('authBackdrop'),250);}
 
 async function refreshMaintenance(){
  try{
