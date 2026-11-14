@@ -159,12 +159,12 @@
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <button class="modal-close" id="modalClose" aria-label="Закрыть">×</button>
       <div class="modal-eyebrow" id="modalEyebrow">BLUP / ЗАЯВКА</div><h2 id="modalTitle">Продажа криптовалюты</h2><p class="modal-desc" id="modalDesc">Заполни данные для оформления заявки.</p>
-      <div class="sell-steps" aria-label="Этапы оформления"><div class="sell-step active" id="sellStepTab1"><span>01</span> Отправка TON</div><div class="sell-step" id="sellStepTab2"><span>02</span> Заявка</div></div>
+      <div class="sell-steps" aria-label="Этапы оформления"><div class="sell-step active" id="sellStepTab1"><span>01</span> Отправка крипты</div><div class="sell-step" id="sellStepTab2"><span>02</span> Заявка</div></div>
       <form id="operationForm">
         <section id="sellStep1" class="sell-step-panel">
-          <p class="field-note full">Сначала отправь TON на кошелёк BLUP в сети TON. Проверь адрес и сеть перед переводом.</p>
-          <div id="sellTonWallet"></div>
-          <label class="sell-confirm"><input type="checkbox" id="tonSentConfirm"> Я отправил TON на указанный кошелёк</label>
+          <p class="field-note full">Выбери валюту и сеть. Отправь средства на показанный кошелёк BLUP и только после перевода переходи к заявке.</p>
+          <div class="form-grid"><label>Криптовалюта<select id="sellCoin"><option value="TON">TON</option><option value="USDT">USDT</option></select></label><label>Сеть<select id="sellNetwork"><option value="TON">TON</option></select></label><div id="sellCryptoWallet" class="full"></div></div>
+          <label class="sell-confirm"><input type="checkbox" id="cryptoSentConfirm"> Я отправил криптовалюту на указанный кошелёк</label>
           <button class="btn btn-primary btn-submit" type="button" id="goToApplication" disabled>ПЕРЕЙТИ К ЗАЯВКЕ →</button>
         </section>
         <section id="sellStep2" class="sell-step-panel hidden">
