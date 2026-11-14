@@ -83,6 +83,9 @@ db.ready = (async () => {
     await run(`CREATE TABLE IF NOT EXISTS case_inventory (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,case_id TEXT NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,price REAL NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run(`CREATE TABLE IF NOT EXISTS case_skin_withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,nickname TEXT,inventory_id INTEGER NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,price REAL NOT NULL,steam_trade_url TEXT NOT NULL,status TEXT DEFAULT 'pending',created_at TEXT DEFAULT CURRENT_TIMESTAMP,reviewed_at TEXT)`);
     await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_case_skin_withdraw_pending ON case_skin_withdrawals(inventory_id) WHERE status=\'pending\'');
+    const skinWithdrawalCols = new Set((await all('PRAGMA table_info(case_skin_withdrawals)')).map(x=>x.name));
+    if (!skinWithdrawalCols.has('expires_at')) await run('ALTER TABLE case_skin_withdrawals ADD COLUMN expires_at TEXT');
+
     await run(`CREATE TABLE IF NOT EXISTS case_openings (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,case_id TEXT NOT NULL,case_name TEXT NOT NULL,cost REAL NOT NULL,skin_id TEXT NOT NULL,skin_name TEXT NOT NULL,skin_price REAL NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
     await run('CREATE INDEX IF NOT EXISTS idx_case_inventory_user ON case_inventory(user_id,id DESC)');
     await run(`CREATE TABLE IF NOT EXISTS game_bets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, game TEXT, amount REAL, multiplier REAL, win_amount REAL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
