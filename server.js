@@ -585,27 +585,46 @@ app.get('/api/cases/upgrader/catalog',(req,res)=>{
   res.set('Cache-Control','no-store').json({skins});
 });
 
-let casesSkinImageCache={at:0,images:{}};
+let casesSkinImageCache={at:0,images:{},rarities:{}};
+const CASE_SKIN_IMAGE_DIR=path.join(__dirname,'public','assets','skins');
+let skinImageDownloadRunning=false;
+async function cacheCaseSkinImages(list){
+  if(skinImageDownloadRunning)return;
+  skinImageDownloadRunning=true;
+  try{
+    fs.mkdirSync(CASE_SKIN_IMAGE_DIR,{recursive:true});
+    const byName=new Map(Object.values(CASE_CATALOG.skins||{}).map(s=>[s.name,s]));
+    const jobs=(list||[]).filter(x=>x&&x.name&&x.image&&byName.has(x.name)).map(x=>({item:x,skin:byName.get(x.name)}));
+    let cursor=0;
+    const worker=async()=>{while(cursor<jobs.length){const job=jobs[cursor++];const file=path.join(CASE_SKIN_IMAGE_DIR,`${job.skin.id}.png`);if(fs.existsSync(file))continue;try{
+      const response=await fetch(job.item.image,{signal:AbortSignal.timeout(12000),headers:{'User-Agent':'BLUP-CS2-Image-Cache/1.0'}});
+      if(!response.ok)continue;
+      const type=String(response.headers.get('content-type')||'');if(!type.startsWith('image/'))continue;
+      const bytes=Buffer.from(await response.arrayBuffer());if(!bytes.length||bytes.length>8*1024*1024)continue;
+      await fs.promises.writeFile(file,bytes);
+    }catch(err){console.warn('CS2 skin image cache failed:',job.skin.id,err.message)}}};
+    await Promise.all(Array.from({length:6},worker));
+  }finally{skinImageDownloadRunning=false;}
+}
 app.get('/api/cases/skin-images',async(req,res)=>{
-  res.set('Cache-Control','public, max-age=3600');
-  if(casesSkinImageCache.at>Date.now()-6*60*60*1000&&Object.keys(casesSkinImageCache.images).length)return res.json({images:casesSkinImageCache.images,rarities:casesSkinImageCache.rarities||{}});
+  res.set('Cache-Control','no-store');
+  let list=null;
+  if(casesSkinImageCache.at>Date.now()-6*60*60*1000&&Object.keys(casesSkinImageCache.images).length){
+    const images={...casesSkinImageCache.images};
+    for(const skin of Object.values(CASE_CATALOG.skins||{})){const local=path.join(CASE_SKIN_IMAGE_DIR,`${skin.id}.png`);if(fs.existsSync(local))images[skin.name]=`/assets/skins/${skin.id}.png`;}
+    return res.json({images,rarities:casesSkinImageCache.rarities||{}});
+  }
   const sources=[
     'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json',
     'https://cdn.jsdelivr.net/gh/ByMykel/CSGO-API@main/public/api/en/skins.json',
     'https://bymykel.github.io/CSGO-API/api/en/skins.json'
   ];
-  const wanted=new Set(Object.values(CASE_CATALOG.skins||{}).map(s=>s.name));
-  for(const url of sources){
-    try{
-      const response=await fetch(url,{signal:AbortSignal.timeout(18000)});
-      if(!response.ok)continue;
-      const list=await response.json();
-      const images={},rarities={};
-      for(const item of list||[])if(item&&wanted.has(item.name)){if(typeof item.image==='string'&&/^https:\/\//.test(item.image))images[item.name]=item.image;if(item.rarity?.name)rarities[item.name]=item.rarity.name;}
-      if(Object.keys(images).length){casesSkinImageCache={at:Date.now(),images,rarities};return res.json({images,rarities});}
-    }catch(err){console.warn('CS2 skin image source failed:',url,err.message);}
-  }
-  return res.json({images:casesSkinImageCache.images||{},rarities:casesSkinImageCache.rarities||{}});
+  for(const url of sources){try{const response=await fetch(url,{signal:AbortSignal.timeout(18000)});if(response.ok){list=await response.json();if(Array.isArray(list)&&list.length)break;}}catch(err){console.warn('CS2 skin catalog source failed:',url,err.message)}}
+  const wanted=new Map(Object.values(CASE_CATALOG.skins||{}).map(s=>[s.name,s]));
+  const images={},rarities={};
+  for(const item of list||[]){const skin=wanted.get(item?.name);if(!skin)continue;if(item.rarity?.name)rarities[item.name]=item.rarity.name;if(typeof item.image==='string'&&/^https:\/\//.test(item.image)){const local=path.join(CASE_SKIN_IMAGE_DIR,`${skin.id}.png`);images[item.name]=fs.existsSync(local)?`/assets/skins/${skin.id}.png`:item.image;}}
+  if(Object.keys(images).length){casesSkinImageCache={at:Date.now(),images,rarities};cacheCaseSkinImages(list).catch(err=>console.warn('CS2 image cache task failed:',err.message));}
+  return res.json({images,rarities});
 });
 app.post('/api/cases/upgrader',caseUser,(req,res)=>{
   const ids=Array.isArray(req.body?.sourceIds)?[...new Set(req.body.sourceIds.map(Number))]:[];
