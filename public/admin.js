@@ -453,7 +453,30 @@ giveawayFiles?.addEventListener('change',()=>{
   $('#giveawayFilesHint').textContent=files.length>5?'Можно выбрать не более 5 PNG.':files.map(f=>`${f.name} (${(f.size/1024/1024).toFixed(2)} МБ)`).join(' · ')||'Можно загрузить до пяти изображений.';
   $('#giveawayImageCaptions').innerHTML=files.slice(0,5).map((f,i)=>`<label style="display:block;margin:8px 0">Подпись к фото ${i+1}<input data-giveaway-caption="${i}" maxlength="100" placeholder="${esc(f.name.replace(/\.png$/i,''))}"></label>`).join('');
 });
-function fileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(new Error('Не удалось прочитать PNG'));r.readAsDataURL(file);});}
+async function fileAsDataUrl(file){
+ const source=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(new Error('Не удалось прочитать PNG'));r.readAsDataURL(file);});
+ // Удаляем только серую клетчатую подложку, связанную с краями изображения.
+ // Цветные детали самого скина не затрагиваются.
+ const image=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(new Error('Не удалось обработать PNG'));im.src=source;});
+ const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0);
+ const w=canvas.width,h=canvas.height;if(!w||!h)return source;
+ const frame=ctx.getImageData(0,0,w,h),px=frame.data,total=w*h,seen=new Uint8Array(total),queue=new Int32Array(total);
+ const isBackdrop=i=>{
+  const k=i*4,r=px[k],g=px[k+1],b=px[k+2],a=px[k+3];
+  if(a<8)return true;
+  const hi=Math.max(r,g,b),lo=Math.min(r,g,b),sat=hi?((hi-lo)/hi):0,lum=(r+g+b)/765;
+  return sat<.13 && lum>.12 && lum<.985;
+ };
+ let head=0,tail=0;
+ const add=i=>{if(i>=0&&i<total&&!seen[i]&&isBackdrop(i)){seen[i]=1;queue[tail++]=i;}};
+ for(let x=0;x<w;x++){add(x);add((h-1)*w+x);}
+ for(let y=1;y<h-1;y++){add(y*w);add(y*w+w-1);}
+ while(head<tail){const i=queue[head++];px[i*4+3]=0;
+  const x=i%w;if(x>0)add(i-1);if(x<w-1)add(i+1);if(i>=w)add(i-w);if(i<total-w)add(i+w);
+ }
+ ctx.putImageData(frame,0,0);return canvas.toDataURL('image/png');
+}
 async function loadAdminGiveaway(){
  const d=await api('/api/admin/giveaways'),g=d.giveaway,el=$('#giveawayAdminCurrent');if(!el)return;
  if(!g){el.innerHTML='<p class="admin-footnote">Сейчас активного розыгрыша нет.</p>';return;}
