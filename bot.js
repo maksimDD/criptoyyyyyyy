@@ -44,6 +44,18 @@ async function sendToAll(message, options = {}) {
 }
 
 async function notifyAdmin(item) {
+  if (item.operation === 'case_skin_withdraw') {
+    return sendToAll(
+      `🎮 ЗАЯВКА НА ВЫВОД СКИНА BLUP CASES\n` +
+      `👤 Пользователь: ${item.nickname || '—'}\n` +
+      `🔫 Скин: ${item.skin_name || '—'}\n` +
+      `💰 Стоимость: $${Number(item.price || 0).toFixed(2)}\n` +
+      `🔗 Steam Trade URL: ${item.steam_trade_url || '—'}\n` +
+      `🧾 Заявка: #${item.id || '—'}\n` +
+      `🕐 Время МСК: ${moscowTime()}`
+    );
+  }
+
   const isWithdraw =
     item.operation === 'withdraw' ||
     item.operation === 'ref_withdraw' ||

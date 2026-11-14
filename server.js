@@ -641,7 +641,7 @@ app.post('/api/admin/cases/skin-withdrawals/:id/status',adminOnly,(req,res)=>{
   });
 });
 app.get('/api/cases/config',(req,res)=>db.get('SELECT value FROM settings WHERE key=?',['usdt_rate'],(e,row)=>e?res.status(500).json({error:'Ошибка курса'}):res.json({rubPerUsd:Number(row?.value)||82.829,rateSource:Number(row?.value)>0?'admin':'market-snapshot'})));
-app.get('/cases/profile', (req,res)=>res.sendFile(path.join(__dirname,'public','profile.html')));
+app.get('/cases/profile', (req,res)=>res.sendFile(path.join(__dirname,'public','cases-profile.html')));
 app.get('/cases', (req,res)=>res.sendFile(path.join(__dirname,'public','cases.html')));
 app.get('/games', (req,res)=>res.redirect(302,'/cases'));
 app.get('/admin/cases',(req,res)=>res.sendFile(path.join(__dirname,'public','admin-cases.html')));
