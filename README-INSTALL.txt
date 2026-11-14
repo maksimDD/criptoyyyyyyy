@@ -95,7 +95,7 @@ TELEGRAM SETUP (UPDATED)
 === BLUP CASES UPDATE (14.11.2026) ===
 - Case mode remains hidden from the main homepage; direct route: /cases.
 - Case profile/inventory and Steam Trade URL settings: /cases/profile.
-- 25 generated case cover images are served as WebP URLs: /assets/cases/case-01.webp ... case-25.webp.
+- 25 generated case cover images are served as WebP URLs: /assets/cases/case-01.png ... case-25.png.
 - Case catalogue contains 25 cases with 18-22 items each. All configured skin prices are between $0.20 and $50.00.
 - The case page currency selector displays USDT or RUB. RUB uses the admin usdt_rate setting; if unset, a fallback market snapshot is used until the admin configures the rate.
 - Users can sell an inventory skin for 90% of the configured reference price, credited to their BLUP case balance.

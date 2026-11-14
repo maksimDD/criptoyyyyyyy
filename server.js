@@ -601,6 +601,23 @@ async function cacheCaseSkinImages(list){
       if(!response.ok)continue;
       const type=String(response.headers.get('content-type')||'');if(!type.startsWith('image/'))continue;
       const bytes=Buffer.from(await response.arrayBuffer());if(!bytes.length||bytes.length>8*1024*1024)continue;
+      // CS2 panorama *_light_png.png renders are transparent cut-outs.
+      // Never save JPEG/WebP or opaque thumbnails under a .png filename.
+      const pngSignature=Buffer.from([137,80,78,71,13,10,26,10]);
+      if(bytes.length<26||!bytes.subarray(0,8).equals(pngSignature))continue;
+      const colorType=bytes[25];
+      let hasTransparency=(colorType===4||colorType===6);
+      if(!hasTransparency){
+        let offset=8;
+        while(offset+12<=bytes.length){
+          const length=bytes.readUInt32BE(offset);
+          const chunk=bytes.toString('ascii',offset+4,offset+8);
+          if(chunk==='tRNS'){hasTransparency=true;break;}
+          offset+=12+length;
+          if(offset>bytes.length)break;
+        }
+      }
+      if(!hasTransparency)continue;
       await fs.promises.writeFile(file,bytes);
     }catch(err){console.warn('CS2 skin image cache failed:',job.skin.id,err.message)}}};
     await Promise.all(Array.from({length:6},worker));
