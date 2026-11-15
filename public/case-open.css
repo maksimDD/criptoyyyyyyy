@@ -2,3 +2,4 @@
 .roulette-item img,
 .drop-result img,
 .possible-skin img{display:block;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;object-fit:contain!important;mix-blend-mode:normal;}.showcase-item img{filter:drop-shadow(0 7px 13px #0008)}.roulette-item img{filter:drop-shadow(0 5px 9px #0008)}.drop-result img,.possible-skin img{filter:drop-shadow(0 5px 10px #0008)}.case-card img,.case-item img,.case-cover img,.case-art img,.case-image img,.case-detail-cover img,.case-preview img{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;object-fit:contain!important;mix-blend-mode:normal!important;}
+.case-heading{display:flex;flex-direction:column;align-items:center;gap:3px}.case-subtitle{margin:0;color:#72caff;font-size:12px;font-weight:800}
