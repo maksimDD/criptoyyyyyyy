@@ -245,10 +245,10 @@
   "cases": [
     {
       "id": "case_01",
-      "name": "Радиант",
+      "name": "Ледяной импульс",
       "tier": "Базовый",
       "price": 1.37,
-      "image": "/assets/cases/blupcase-01.webp",
+      "image": "/assets/cases/case-01.png",
       "items": [
         "ak_elite",
         "usp_cyrex",
@@ -290,15 +290,14 @@
         "m4_player2": 0.0567
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_02",
-      "name": "Ледяной протокол",
+      "name": "Зелёный сигнал",
       "tier": "Базовый",
       "price": 2.19,
-      "image": "/assets/cases/blupcase-02.webp",
+      "image": "/assets/cases/case-02.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -342,15 +341,14 @@
         "ak_nightwish": 0.0554
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_03",
-      "name": "Неон-пульс",
+      "name": "Глитч",
       "tier": "Базовый",
       "price": 3.01,
-      "image": "/assets/cases/blupcase-03.webp",
+      "image": "/assets/cases/case-03.png",
       "items": [
         "ak_elite",
         "deagle_bronze",
@@ -396,15 +394,14 @@
         "m4_player2": 0.0538
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_04",
-      "name": "Золотой резерв",
+      "name": "Пламенный",
       "tier": "Базовый",
       "price": 3.82,
-      "image": "/assets/cases/blupcase-04.webp",
+      "image": "/assets/cases/case-04.png",
       "items": [
         "ak_elite",
         "usp_cyrex",
@@ -452,15 +449,14 @@
         "m4_player2": 0.0561
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_05",
-      "name": "Орбитальный дроп",
+      "name": "Полярная ночь",
       "tier": "Базовый",
       "price": 4.64,
-      "image": "/assets/cases/blupcase-05.webp",
+      "image": "/assets/cases/case-05.png",
       "items": [
         "ak_midnight",
         "awp_duality",
@@ -510,15 +506,14 @@
         "m4_player2": 0.0595
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_06",
-      "name": "Адский контейнер",
+      "name": "Красный код",
       "tier": "Базовый",
       "price": 5.46,
-      "image": "/assets/cases/blupcase-06.webp",
+      "image": "/assets/cases/case-06.png",
       "items": [
         "deagle_bronze",
         "ak_midnight",
@@ -560,15 +555,14 @@
         "m4_player2": 0.0556
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_07",
-      "name": "Эфирный призрак",
+      "name": "Киберволна",
       "tier": "Базовый",
       "price": 6.28,
-      "image": "/assets/cases/blupcase-07.webp",
+      "image": "/assets/cases/case-07.png",
       "items": [
         "ak_elite",
         "deagle_bronze",
@@ -612,15 +606,14 @@
         "ak_nightwish": 0.0536
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_08",
-      "name": "Змеиный код",
+      "name": "Золотой прицел",
       "tier": "Продвинутый",
       "price": 7.1,
-      "image": "/assets/cases/blupcase-08.webp",
+      "image": "/assets/cases/case-08.png",
       "items": [
         "ak_elite",
         "deagle_bronze",
@@ -666,15 +659,14 @@
         "m4_player2": 0.0541
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_09",
-      "name": "Грозовой разряд",
+      "name": "Призрак",
       "tier": "Продвинутый",
       "price": 7.91,
-      "image": "/assets/cases/blupcase-09.webp",
+      "image": "/assets/cases/case-09.png",
       "items": [
         "deagle_bronze",
         "ak_midnight",
@@ -722,15 +714,14 @@
         "ak_nightwish": 0.0558
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_10",
-      "name": "Призма",
+      "name": "Корона",
       "tier": "Продвинутый",
       "price": 8.73,
-      "image": "/assets/cases/blupcase-10.webp",
+      "image": "/assets/cases/case-10.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -780,15 +771,14 @@
         "m4_player2": 0.0545
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_11",
-      "name": "Королевский лут",
+      "name": "Токсик",
       "tier": "Продвинутый",
       "price": 9.55,
-      "image": "/assets/cases/blupcase-11.webp",
+      "image": "/assets/cases/case-11.png",
       "items": [
         "deagle_bronze",
         "ak_midnight",
@@ -830,15 +820,14 @@
         "m4_player2": 0.0549
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_12",
-      "name": "Глитч-система",
+      "name": "Глубина",
       "tier": "Продвинутый",
       "price": 10.37,
-      "image": "/assets/cases/blupcase-12.webp",
+      "image": "/assets/cases/case-12.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -882,15 +871,14 @@
         "m4_player2": 0.0552
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_13",
-      "name": "Лунная тень",
+      "name": "Пиксельный шторм",
       "tier": "Продвинутый",
       "price": 11.18,
-      "image": "/assets/cases/blupcase-13.webp",
+      "image": "/assets/cases/case-13.png",
       "items": [
         "ak_elite",
         "deagle_bronze",
@@ -936,15 +924,14 @@
         "m4_player2": 0.0534
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_14",
-      "name": "Реактор X",
+      "name": "Пустынный рейд",
       "tier": "Продвинутый",
       "price": 12.0,
-      "image": "/assets/cases/blupcase-14.webp",
+      "image": "/assets/cases/case-14.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -992,15 +979,14 @@
         "mp9_star": 0.0546
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_15",
-      "name": "Драконий импульс",
+      "name": "Снежный барс",
       "tier": "Продвинутый",
       "price": 12.82,
-      "image": "/assets/cases/blupcase-15.webp",
+      "image": "/assets/cases/case-15.png",
       "items": [
         "deagle_bronze",
         "ak_midnight",
@@ -1050,15 +1036,14 @@
         "mp9_star": 0.0547
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_16",
-      "name": "Око бездны",
+      "name": "Кристалл",
       "tier": "Премиум",
       "price": 13.64,
-      "image": "/assets/cases/blupcase-16.webp",
+      "image": "/assets/cases/case-16.png",
       "items": [
         "ak_elite",
         "deagle_bronze",
@@ -1100,15 +1085,14 @@
         "m4_player2": 0.0538
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_17",
-      "name": "Самурай",
+      "name": "Сапфировый заряд",
       "tier": "Премиум",
       "price": 14.46,
-      "image": "/assets/cases/blupcase-17.webp",
+      "image": "/assets/cases/case-17.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -1152,15 +1136,14 @@
         "m4_player2": 0.055
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_18",
-      "name": "Северное сияние",
+      "name": "Драконий след",
       "tier": "Премиум",
       "price": 15.27,
-      "image": "/assets/cases/blupcase-18.webp",
+      "image": "/assets/cases/case-18.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -1206,15 +1189,14 @@
         "mp9_star": 0.0548
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_19",
-      "name": "Чёрная дыра",
+      "name": "Громовержец",
       "tier": "Премиум",
       "price": 16.09,
-      "image": "/assets/cases/blupcase-19.webp",
+      "image": "/assets/cases/case-19.png",
       "items": [
         "ak_midnight",
         "awp_duality",
@@ -1262,15 +1244,14 @@
         "m4_player2": 0.0571
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_20",
-      "name": "Джекпот",
+      "name": "Голограф",
       "tier": "Премиум",
       "price": 16.91,
-      "image": "/assets/cases/blupcase-20.webp",
+      "image": "/assets/cases/case-20.png",
       "items": [
         "ak_midnight",
         "awp_duality",
@@ -1320,15 +1301,14 @@
         "m4_player2": 0.0589
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_21",
-      "name": "Неон-кросс",
+      "name": "Лавовый разлом",
       "tier": "Премиум",
       "price": 17.73,
-      "image": "/assets/cases/blupcase-21.webp",
+      "image": "/assets/cases/case-21.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -1370,15 +1350,14 @@
         "mp9_star": 0.0558
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_22",
-      "name": "Энерго-кольцо",
+      "name": "Тёмный металл",
       "tier": "Премиум",
       "price": 18.55,
-      "image": "/assets/cases/blupcase-22.webp",
+      "image": "/assets/cases/case-22.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -1422,15 +1401,14 @@
         "mp9_star": 0.0545
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_23",
-      "name": "Черепной фонд",
+      "name": "Рубиновый след",
       "tier": "Премиум",
       "price": 19.36,
-      "image": "/assets/cases/blupcase-23.webp",
+      "image": "/assets/cases/case-23.png",
       "items": [
         "ak_midnight",
         "awp_duality",
@@ -1476,15 +1454,14 @@
         "m4_player2": 0.0589
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_24",
-      "name": "Кристальный пик",
+      "name": "Фантомная энергия",
       "tier": "Премиум",
       "price": 20.18,
-      "image": "/assets/cases/blupcase-24.webp",
+      "image": "/assets/cases/case-24.png",
       "items": [
         "deagle_bronze",
         "ak_midnight",
@@ -1532,15 +1509,14 @@
         "m4_player2": 0.0547
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     },
     {
       "id": "case_25",
-      "name": "Портал удачи",
+      "name": "Радужный арсенал",
       "tier": "Премиум",
       "price": 21.0,
-      "image": "/assets/cases/blupcase-25.webp",
+      "image": "/assets/cases/case-25.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -1590,8 +1566,7 @@
         "mp9_star": 0.0545
       },
       "rtp": 90.0,
-      "priceRUB": null,
-      "brand": "BlupCase"
+      "priceRUB": null
     }
   ],
   "imageSource": "Generated BLUP case artwork, served as WebP URLs under /assets/cases/.",

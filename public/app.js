@@ -13,8 +13,30 @@ $$('.nav-link').forEach(a=>a.addEventListener('click',()=>{$$('.nav-link').forEa
 
 if ($('#reviewsNav')) $('#reviewsNav').addEventListener('click',e=>{e.preventDefault();$('#nav').classList.remove('open');openModal('reviewsBackdrop');});
 if ($('#reviewsClose')) $('#reviewsClose').addEventListener('click',()=>closeModal('reviewsBackdrop'));
-if ($('#giveawaysNav')) $('#giveawaysNav').addEventListener('click',async e=>{e.preventDefault();$('#nav')?.classList.remove('open');openModal('giveawaysBackdrop');const root=$('#giveawaysModalContent');root.innerHTML='<p>Загружаем розыгрыш…</p>';try{const d=await api('/api/giveaways/current');const g=d.giveaway;if(!g){root.innerHTML='<div class="giveaway-empty">Сейчас активных розыгрышей нет.</div>';return;}root.innerHTML=`<div class="giveaway-modal-card"><h3>${escapeHtml(g.title)}</h3><p>${escapeHtml(g.description||'')}</p><div class="giveaway-modal-meta"><span>Участников <b>${g.entries.length}</b></span><span>Призовых мест <b>${g.winner_slots}</b></span></div>${(g.prizes||[]).map(x=>`<div class="giveaway-modal-prize"><img src="${x.image_data}" alt=""><b>${escapeHtml(x.caption||'Приз')}</b></div>`).join('')}<a class="btn btn-primary btn-small" href="/giveaways">Открыть розыгрыш ↗</a></div>`;}catch(err){root.textContent=err.message;}});
-if ($('#giveawaysClose')) $('#giveawaysClose').addEventListener('click',()=>closeModal('giveawaysBackdrop'));
+let giveawayModalPoll=null,giveawayModalFingerprint='';
+async function renderGiveawayModal(animate=false){
+ const root=$('#giveawaysModalContent');
+ try{
+  const d=await api('/api/giveaways/current'),g=d.giveaway;
+  if(!g){root.innerHTML='<div class="giveaway-empty">Сейчас активных розыгрышей нет.</div>';giveawayModalFingerprint='none';return;}
+  const participants=(g.entries||[]).map(u=>u.nickname||('Участник #'+u.public_id));
+  const winners=Array.isArray(g.winners)?g.winners:[];
+  const finished=g.status==='finished';
+  const fingerprint=JSON.stringify({id:g.id,status:g.status,entries:(g.entries||[]).map(u=>u.user_id),winners});
+  giveawayModalFingerprint=fingerprint;
+  root.innerHTML=`<div class="giveaway-modal-card"><h3>${escapeHtml(g.title)}</h3><p>${escapeHtml(g.description||'')}</p><div class="giveaway-modal-meta"><span>Участников <b>${participants.length}</b></span><span>Призовых мест <b>${g.winner_slots}</b></span></div>${(g.prizes||[]).map(x=>`<div class="giveaway-modal-prize"><img src="${x.image_data}" alt=""><b>${escapeHtml(x.caption||'Приз')}</b></div>`).join('')}<div class="giveaway-wheel-wrap"><div class="public-giveaway-wheel ${finished&&winners.length&&animate?'spinning':''}" id="publicGiveawayWheel">${participants.slice(0,12).map((n,i)=>`<span class="public-wheel-name" style="--angle:${i*30}deg">${escapeHtml(n)}</span>`).join('')}<div class="public-wheel-core"><small>${finished?'ИТОГИ РОЗЫГРЫША':'УЧАСТНИКИ'}</small>${finished&&winners.length?'ПОБЕДИТЕЛЬ':'BLUPCASE'}</div></div><div class="giveaway-wheel-participants">${participants.slice(0,40).map(n=>`<span>${escapeHtml(n)}</span>`).join('')||'<span>Пока нет участников</span>'}</div>${finished&&winners.length?`<div class="giveaway-wheel-winners">${winners.map(w=>`<div><b>${Number(w.place)||''} место — ${escapeHtml(w.nickname||'Победитель')}</b></div>`).join('')}</div>`:'<small>У каждого участника одинаковый шанс на победу</small>'}</div><a class="btn btn-primary btn-small" href="/giveaways">Участвовать ↗</a></div>`;
+ }catch(err){root.textContent=err.message;}
+}
+if ($('#giveawaysNav')) $('#giveawaysNav').addEventListener('click',async e=>{
+ e.preventDefault();$('#nav')?.classList.remove('open');openModal('giveawaysBackdrop');
+ if(giveawayModalPoll)clearInterval(giveawayModalPoll);
+ giveawayModalFingerprint='';$('#giveawaysModalContent').innerHTML='<p>Загружаем розыгрыш…</p>';
+ await renderGiveawayModal(true);
+ giveawayModalPoll=setInterval(async()=>{
+  try{const d=await api('/api/giveaways/current'),g=d.giveaway;const fp=g?JSON.stringify({id:g.id,status:g.status,entries:(g.entries||[]).map(u=>u.user_id),winners:g.winners||[]}):'none';if(fp!==giveawayModalFingerprint)await renderGiveawayModal(true);}catch{}
+ },1500);
+});
+if ($('#giveawaysClose')) $('#giveawaysClose').addEventListener('click',()=>{if(giveawayModalPoll)clearInterval(giveawayModalPoll);giveawayModalPoll=null;closeModal('giveawaysBackdrop');});
 if ($('#ludkaOpen')) $('#ludkaOpen').addEventListener('click',()=>openModal('ludkaBackdrop'));
 $$('[data-modal-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.modalClose)));
 if ($('#rateDrawerOpen')) $('#rateDrawerOpen').addEventListener('click',()=>$('#rateDrawer').classList.toggle('open'));

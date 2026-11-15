@@ -59,28 +59,3 @@ a{text-decoration:none!important}
 .filter,.auth-tabs,.list-tab,.target-tab,.tab{border-radius:999px!important;border:1px solid rgba(200,255,114,.2)!important;background:rgba(255,255,255,.045)!important;color:#d6d8c9!important;transition:.22s!important}
 .filter.active,.auth-tabs .active,.list-tab.active,.target-tab.active,.tab.active{background:linear-gradient(110deg,#c8ff72,#ffe66d)!important;color:#171910!important;border-color:transparent!important;box-shadow:0 8px 24px #c8ff7228!important}
 .skin-card,.inventory-card{background:linear-gradient(145deg,#25262e,#171820)!important;border-color:rgba(200,255,114,.17)!important}
-
-/* BlupCase identity refresh: animated collectible cover artwork */
-.cases-home-page{--bc-lime:#c8ff62;--bc-yellow:#ffe66d;--bc-violet:#a66bff;--bc-green:#83f28a}
-.cases-home-page .brand{gap:11px;letter-spacing:.1px;text-transform:none}
-.cases-home-page .brand-mark{border-radius:50%;background:linear-gradient(135deg,var(--bc-lime),var(--bc-yellow) 48%,var(--bc-violet));color:#171329;box-shadow:0 0 24px #c8ff6255}
-.cases-home-page .hero h1 span,.cases-home-page .section-head h2 span{background:linear-gradient(95deg,var(--bc-lime),var(--bc-yellow) 48%,#c99aff);background-clip:text;color:transparent}
-.cases-home-page .eyebrow{color:var(--bc-lime)}
-.cases-home-page .case-grid{gap:17px}
-.cases-home-page .case-card{isolation:isolate;min-height:246px;border:1px solid #c8ff6228!important;background:linear-gradient(145deg,#1b2030,#111522 72%)!important;box-shadow:0 14px 36px #0005;transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .35s,box-shadow .35s}
-.cases-home-page .case-card:before{content:"";z-index:-1;position:absolute;width:190px;height:190px;right:-60px;top:-65px;border-radius:50%;background:radial-gradient(circle,#c8ff62aa 0, #a66bff55 38%,transparent 72%);filter:blur(22px);opacity:.45;animation:bcAura 7s ease-in-out infinite alternate}
-.cases-home-page .case-card:after{content:"";position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:inherit;background:linear-gradient(115deg,transparent 15%,#ffffff0a 36%,#ffffff1b 49%,transparent 62%);transform:translateX(-130%);animation:bcSheen 7s ease-in-out infinite;animation-delay:calc(var(--card-index,0)*-.23s)}
-.cases-home-page .case-card:hover{transform:translateY(-8px) scale(1.018)!important;border-color:#c8ff62a8!important;box-shadow:0 22px 48px #0008,0 0 30px #c8ff6220!important}
-.cases-home-page .case-art{height:155px;margin:0 -1px 12px;border-radius:13px;background:radial-gradient(ellipse at 50% 65%,#a66bff20,transparent 68%),linear-gradient(145deg,#171d2b,#0c111d);overflow:hidden}
-.cases-home-page .case-art:before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at 50% 100%,#c8ff6220,transparent 65%);opacity:.8}
-.cases-home-page .case-art img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover!important;padding:0!important;border-radius:10px;mix-blend-mode:normal!important;filter:saturate(1.12) contrast(1.04) drop-shadow(0 12px 18px #0009);animation:bcCoverFloat 6s ease-in-out infinite;animation-delay:calc(var(--card-index,0)*-.19s);transition:filter .35s,transform .45s}
-.cases-home-page .case-card:hover .case-art img{transform:scale(1.075) translateY(-3px)!important;filter:saturate(1.35) brightness(1.12) drop-shadow(0 14px 22px #c8ff6230)}
-.cases-home-page .case-card h3{font-size:14px;letter-spacing:.1px;margin:7px 0 3px;color:#f4f7e9}
-.cases-home-page .case-card-price{color:var(--bc-lime)!important;text-shadow:0 0 17px #c8ff6244!important}
-.cases-home-page .filter{border-radius:999px;background:#151a28;color:#aab39d;border-color:#ffffff16}
-.cases-home-page .filter.active{background:linear-gradient(100deg,#c8ff62,#ffe66d);color:#171b17;border-color:transparent;box-shadow:0 6px 22px #c8ff6230}
-@keyframes bcCoverFloat{0%,100%{transform:translateY(1px) scale(1)}50%{transform:translateY(-5px) scale(1.025)}}
-@keyframes bcAura{0%{transform:translate(-12px,4px) scale(.88);opacity:.28}100%{transform:translate(8px,-10px) scale(1.12);opacity:.58}}
-@keyframes bcSheen{0%,68%,100%{transform:translateX(-130%)}82%{transform:translateX(130%)}}
-@media(prefers-reduced-motion:reduce){.cases-home-page .case-card,.cases-home-page .case-art img,.cases-home-page .case-card:before,.cases-home-page .case-card:after{animation:none!important;transition:none!important}}
-@media(max-width:780px){.cases-home-page .case-grid{gap:11px}.cases-home-page .case-art{height:122px}.cases-home-page .case-card{min-height:205px}}

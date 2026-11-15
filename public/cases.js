@@ -60,7 +60,7 @@ function renderCases(filter='all'){
       grid.innerHTML='<div class="loading-state">Кейсы не найдены. Попробуй другой фильтр.</div>';
       return;
     }
-    grid.innerHTML=list.map((c,i)=>`<article class="case-card" data-case="${esc(c.id)}" style="--card-index:${i};--case-color:${['#4754aa','#257a93','#7648a8','#985a54','#3d8c78'][i%5]};--case-glow:${['#665cff','#38cce0','#a66cff','#ff9e66'][i%4]}"><div class="case-art"><img src="${esc(caseCover(c))}" alt="${esc(c.name)}" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('cover-fallback')"></div><h3>${esc(c.name)}</h3><div class="case-card-price">${money(c.price)}</div></article>`).join('');
+    grid.innerHTML=list.map((c,i)=>`<article class="case-card" data-case="${esc(c.id)}" style="--case-color:${['#4754aa','#257a93','#7648a8','#985a54','#3d8c78'][i%5]};--case-glow:${['#665cff','#38cce0','#a66cff','#ff9e66'][i%4]}"><div class="case-art"><img src="${esc(caseCover(c))}" alt="${esc(c.name)}" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('cover-fallback')"></div><h3>${esc(c.name)}</h3><div class="case-card-price">${money(c.price)}</div></article>`).join('');
     $$('.case-card').forEach(el=>el.onclick=()=>location.href='/cases/'+encodeURIComponent(el.dataset.case));
   }catch(e){console.error('renderCases error:',e);const g=$('#caseGrid');if(g)g.innerHTML='<div class="loading-state">Ошибка отрисовки кейсов. Обнови страницу.</div>'}
 }
