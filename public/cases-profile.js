@@ -1,15 +1,77 @@
-const cp$=s=>document.querySelector(s);const cpEsc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function cpJson(r,label){const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`${label}: ошибка`);return d}
-let cpImages={};let cpTimerInterval=null;let cpCurrency=localStorage.getItem('blupDisplayCurrency')==='RUB'?'RUB':'USDT',cpRate=82.829;const cpMoney=n=>{const v=Number(n||0)*(cpCurrency==='RUB'?cpRate:1);return cpCurrency==='RUB'?v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₽':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})};
-function startCpCountdown(){if(cpTimerInterval)clearInterval(cpTimerInterval);const tick=()=>document.querySelectorAll('[data-expiry]').forEach(el=>{const left=Math.max(0,Math.floor((new Date(el.dataset.expiry).getTime()-Date.now())/1000));el.querySelector('b').textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}`;if(left===0){el.classList.add('expired');if(!el.dataset.refreshed){el.dataset.refreshed='1';setTimeout(cpLoad,500)}}});tick();cpTimerInterval=setInterval(tick,1000)}
-async function cpLoad(){try{const p=await cpJson(await fetch('/api/profile',{credentials:'same-origin'}),'Профиль');cp$('#cp-nick').textContent=p.nickname||'Пользователь';const img=cp$('#cp-avatar');if(p.telegram_photo_url){img.src=p.telegram_photo_url;img.onerror=()=>{img.style.display='none';cp$('#cp-avatar-fallback').style.display='grid'}}else{img.style.display='none';cp$('#cp-avatar-fallback').style.display='grid';cp$('#cp-avatar-fallback').textContent=(p.nickname||'B').slice(0,1).toUpperCase()}cp$('#cp-trade-url').value=p.steam_trade_url||'';
-}catch(e){if(/Войдите/.test(e.message)||e.message.includes('401')){location.href='/?login=1';return}cp$('#cp-error').textContent=e.message;return}
-try{const [inv,art,cfg]=await Promise.all([cpJson(await fetch('/api/cases/inventory',{credentials:'same-origin'}),'Инвентарь'),fetch('https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json').then(r=>r.ok?r.json():[]).catch(()=>[]),fetch('/api/cases/config').then(r=>r.json()).catch(()=>({}))]);cpRate=Number(cfg.rubPerUsd)||82.829;for(const x of art)if(x.name&&x.image)cpImages[x.name]=x.image;const grid=cp$('#cp-inventory');if(!inv.items?.length){grid.innerHTML='<div class="cases-profile-empty"><strong>Пока нет скинов.</strong>Открой кейс, чтобы получить первый предмет.<br><a href="/cases">Перейти к кейсам →</a></div>';return}grid.innerHTML=inv.items.map(x=>`<article class="cases-profile-skin"><img loading="lazy" src="${cpEsc(cpImages[x.skin_name]||'')}" alt="${cpEsc(x.skin_name)}"><b>${cpEsc(x.skin_name)}</b><div class="skin-price">${cpMoney(x.price)}</div><div class="skin-actions"><button data-cp-sell="${x.id}">Продать за ${cpMoney(x.price)}</button><button data-cp-withdraw="${x.id}" ${x.withdrawal_pending?'disabled':''}>${x.withdrawal_pending?'Заявка отправлена':'Вывести в Steam'}</button></div>${x.withdrawal_pending&&x.withdrawal_expires_at?`<div class=\"withdraw-countdown\" data-expiry=\"${cpEsc(x.withdrawal_expires_at)}\">Ожидание: <b>45:00</b></div>`:''}</article>`).join('');startCpCountdown();grid.querySelectorAll('[data-cp-sell]').forEach(b=>b.onclick=async()=>{if(!confirm('Продать скин по полной указанной цене?'))return;try{const d=await cpJson(await fetch(`/api/cases/inventory/${b.dataset.cpSell}/sell`,{method:'POST',credentials:'same-origin'}),'Продажа');alert(`Скин продан. Начислено ${cpMoney(d.credited)}.`);cpLoad()}catch(e){alert(e.message)}});grid.querySelectorAll('[data-cp-withdraw]').forEach(b=>b.onclick=async()=>{if(!confirm('Создать заявку на вывод этого скина в Steam?'))return;try{const d=await cpJson(await fetch(`/api/cases/inventory/${b.dataset.cpWithdraw}/withdraw`,{method:'POST',credentials:'same-origin'}),'Вывод');alert(`Заявка №${d.id} создана. Отправка подтверждается администратором.`);cpLoad()}catch(e){alert(e.message);if(e.message.includes('Trade URL'))cp$('#cp-trade-url').focus()}})}catch(e){cp$('#cp-inventory').innerHTML=`<p class="muted">${cpEsc(e.message)}</p>`}}
-cp$('#cp-trade-form').onsubmit=async e=>{e.preventDefault();const msg=cp$('#cp-trade-message');msg.textContent='Сохраняем…';try{const d=await cpJson(await fetch('/api/profile/steam-trade',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:cp$('#cp-trade-url').value.trim()})}),'Steam Trade URL');cp$('#cp-trade-url').value=d.url;msg.textContent='Ссылка обмена сохранена.'}catch(err){msg.textContent=err.message}};
-const cpCur=cp$('#cp-currency');if(cpCur){cpCur.value=cpCurrency;cpCur.onchange=()=>{cpCurrency=cpCur.value;localStorage.setItem('blupDisplayCurrency',cpCurrency);cpLoad()}}
-cp$('#cp-logout').onclick=async()=>{try{await fetch('/api/logout',{method:'POST',credentials:'same-origin'})}catch{}location.href='/'};cpLoad();
-// Продажа всего доступного инвентаря одним действием.
-(async function cpSellAll(){const info=cp$('#cp-sellall-info'),btn=cp$('#cp-sellall-btn');if(!info||!btn)return;
-const refresh=async()=>{try{const d=await cpJson(await fetch('/api/cases/inventory',{credentials:'same-origin'}),'Инвентарь');const items=d.items||[],el=items.filter(x=>!x.withdrawal_pending),total=el.reduce((a,x)=>a+Number(x.price||0),0);info.textContent=items.length?`Предметов: ${items.length} · доступно к продаже: ${el.length} · сумма: ${cpMoney(total)}`:'Инвентарь пуст';btn.disabled=!el.length}catch(e){info.textContent=e.message;btn.disabled=true}};
-btn.onclick=async()=>{if(btn.disabled)return;if(!confirm('Продать все доступные скины и зачислить их стоимость на баланс?'))return;btn.disabled=true;info.textContent='Обрабатываем продажу…';try{const d=await cpJson(await fetch('/api/cases/inventory/sell-all',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({})}),'Продажа');alert(`Продано: ${d.sold} · начислено: ${cpMoney(d.credited)} · баланс: ${cpMoney(d.balance)}`);cpLoad()}catch(e){alert(e.message)}finally{setTimeout(refresh,600)}};
-await refresh()})();
+const $=s=>document.querySelector(s);
+const setText=(s,v)=>{const e=$(s);if(e)e.textContent=v;};
+const setHTML=(s,v)=>{const e=$(s);if(e)e.innerHTML=v;};
+const on=(s,ev,fn)=>{const e=$(s);if(e)e.addEventListener(ev,fn);};
+
+let inventory=[],targets=[],selected=new Set(),targetId='',busy=false,balanceAmount=0,balanceAvailable=0,statusMessage='';
+const usd=n=>'$'+Number(n||0).toFixed(2);
+const stake=()=>inventory.filter(x=>selected.has(Number(x.id))).reduce((a,x)=>a+Number(x.price||0),0)+balanceAmount;
+const chosen=()=>targets.find(x=>String(x.id)===String(targetId));
+
+async function api(url,opts={}){const r=await fetch(url,{...opts,credentials:'same-origin',headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Ошибка');return d}
+
+function render(){
+  try{
+    const st=stake(), t=chosen(), ch=t&&st>0?Math.min(86,Math.max(1,st/Number(t.price)*100)):0;
+
+    setHTML('#sourceGrid', inventory.length
+      ? inventory.map(x=>`<button class="up-skin ${selected.has(Number(x.id))?'selected':''}" data-source="${x.id}"><b>${x.skin_name||'?'}</b><small>${usd(x.price)}</small></button>`).join('')
+      : '<div class="empty-inventory">Инвентарь пуст</div>');
+
+    setHTML('#targetGrid', targets.length
+      ? targets.map(x=>`<button class="up-skin ${String(targetId)===String(x.id)?'selected':''}" data-target="${x.id}"><b>${x.name}</b><small>${usd(x.price)}</small></button>`).join('')
+      : '<div class="empty-inventory">Каталог пуст</div>');
+
+    setText('#stakeTotal', usd(st));
+    setText('#stakeLabel', usd(st));
+    setText('#targetLabel', t?`${t.name} · ${usd(t.price)}`:'не выбрана');
+    setText('#chanceValue', ch.toFixed(2)+'%');
+    setText('#selectedCount', selected.size+' / 5 скинов');
+    setText('#balanceAvailable', 'Доступно '+usd(balanceAvailable));
+    setText('#inventoryCount', inventory.length);
+    setText('#targetCount', targets.length);
+
+    const btn=$('#upgradeBtn');
+    if(btn){
+      btn.disabled=busy||(!selected.size&&balanceAmount<=0)||!t||Number(t.price)<=st;
+      btn.innerHTML=busy?'◌ ПРОВЕРЯЕМ…':'⌁ УЛУЧШИТЬ';
+    }
+
+    setText('#wheelStatus', busy?'АПГРЕЙД…':statusMessage||(!t?'ВЫБЕРИ ЦЕЛЬ':'ГОТОВО'));
+  }catch(e){console.error('render error:',e);}
+}
+
+async function load(){
+  try{
+    const [inv,cat,bal]=await Promise.allSettled([api('/api/cases/inventory'),api('/api/cases/upgrader/catalog'),api('/api/cases/balance')]);
+    inventory=inv.status==='fulfilled'?(inv.value.items||[]):[];
+    targets=cat.status==='fulfilled'?(cat.value.skins||[]):[];
+    balanceAvailable=bal.status==='fulfilled'?Number(bal.value.balance||0):0;
+  }catch(e){console.error('load error:',e);}
+  render();
+}
+
+on('#sourceGrid','click',e=>{const b=e.target.closest('button[data-source]');if(!b||busy)return;const id=Number(b.dataset.source);if(selected.has(id))selected.delete(id);else if(selected.size<5)selected.add(id);statusMessage='';render();});
+on('#targetGrid','click',e=>{const b=e.target.closest('button[data-target]');if(!b||busy)return;targetId=String(b.dataset.target);statusMessage='';render();});
+
+const br=$('#balanceAmountRange');
+if(br)br.oninput=e=>{balanceAmount=Math.min(balanceAvailable,Math.max(0,Number(e.target.value)||0));render();};
+
+on('#upgradeBtn','click',async()=>{
+  if(busy)return;
+  const t=chosen(),total=stake();
+  if(!t){statusMessage='ВЫБЕРИ ЦЕЛЬ';render();return;}
+  if(Number(t.price)<=total){statusMessage='ЦЕЛЬ ДОРОЖЕ СТАВКИ';render();return;}
+  busy=true;statusMessage='АПГРЕЙД…';render();
+  try{
+    const d=await api('/api/cases/upgrader',{method:'POST',body:JSON.stringify({sourceIds:[...selected],targetSkinId:String(t.id),balanceAmount:Number(balanceAmount.toFixed(2))})});
+    statusMessage=d.won?'ПОБЕДА!':'НЕ ПОВЕЗЛО';
+    selected.clear();targetId='';balanceAmount=0;
+    await new Promise(r=>setTimeout(r,500));
+    const [inv,bal]=await Promise.all([api('/api/cases/inventory'),api('/api/cases/balance')]);
+    inventory=inv.items||[];balanceAvailable=Number(bal.balance||0);
+  }catch(e){statusMessage='ОШИБКА: '+e.message;}
+  busy=false;render();
+});
+
+load();
