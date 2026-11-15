@@ -1,4 +1,4 @@
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const setText=(s,v)=>{const e=$(s);if(e!=null)e.textContent=v;};
 
 function cs2TransparentPng(url){
   const value=String(url||'');
