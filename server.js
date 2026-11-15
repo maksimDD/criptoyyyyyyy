@@ -1021,3 +1021,22 @@ db.ready.then(() => app.listen(PORT, () => {
   const recurringSync = setInterval(refreshMarketCatalog, 12 * 60 * 60 * 1000);
   if (recurringSync.unref) recurringSync.unref();
 })).catch(err => { console.error('Ошибка:', err); process.exit(1); });
+
+// server.js (добавь)
+app.get('/api/cases/catalog', async (req, res) => {
+  try {
+    // Вариант 1: если данные в БД
+    // const cases = await db.all('SELECT * FROM cases');
+    // const skins = await db.all('SELECT * FROM skins');
+    // return res.json({ cases, skins });
+
+    // Вариант 2: если данные в JSON-файле
+    const fs = require('fs');
+    const path = require('path');
+    const file = path.join(__dirname, 'cases-data.json');
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
