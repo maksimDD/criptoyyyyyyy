@@ -745,8 +745,8 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
   const ids=Array.isArray(req.body?.sourceIds)?[...new Set(req.body.sourceIds.map(Number))]:[];
   const targetId=String(req.body?.targetSkinId||'');
   const balanceAmount=Math.round(Number(req.body?.balanceAmount||0)*100)/100;
-  // Resolve by the item's canonical id, not only by an object key. Catalogs may be keyed by slug while the browser sends the id field.
-  const target=CASE_CATALOG.skins?.[targetId] || Object.values(CASE_CATALOG.skins||{}).find(s=>String(s.id)===targetId || String(s.marketHashName||'')===targetId || String(s.name||'')===targetId);
+  const requestedMultiplier=Number(req.body?.multiplier||0);
+  const target=CASE_CATALOG.skins[targetId];
   if(ids.length>5||ids.some(n=>!Number.isSafeInteger(n)||n<1)||!Number.isFinite(balanceAmount)||balanceAmount<0||balanceAmount>100000)
     return res.status(400).json({error:'Проверь выбранные скины и сумму баланса'});
   if(!ids.length&&balanceAmount<=0)return res.status(400).json({error:'Выбери скины или добавь баланс'});
@@ -764,18 +764,17 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
           if(balanceAmount>currentBalance)return rollback(400,'На балансе недостаточно средств');
           const itemStake=items.reduce((a,x)=>a+Number(x.price||0),0);
           const stake=Number((itemStake+balanceAmount).toFixed(2));
-          if(!Number.isFinite(stake)||stake<=0)return rollback(400,'Сумма ставки должна быть больше нуля');
-          const actualMultiplier=Number(target.price)/stake;
-          if(actualMultiplier<1.1||actualMultiplier>20)return rollback(400,'Целевой скин должен быть дороже ставки от x1.1 до x20');
-          // 90% expected return: win probability is stake * 0.90 / target price.
-          // Keep the configured 1–86% safety bounds consistent with the UI.
-          const rawChance=stake*0.90/Number(target.price)*100;
+          if(!Number.isFinite(requestedMultiplier)||requestedMultiplier<1.1||requestedMultiplier>20)return rollback(400,'Выбери множитель от x1.1 до x20');
+          const expectedTarget=stake*requestedMultiplier;
+          if(Math.abs(Number(target.price)-expectedTarget)>Math.max(0.15,expectedTarget*0.12))return rollback(400,`Для x${requestedMultiplier} выбери предмет около ${expectedTarget.toFixed(2)} USDT`);
+          if(Number(target.price)<=stake)return rollback(400,'Выбери скин дороже общей суммы ставки');
+          const rawChance=stake/Number(target.price)*100;
           const chance=Number(Math.min(86,Math.max(1,rawChance)).toFixed(4));
           const roll=crypto.randomInt(0,1000000)/10000,won=roll<chance;
           const removeItems=idx=>{
             if(idx>=ids.length){
               const commitResult=inventoryId=>{
-                db.run('COMMIT',commitErr=>commitErr?res.status(500).json({error:'Не удалось завершить апгрейд'}):res.json({ok:true,won,chance,roll,stake,multiplier:Number(actualMultiplier.toFixed(4)),balanceUsed:balanceAmount,balanceLeft:Number((currentBalance-balanceAmount).toFixed(2)),target:{id:target.id,name:target.name,price:target.price},...(inventoryId?{inventoryId}:{})}));
+                db.run('COMMIT',commitErr=>commitErr?res.status(500).json({error:'Не удалось завершить апгрейд'}):res.json({ok:true,won,chance,roll,stake,balanceUsed:balanceAmount,balanceLeft:Number((currentBalance-balanceAmount).toFixed(2)),target:{id:target.id,name:target.name,price:target.price},...(inventoryId?{inventoryId}:{})}));
               };
               if(won)db.run('INSERT INTO case_inventory(user_id,case_id,skin_id,skin_name,price) VALUES(?,?,?,?,?)',[req.session.userId,'upgrader',target.id,target.name,target.price],function(insertErr){if(insertErr)return rollback(500,'Не удалось сохранить выигранный скин');commitResult(this.lastID)});
               else commitResult(null);
