@@ -264,3 +264,29 @@ $('#steamTradeForm')?.addEventListener('submit', async (e) => {
     input.value = d.url; message.textContent = 'Ссылка обмена сохранена.';
   } catch (err) { message.textContent = err.message; }
 });
+
+
+
+
+// Продажа всего доступного инвентаря кейсов одним серверным действием.
+(async function initCaseInventory(){
+  const list=$('#caseInventoryList'),button=$('#sellAllInventory'),message=$('#sellAllMessage');if(!list||!button)return;
+  const refresh=async()=>{
+    const r=await fetch('/api/cases/inventory',{credentials:'same-origin'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Не удалось загрузить инвентарь');
+    const items=d.items||[],eligible=items.filter(x=>!x.withdrawal_pending),reserved=items.length-eligible.length;
+    const total=eligible.reduce((a,x)=>a+Number(x.price||0),0);
+    list.textContent=items.length?`Предметов в списке: ${items.length} · доступно к продаже: ${eligible.length} · стоимость: $${total.toFixed(2)}${reserved?` · зарезервировано: ${reserved}`:''}`:'Инвентарь пуст';
+    button.disabled=!eligible.length;button.textContent='Продать всё';
+  };
+  try{await refresh();button.onclick=async()=>{
+    if(button.disabled)return;
+    if(!confirm('Продать все доступные скины из инвентаря и зачислить их стоимость на баланс?'))return;
+    button.disabled=true;message.textContent='Обрабатываем продажу…';
+    try{
+      const response=await fetch('/api/cases/inventory/sell-all',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||'Ошибка продажи');
+      message.textContent=`Продано: ${result.sold} · начислено: $${Number(result.credited).toFixed(2)} · баланс: $${Number(result.balance).toFixed(2)}${result.skipped?` · предметов с активным выводом пропущено: ${result.skipped}`:''}`;
+      await refresh();
+    }catch(e){message.textContent=e.message;button.disabled=false;}
+  };}catch(e){list.textContent=e.message;}
+})();
