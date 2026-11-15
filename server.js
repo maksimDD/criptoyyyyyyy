@@ -817,7 +817,7 @@ app.post('/api/cases/contracts',caseUser,(req,res)=>{
         if(items.some(x=>x.withdrawal_pending))return rollback(409,'Предмет с активной заявкой на вывод нельзя использовать');
         const total=Number(items.reduce((sum,x)=>sum+Number(x.price||0),0).toFixed(2));
         if(total<=0)return rollback(400,'Некорректная стоимость контракта');
-        if(total>15)return rollback(400,'Максимальная сумма контракта — $15.00');
+        if(total>12)return rollback(400,'Сумма контракта достигла лимита');
         const min=total*.5,max=total*1.5;
         const candidates=Object.values(CASE_CATALOG.skins||{}).filter(x=>Number(x.price)>=Math.max(.05,min)&&Number(x.price)<=Math.min(55,max));
         if(!candidates.length)return rollback(409,'Нет предметов в диапазоне стоимости контракта. Обнови каталог CS2.');
@@ -927,6 +927,19 @@ app.get('/api/admin/cases/promos',adminOnly,(req,res)=>db.all('SELECT * FROM cas
 app.post('/api/admin/cases/promos',adminOnly,(req,res)=>{const code=String(req.body?.code||'').trim().toUpperCase(),caseId=String(req.body?.caseId||'*'),type=req.body?.promoType==='free'?'free':'discount',discount=Number(req.body?.discount),limit=Math.max(0,Math.floor(Number(req.body?.limit)||0));if(!/^[A-Z0-9_-]{3,32}$/.test(code))return res.status(400).json({error:'Код: 3–32 символа, латиница/цифры'});if(type==='discount'&&(!Number.isFinite(discount)||discount<=0||discount>90))return res.status(400).json({error:'Скидка должна быть от 1 до 90%'});if(caseId!=='*'&&!CASE_CATALOG.cases.some(c=>c.id===caseId))return res.status(400).json({error:'Кейс не найден'});db.run('INSERT INTO case_promos(code,case_id,discount_percent,promo_type,activation_limit) VALUES(?,?,?,?,?)',[code,caseId,type==='free'?0:discount,type,limit],function(e){if(e)return res.status(409).json({error:'Такой промокод уже существует'});res.json({ok:true,id:this.lastID});});});
 app.delete('/api/admin/cases/promos/:id',adminOnly,(req,res)=>db.run('DELETE FROM case_promos WHERE id=?',[Number(req.params.id)],function(e){if(e)return res.status(500).json({error:'Не удалось удалить промокод'});if(!this.changes)return res.status(404).json({error:'Промокод не найден'});res.json({ok:true});}));
 app.get('/api/admin/cases/catalog',adminOnly,(req,res)=>{for(const c of CASE_CATALOG.cases){if(!c.chances){const vals=c.items.map(id=>{const price=Math.max(.2,Number(CASE_CATALOG.skins[id]?.price)||.2);return 1/Math.pow(price,2.5)});const sum=vals.reduce((a,b)=>a+b,0)||1;c.chances={};c.items.forEach((id,i)=>c.chances[id]=Number((vals[i]/sum*100).toFixed(4)));}}res.json(CASE_CATALOG)});
+app.put('/api/admin/cases/catalog/:caseId',adminOnly,(req,res)=>{
+  const caseId=String(req.params.caseId||''), incoming=req.body||{};
+  const current=CASE_CATALOG.cases.find(c=>String(c.id)===caseId);
+  if(!current)return res.status(404).json({error:'Кейс не найден'});
+  const price=Number(incoming.price), chances=incoming.chances;
+  if(!Number.isFinite(price)||price<1||price>21)return res.status(400).json({error:'Цена кейса должна быть $1–$21'});
+  if(!chances||typeof chances!=='object'||Array.isArray(chances))return res.status(400).json({error:'Не переданы шансы кейса'});
+  let sum=0; const next={};
+  for(const id of current.items){const value=Number(chances[id]);if(!Number.isFinite(value)||value<0.05||value>65)return res.status(400).json({error:`Шанс предмета ${id} должен быть 0,05–65%`});next[id]=Number(value.toFixed(4));sum+=value;}
+  if(Math.abs(sum-100)>0.02)return res.status(400).json({error:`Сумма шансов должна быть 100% (сейчас ${sum.toFixed(2)}%)`});
+  try{current.price=price;current.chances=next;const json=JSON.stringify(CASE_CATALOG,null,2);fs.writeFileSync(CASE_CATALOG_FILE,json);fs.writeFileSync(CASE_CATALOG_PUBLIC_FILE,json);res.json({ok:true});}
+  catch(e){console.error('case odds save:',e);res.status(500).json({error:'Не удалось сохранить настройки кейса'});}
+});
 app.put('/api/admin/cases/catalog',adminOnly,(req,res)=>{
   const incoming=req.body;
   if(!incoming||!Array.isArray(incoming.cases)||!incoming.skins||typeof incoming.skins!=='object')return res.status(400).json({error:'Некорректный каталог'});
