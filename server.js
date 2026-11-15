@@ -852,6 +852,20 @@ app.post('/api/cases/inventory/:id/sell',caseUser,(req,res)=>{
     db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run('DELETE FROM case_inventory WHERE id=? AND user_id=?',[id,req.session.userId],function(e2){if(e2||this.changes!==1){db.run('ROLLBACK');return res.status(409).json({error:'Предмет уже обработан'});}db.run('INSERT OR IGNORE INTO game_balance(user_id,balance) VALUES(?,0)',[req.session.userId],e3=>{if(e3){db.run('ROLLBACK');return res.status(500).json({error:'Ошибка баланса'});}db.run('UPDATE game_balance SET balance=balance+? WHERE user_id=?',[credit,req.session.userId],e4=>{if(e4){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось начислить баланс'});}db.run('COMMIT',e5=>e5?res.status(500).json({error:'Ошибка сохранения'}):db.get('SELECT balance FROM game_balance WHERE user_id=?',[req.session.userId],(e6,b)=>res.json({ok:true,credited:credit,balance:Number(b?.balance||0)})));});});});});
   });
 });
+app.post('/api/cases/inventory/sell-all',caseUser,(req,res)=>{
+  const requested=Array.isArray(req.body?.ids)?[...new Set(req.body.ids.map(Number).filter(x=>Number.isSafeInteger(x)&&x>0))].slice(0,100):[];
+  if(!requested.length)return res.status(400).json({error:'Нет предметов для продажи'});
+  const marks=requested.map(()=>'?').join(',');
+  db.all(`SELECT i.id,i.price FROM case_inventory i WHERE i.user_id=? AND i.id IN (${marks}) AND NOT EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending')`,[req.session.userId,...requested],(e,items)=>{
+    if(e)return res.status(500).json({error:'Ошибка базы данных'});if(items.length!==requested.length)return res.status(409).json({error:'Один или несколько предметов уже недоступны для продажи'});
+    const credit=Number(items.reduce((sum,x)=>sum+Number(x.price||0),0).toFixed(2));
+    db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run(`DELETE FROM case_inventory WHERE user_id=? AND id IN (${marks})`,[req.session.userId,...requested],function(delErr){
+      if(delErr||this.changes!==requested.length){db.run('ROLLBACK');return res.status(409).json({error:'Инвентарь изменился. Обнови страницу'});}
+      db.run('INSERT OR IGNORE INTO game_balance(user_id,balance) VALUES(?,0)',[req.session.userId],e1=>{if(e1){db.run('ROLLBACK');return res.status(500).json({error:'Ошибка баланса'});}db.run('UPDATE game_balance SET balance=balance+? WHERE user_id=?',[credit,req.session.userId],e2=>{if(e2){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось начислить баланс'});}db.run('COMMIT',e3=>{if(e3)return res.status(500).json({error:'Не удалось сохранить продажу'});db.get('SELECT balance FROM game_balance WHERE user_id=?',[req.session.userId],(e4,b)=>res.json({ok:true,sold:requested.length,credited:credit,balance:Number(b?.balance||0)}));});});});
+    });});
+  });
+});
+
 app.post('/api/cases/inventory/:id/withdraw',caseUser,(req,res)=>{
   const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Некорректный предмет'});
   db.get('SELECT steam_trade_url FROM users WHERE id=?',[req.session.userId],(e,u)=>{
