@@ -15,25 +15,32 @@ if ($('#reviewsNav')) $('#reviewsNav').addEventListener('click',e=>{e.preventDef
 if ($('#reviewsClose')) $('#reviewsClose').addEventListener('click',()=>closeModal('reviewsBackdrop'));
 let giveawayModalPoll=null,giveawayModalFingerprint='';
 async function renderGiveawayModal(animate=false){
- const root=$('#giveawaysModalContent');
+ const root=$('#giveawaysModalContent');if(!root)return;
  try{
   const d=await api('/api/giveaways/current'),g=d.giveaway;
   if(!g){root.innerHTML='<div class="giveaway-empty">Сейчас активных розыгрышей нет.</div>';giveawayModalFingerprint='none';return;}
-  const participants=(g.entries||[]).map(u=>u.nickname||('Участник #'+u.public_id));
+  const entries=Array.isArray(g.entries)?g.entries:[];
   const winners=Array.isArray(g.winners)?g.winners:[];
   const finished=g.status==='finished';
-  const fingerprint=JSON.stringify({id:g.id,status:g.status,entries:(g.entries||[]).map(u=>u.user_id),winners});
-  giveawayModalFingerprint=fingerprint;
-  // One equal-sized sector per participant; names stay off the wheel itself.
-  const wheelColors=['#caff70','#ffe66b','#bd79ff','#d7f4a4','#a987df','#e8d77b'];
-  const wheelStops=participants.length?participants.map((_,i)=>wheelColors[i%wheelColors.length]):['#25271f'];
-  const sectorWidth=360/wheelStops.length;
-  const divider=Math.min(1.35,sectorWidth*.12);
-  const sectorStops=wheelStops.map((c,i)=>{const start=i*sectorWidth,end=(i+1)*sectorWidth;return `${c} ${start}deg ${end-divider}deg,rgba(17,18,15,.9) ${end-divider}deg ${end}deg`;}).join(',');
-  const wheelBackground=`conic-gradient(from -90deg,${sectorStops})`;
-  const winner=winners[0];
-  const winnerCenter=finished&&winner?`<div class="public-wheel-core winner"><b>${escapeHtml(winner.nickname||'Победитель')}</b><small>ID #${escapeHtml(winner.public_id??winner.user_id??'—')}</small></div>`:'';
-  root.innerHTML=`<div class="giveaway-modal-card"><div class="giveaway-modal-heading"><span class="giveaway-kicker">BLUP DROP</span><h3>${escapeHtml(g.title)}</h3><p>${escapeHtml(g.description||'')}</p></div><div class="giveaway-modal-meta"><span>Участников <b>${participants.length}</b></span><span>Призовых мест <b>${g.winner_slots}</b></span></div>${(g.prizes||[]).map(x=>`<div class="giveaway-modal-prize"><img src="${x.image_data}" alt=""><b>${escapeHtml(x.caption||'Приз')}</b></div>`).join('')}<div class="giveaway-wheel-wrap"><div class="public-giveaway-wheel ${finished&&winners.length&&animate?'spinning':''}" id="publicGiveawayWheel" style="background:${wheelBackground}" aria-label="Колесо из ${participants.length} равных секторов участников">${winnerCenter}</div>${finished&&winners.length?`<div class="giveaway-wheel-winners">${winners.map(w=>`<div><b>${Number(w.place)||''} место — ${escapeHtml(w.nickname||'Победитель')} · ID #${escapeHtml(w.public_id??'—')}</b></div>`).join('')}</div>`:''}</div><a class="btn btn-primary btn-small" href="/giveaways">Участвовать ↗</a></div>`;
+  giveawayModalFingerprint=JSON.stringify({id:g.id,status:g.status,entries:entries.map(u=>u.user_id),winners});
+  const palette=['#caff70','#ffe66b','#bd79ff','#d9f0a8','#a98be0','#e5d77d'];
+  const n=Math.max(1,entries.length),sector=360/n,divider=Math.min(1.15,sector*.10);
+  const slices=entries.length?entries.map((_,i)=>{const x=i*sector,y=(i+1)*sector;return `${palette[i%palette.length]} ${x}deg ${Math.max(x,y-divider)}deg,#171914 ${Math.max(x,y-divider)}deg ${y}deg`; }):['#25271f 0deg 360deg'];
+  const wheelBackground=`conic-gradient(from -90deg,${slices.join(',')})`;
+  // Server reroll replaces the last winner; point to that exact participant.
+  const winner=finished&&winners.length?winners[winners.length-1]:null;
+  const winnerIndex=winner?entries.findIndex(u=>Number(u.user_id)===Number(winner.user_id)):-1;
+  const center=winner?`<div class="public-wheel-core winner"><b>${escapeHtml(winner.nickname||'Победитель')}</b><small>ID #${escapeHtml(winner.public_id??winner.user_id??'—')}</small></div>`:'';
+  root.innerHTML=`<div class="giveaway-modal-card"><div class="giveaway-modal-heading"><span class="giveaway-kicker">РОЗЫГРЫШ</span><h3>${escapeHtml(g.title)}</h3><p>${escapeHtml(g.description||'')}</p></div><div class="giveaway-modal-meta"><span>Участников <b>${entries.length}</b></span><span>Призовых мест <b>${g.winner_slots}</b></span></div>${(g.prizes||[]).map(x=>`<div class="giveaway-modal-prize"><img src="${x.image_data}" alt=""><b>${escapeHtml(x.caption||'Приз')}</b></div>`).join('')}<div class="giveaway-wheel-wrap"><div class="public-giveaway-wheel ${winner&&animate?'spinning':''}" id="publicGiveawayWheel" style="background:${wheelBackground}" aria-label="Колесо: ${entries.length} участников с равными шансами">${center}</div><span class="giveaway-wheel-pointer" aria-hidden="true"></span></div>${winner?`<div class="giveaway-wheel-winners">${winners.map(w=>`<div><b>${Number(w.place)||''} место — ${escapeHtml(w.nickname||'Победитель')} · ID #${escapeHtml(w.public_id??'—')}</b></div>`).join('')}</div>`:''}<a class="btn btn-primary btn-small" href="/giveaways">Участвовать ↗</a></div>`;
+  const wheel=$('#publicGiveawayWheel',root);
+  if(wheel&&winner&&entries.length){
+   // Conic-gradient starts at -90deg; fixed pointer is at +90deg (3 o'clock).
+   const centerAngle=-90+(Math.max(0,winnerIndex)+.5)*sector;
+   const stop=((90-centerAngle)%360+360)%360;
+   wheel.style.transform='rotate(0deg)';
+   if(animate)requestAnimationFrame(()=>requestAnimationFrame(()=>{wheel.style.transform=`rotate(${8*360+stop}deg)`;}));
+   else wheel.style.transform=`rotate(${stop}deg)`;
+  }
  }catch(err){root.textContent=err.message;}
 }
 if ($('#giveawaysNav')) $('#giveawaysNav').addEventListener('click',async e=>{
