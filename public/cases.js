@@ -116,7 +116,7 @@ function refreshCurrency(){
 }
 
 async function init(){
-  // 1. Каталог кейсов — СНАЧАЛА пробуем API, потом fallback на JSON
+  // ФИКС: каталог с API (админка пишет туда же), fallback на JSON
   try{
     try{
       data=await api('/api/cases/catalog');
@@ -132,24 +132,19 @@ async function init(){
     console.error('load cases error:',e);
     const g=$('#caseGrid');if(g)g.innerHTML='<div class="loading-state">Не удалось загрузить каталог кейсов.<br><small style="color:#8993b2">Проверь /cases-data.json или /api/cases/catalog.</small></div>';
   }
-  // 2. Картинки
   loadImages();
-  // 3. Конфиг RUB
   try{
     const caseCfg=await api('/api/cases/config');
     rubPerUsd=Number(caseCfg.rubPerUsd)||82.829;
-    if(rubPerUsd<10)rubPerUsd=82.829; // защита от мусора
+    if(rubPerUsd<10)rubPerUsd=82.829;
   }catch{}
-  // 4. Курс TON
   try{const cfg=await api('/api/config');const u=Number(cfg.usdtRate)||0,g=Number(cfg.gramRate)||0;depositRates.TON=u>0&&g>0?g/u:0;if(!depositRates.TON){const dm=$('#depositMessage');if(dm)dm.textContent='Курс TON не задан администратором.'}}catch{}
-  // 5. Профиль
   try{const me=await api('/api/me');if(me.nickname){const lb=$('#loginBtn');if(lb){lb.textContent=me.nickname;lb.onclick=()=>location.href='/cases/profile'}}}catch{}
-  // 6. Баланс и инвентарь
   await refreshBalance();
   await loadInventory();
 }
 
-// ===== Навешивание обработчиков =====
+// ===== Обработчики =====
 const dc=$('#displayCurrency');if(dc){dc.value=displayCurrency;dc.onchange=()=>{displayCurrency=dc.value;refreshCurrency()}}
 $$('.filter').forEach(b=>b.onclick=()=>{$$('.filter').forEach(x=>x.classList.toggle('active',x===b));renderCases(b.dataset.filter)});
 const mm=$('#mobileMenu');if(mm)mm.onclick=()=>{const n=document.querySelector('.topbar nav');if(n)n.classList.toggle('open')};
@@ -182,46 +177,4 @@ function updateDepositTotals(){
   const ft=$('#finalTotal');if(ft)ft.textContent=money(amount+bonus);
 }
 
-const adp=$('#applyDepositPromo');if(adp)adp.onclick=async()=>{const code=$('#depositPromo')?.value.trim()||'';if(!code){promoPercent=0;updateDepositTotals();return}try{const d=await api('/api/cases/promo-preview',{method:'POST',body:JSON.stringify({code})});promoPercent=Number(d.percent)||0;const dm=$('#depositMessage');if(dm)dm.textContent=`Промокод применён: бонус ${promoPercent}%`;updateDepositTotals()}catch(e){promoPercent=0;const dm=$('#depositMessage');if(dm)dm.textContent=e.message;updateDepositTotals()}};
-
-const cpw=$('#copyDepositWallet');if(cpw)cpw.onclick=async()=>{try{const dw=$('#depositWallet');await navigator.clipboard.writeText(dw?dw.textContent:'');toast('Адрес скопирован')}catch{toast('Не удалось скопировать адрес')}};
-
-const cd=$('#createDeposit');if(cd)cd.onclick=async()=>{
-  const tokenAmount=Number($('#depositAmount')?.value),coin=$('#depositCoin')?.value,network=$('#depositNetwork')?.value,code=$('#depositPromo')?.value.trim()||'',unitRate=coin==='TON'?depositRates.TON:1,amount=tokenAmount*unitRate;
-  const dm=$('#depositMessage');
-  if(!tokenAmount||!Number.isFinite(amount)||amount<1){if(dm)dm.textContent='Минимальный эквивалент пополнения — $1';return}
-  if(coin==='TON'&&!depositRates.TON){if(dm)dm.textContent='Администратор ещё не установил курс TON';return}
-  if($('#depositWallet')?.textContent==='Сеть недоступна'){if(dm)dm.textContent='Выбери доступную сеть';return}
-  try{const d=await api('/api/cases/deposit',{method:'POST',body:JSON.stringify({amount,tokenAmount,unitRate,coin,network,code})});if(dm)dm.textContent=`Заявка №${d.id} создана. Баланс пополнится после проверки.`;toast('Заявка на пополнение создана')}catch(e){if(dm)dm.textContent=e.message}
-};
-
-const cw=$('#createWithdraw');if(cw)cw.onclick=async()=>{
-  const amount=Number($('#withdrawAmount')?.value),phone=$('#withdrawPhone')?.value.trim()||'',bank=$('#withdrawBank')?.value.trim()||'',type=$('#withdrawType')?.value;
-  const amountUsd=displayCurrency==='RUB'?amount/(rubPerUsd||1):amount;
-  const wm=$('#withdrawMessage');
-  if(!amount||amountUsd<10){if(wm)wm.textContent=`Минимальная сумма вывода — ${money(10)}`;return}
-  if(!phone||!bank){if(wm)wm.textContent='Заполни реквизиты и банк';return}
-  try{const d=await api('/api/cases/withdraw',{method:'POST',body:JSON.stringify({amount:amountUsd,phone,bank,type})});if(wm)wm.textContent=`Заявка №${d.id} создана`;await refreshBalance();toast('Заявка на вывод отправлена')}catch(e){if(wm)wm.textContent=e.message}
-};
-
-const occ=$('#openCaseConfirm');if(occ)occ.onclick=async()=>{
-  if(!loggedIn)return location.href='/?login=1';if(!selectedCase)return;
-  if(balance<selectedCase.price){const cm=$('#caseMessage');if(cm)cm.textContent='Недостаточно средств. Пополни баланс.';return}
-  const btn=occ;btn.disabled=true;btn.textContent='Открываем…';const cm=$('#caseMessage');if(cm)cm.textContent='Определяем результат…';
-  try{
-    const d=await api('/api/cases/open',{method:'POST',body:JSON.stringify({caseId:selectedCase.id})});
-    balance=Number(d.balance);const bv=$('#balanceValue');if(bv)bv.textContent=money(balance);
-    const reel=$('#reel');if(reel)reel.animate([{transform:'translateX(0)'},{transform:`translateX(-${Math.max(0,reel.scrollWidth/2-120)}px)`}],{duration:2200,easing:'cubic-bezier(.08,.7,.12,1)'});
-    setTimeout(()=>{
-      const s=d.item,pr=$('#casePrize');
-      if(pr){pr.innerHTML=`<img src="${esc(skinImages[s.name]||'')}" alt="${esc(s.name)}"><b>${esc(s.name)}</b><span>${money(s.price)}</span><p>Предмет добавлен в твой инвентарь.</p>`;pr.classList.remove('hidden')}
-      if(cm)cm.textContent=`Списано ${money(selectedCase.price)} · новый баланс ${money(balance)}`;
-      btn.textContent='Открыть ещё раз';btn.disabled=false;loadInventory();
-    },2250);
-  }catch(e){if(cm)cm.textContent=e.message;btn.textContent=`Открыть за ${money(selectedCase.price)}`;btn.disabled=false;refreshBalance()}
-};
-
-function moneyParticle(){const mr=$('#moneyRain');if(!mr)return;const p=document.createElement('span');p.className='money-particle';p.textContent=['$','₮','✦'][Math.floor(Math.random()*3)];p.style.left=Math.random()*100+'%';p.style.fontSize=(10+Math.random()*12)+'px';p.style.animationDuration=(9+Math.random()*8)+'s';mr.appendChild(p);setTimeout(()=>p.remove(),18000)}
-setInterval(moneyParticle,1250);
-
-init();
+const adp=$('#applyDepositPromo');if(adp)adp.onclick=async()=>{const code=$('#depositPromo')?.value.trim()||'';if(!code){promoPercent=0;updateDepositTotals();return}try{const d=await api('/api/cases/promo-preview',{method:'POST',body:JSON.stringify({code
