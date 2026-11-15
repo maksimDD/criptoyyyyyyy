@@ -13,14 +13,14 @@
         <div class="wheel-needle" id="wheelNeedle"><span></span></div>
         <div class="wheel-pin"></div>
       </div>
-      <div class="wheel-status" id="wheelStatus">ВЫБЕРИ СКИН И ЦЕЛЬ</div>
+      <button type="button" id="upgradeFast" class="quick-filters" aria-pressed="false">Быстро</button><div class="wheel-status" id="wheelStatus">ВЫБЕРИ СКИН И ЦЕЛЬ</div>
       <button id="upgradeBtn" class="upgrade-main-btn" disabled><span>⌁</span> УЛУЧШИТЬ</button>
-      <div class="wheel-cost"><span>Ставка: <b id="stakeLabel">$0.00</b></span><span>Цель: <b id="targetLabel">не выбрана</b></span></div>
+      
     </div>
     <div class="stage-pick stage-target"><div class="stage-title">ВЫБЕРИ СКИН ДЛЯ АПГРЕЙДА <span>ШАГ 02</span></div><div id="targetPreview" class="stage-preview"><div class="stage-empty"><b>⌃</b><strong>ТВОЯ ЦЕЛЬ</strong><small>Выбери желаемый предмет справа</small></div></div><div class="stage-foot"><span>Целевой множитель</span><b id="targetMultiplier">x5</b></div></div>
   </section>
   <section class="up-controls">
-    <div class="balance-slider-box"><div><span>СУММА БАЛАНСА ДЛЯ СТАВКИ</span><b id="balanceAvailable">Доступно $0.00</b></div><input id="balanceAmountRange" type="range" min="0" max="0" step="0.01" value="0" disabled><div class="balance-range-foot"><span>Использовать: <b id="balanceAmountLabel">$0.00</b></span><span id="selectedCount">0 / 5 скинов</span></div><div class="selection-meter"><i id="selectionMeter"></i></div><small>Можно использовать баланс вместе со скинами или отдельно</small></div>
+    <div class="balance-slider-box"><div><span>СУММА БАЛАНСА ДЛЯ СТАВКИ</span><b id="balanceAvailable">Доступно $0.00</b></div><input id="balanceAmountRange" type="range" min="0" max="0" step="0.01" value="0" disabled><div class="balance-range-foot"><span>Использовать: <b id="balanceAmountLabel">$0.00</b></span><span id="selectedCount">0 / 5 скинов</span></div><div class="selection-meter"><i id="selectionMeter"></i></div></div>
     <div class="quick-filters"><span>МНОЖИТЕЛЬ</span><button data-mult="2">x2</button><button data-mult="4">x4</button><button data-mult="5" class="active">x5</button></div>
   </section>
   <section class="up-bottom">

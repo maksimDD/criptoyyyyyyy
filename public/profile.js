@@ -266,3 +266,11 @@ $('#steamTradeForm')?.addEventListener('submit', async (e) => {
 });
 
 
+
+
+// Продажа всего инвентаря кейсов одним серверным действием.
+(async function initCaseInventory(){
+  const list=$('#caseInventoryList'),button=$('#sellAllInventory'),message=$('#sellAllMessage');if(!list||!button)return;
+  try{const r=await fetch('/api/cases/inventory',{credentials:'same-origin'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Не удалось загрузить инвентарь');const items=d.items||[];list.textContent=items.length?`Предметов: ${items.length} · стоимость: $${items.reduce((a,x)=>a+Number(x.price||0),0).toFixed(2)}`:'Инвентарь пуст';button.disabled=!items.length;button.onclick=async()=>{button.disabled=true;message.textContent='Обрабатываем продажу…';try{const response=await fetch('/api/cases/inventory/sell-all',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:items.map(x=>x.id)})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Ошибка продажи');list.textContent=`Продано предметов: ${result.sold} · начислено $${Number(result.credited).toFixed(2)}`;message.textContent=`Новый баланс: $${Number(result.balance).toFixed(2)}`;button.textContent='Продано';}catch(e){message.textContent=e.message;button.disabled=false;}};
+  }catch(e){list.textContent=e.message;}
+})();
