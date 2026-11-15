@@ -138,3 +138,9 @@
 @media(max-width:1050px){.upgrade-stage{grid-template-columns:minmax(0,1fr) 260px minmax(0,1fr);gap:12px}.wheel-shell{width:230px;height:230px}.wheel-face{inset:30px}.stage-pick{height:270px}}
 @media(max-width:760px){.up-wrap{padding:25px 13px 50px}.up-topline{align-items:flex-start;gap:12px;flex-direction:column}.up-live{align-self:flex-start}.upgrade-stage{grid-template-columns:1fr;gap:13px}.stage-wheel-wrap{grid-row:2;padding:15px 0}.stage-target{grid-row:3}.stage-pick{height:245px}.stage-preview{height:170px}.up-controls{grid-template-columns:1fr}.up-controls>.quick-filters{justify-content:flex-start}.up-bottom{grid-template-columns:1fr}.inventory-panel,.catalog-panel{padding:14px}.skin-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.inventory-toolbar{flex-wrap:wrap}.inventory-toolbar input,.inventory-toolbar select{min-width:0;flex:1}.upgrade-page .topbar nav{gap:8px}.up-live{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.upgrade-page *, .upgrade-page *:before,.upgrade-page *:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* Ensure the primary action remains clickable above decorative wheel layers. */
+.upgrade-page .stage-wheel-wrap{position:relative;z-index:6;isolation:isolate}
+.upgrade-page .upgrade-main-btn{position:relative;z-index:8;pointer-events:auto;touch-action:manipulation}
+.upgrade-page .wheel-shell,.upgrade-page .wheel-shell:before,.upgrade-page .wheel-ticks,.upgrade-page .wheel-ring,.upgrade-page .wheel-win-arc,.upgrade-page .wheel-face,.upgrade-page .wheel-needle{pointer-events:none}
+.upgrade-page .upgrade-main-btn:disabled{pointer-events:none}

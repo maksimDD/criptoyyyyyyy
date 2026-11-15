@@ -35,5 +35,25 @@ $$('[data-mult]').forEach(b=>b.onclick=()=>{multiplierFilter=Number(b.dataset.mu
 const upCur=$('#upCurrency');if(upCur){upCur.value=displayCurrency;upCur.onchange=()=>{displayCurrency=upCur.value;localStorage.setItem('blupDisplayCurrency',displayCurrency);$('#priceFrom').value='';$('#priceTo').value='';render()}}
 $('#balanceAmountRange').oninput=e=>{balanceAmount=Math.min(balanceAvailable,Math.max(0,Number(e.target.value)||0));targetId='';statusMessage='';render()};
 $('#upgradeFast').onclick=()=>{fastUpgrade=!fastUpgrade;$('#upgradeFast').classList.toggle('active',fastUpgrade);$('#upgradeFast').setAttribute('aria-pressed',String(fastUpgrade))};
-$('#upgradeBtn').onclick=async()=>{if(busy||(!selected.size&&balanceAmount<=0)||!chosen())return;statusMessage='';busy=true;render();const shell=$('#wheelShell'),needle=$('#wheelNeedle');shell.classList.remove('win','lose','spinning');needle.style.transition='none';needle.style.transform='rotate(0deg)';void needle.offsetWidth;try{const d=await api('/api/cases/upgrader',{method:'POST',body:JSON.stringify({sourceIds:[...selected],targetSkinId:targetId,balanceAmount,multiplier:Number((Number(chosen().price)/stake()).toFixed(4))})});shell.classList.add('spinning');const finalAngle=1800+Number(d.roll)*3.6;requestAnimationFrame(()=>{needle.style.transition=`transform ${fastUpgrade?850:4200}ms cubic-bezier(.08,.78,.09,1)`;needle.style.transform=`rotate(${finalAngle}deg)`});await new Promise(r=>setTimeout(r,fastUpgrade?950:4350));shell.classList.remove('spinning');shell.classList.add(d.won?'win':'lose');statusMessage=d.won?'ПОБЕДА! ПРЕДМЕТ ДОБАВЛЕН В ИНВЕНТАРЬ':'НЕ ПОВЕЗЛО — ПОПРОБУЙ ЕЩЁ';$('#wheelStatus').textContent=statusMessage;$('#chanceValue').textContent=Number(d.chance).toFixed(2)+'%';toast(d.won?`Выпал ${d.target.name}!`:'Апгрейд не прошёл');selected.clear();targetId='';balanceAmount=0;await new Promise(r=>setTimeout(r,900));const [inv,bal]=await Promise.all([api('/api/cases/inventory'),api('/api/cases/balance')]);inventory=inv.items||[];balanceAvailable=Number(bal.balance||0);render()}catch(e){statusMessage='ОШИБКА: '+e.message;toast(e.message);shell.classList.remove('spinning');$('#wheelStatus').textContent=statusMessage;render()}finally{busy=false;render()}};
+$('#upgradeBtn').addEventListener('click',async()=>{
+  if(busy)return;
+  const target=chosen(),total=stake();
+  if((!selected.size&&balanceAmount<=0)||!target){statusMessage='СНАЧАЛА ВЫБЕРИ СТАВКУ И ЦЕЛЬ';toast(statusMessage);render();return;}
+  if(Number(target.price)<=total){statusMessage='ЦЕЛЕВОЙ СКИН ДОЛЖЕН БЫТЬ ДОРОЖЕ СТАВКИ';toast(statusMessage);render();return;}
+  if(!inventoryError&&selected.size===0&&balanceAmount<=0)return;
+  statusMessage='';busy=true;render();
+  const shell=$('#wheelShell'),needle=$('#wheelNeedle');shell.classList.remove('win','lose','spinning');needle.style.transition='none';needle.style.transform='rotate(0deg)';void needle.offsetWidth;
+  try{
+    const multiplier=Number((Number(target.price)/total).toFixed(4));
+    const d=await api('/api/cases/upgrader',{method:'POST',body:JSON.stringify({sourceIds:[...selected],targetSkinId:String(target.id),balanceAmount:Number(balanceAmount.toFixed(2)),multiplier})});
+    if(typeof d.roll!=='number'||typeof d.won!=='boolean')throw Error('Сервер вернул некорректный результат. Обнови страницу.');
+    shell.classList.add('spinning');const finalAngle=1800+Number(d.roll)*3.6;
+    requestAnimationFrame(()=>{needle.style.transition=`transform ${fastUpgrade?850:4200}ms cubic-bezier(.08,.78,.09,1)`;needle.style.transform=`rotate(${finalAngle}deg)`});
+    await new Promise(r=>setTimeout(r,fastUpgrade?950:4350));shell.classList.remove('spinning');shell.classList.add(d.won?'win':'lose');
+    statusMessage=d.won?'ПОБЕДА! ПРЕДМЕТ ДОБАВЛЕН В ИНВЕНТАРЬ':'НЕ ПОВЕЗЛО — ПОПРОБУЙ ЕЩЁ';$('#wheelStatus').textContent=statusMessage;$('#chanceValue').textContent=Number(d.chance).toFixed(2)+'%';toast(d.won?`Выпал ${d.target?.name||'целевой скин'}!`:'Апгрейд не прошёл');
+    selected.clear();targetId='';balanceAmount=0;await new Promise(r=>setTimeout(r,700));
+    const [inv,bal]=await Promise.all([api('/api/cases/inventory'),api('/api/cases/balance')]);inventory=inv.items||[];balanceAvailable=Number(bal.balance||0);inventoryError='';render();
+  }catch(e){statusMessage='ОШИБКА: '+(e.message||'Не удалось выполнить апгрейд');toast(statusMessage);shell.classList.remove('spinning');$('#wheelStatus').textContent=statusMessage;render()}
+  finally{busy=false;render()}
+});
 load();
