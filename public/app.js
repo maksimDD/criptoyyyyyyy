@@ -24,12 +24,16 @@ async function renderGiveawayModal(animate=false){
   const finished=g.status==='finished';
   const fingerprint=JSON.stringify({id:g.id,status:g.status,entries:(g.entries||[]).map(u=>u.user_id),winners});
   giveawayModalFingerprint=fingerprint;
-  const wheelColors=['#caff70','#ffe66b','#bd79ff','#25271f'];
+  // One equal-sized sector per participant; names stay off the wheel itself.
+  const wheelColors=['#caff70','#ffe66b','#bd79ff','#d7f4a4','#a987df','#e8d77b'];
   const wheelStops=participants.length?participants.map((_,i)=>wheelColors[i%wheelColors.length]):['#25271f'];
-  const wheelBackground=`conic-gradient(${wheelStops.map((c,i)=>`${c} ${i*100/wheelStops.length}% ${(i+1)*100/wheelStops.length}%`).join(',')})`;
+  const sectorWidth=360/wheelStops.length;
+  const divider=Math.min(1.35,sectorWidth*.12);
+  const sectorStops=wheelStops.map((c,i)=>{const start=i*sectorWidth,end=(i+1)*sectorWidth;return `${c} ${start}deg ${end-divider}deg,rgba(17,18,15,.9) ${end-divider}deg ${end}deg`;}).join(',');
+  const wheelBackground=`conic-gradient(from -90deg,${sectorStops})`;
   const winner=winners[0];
-  const winnerCenter=finished&&winner?`<div class="public-wheel-core winner"><b>${escapeHtml(winner.nickname||'Победитель')}</b><small>ID #${escapeHtml(winner.public_id??'—')}</small></div>`:'';
-  root.innerHTML=`<div class="giveaway-modal-card"><div class="giveaway-modal-heading"><span class="giveaway-kicker">BLUP DROP</span><h3>${escapeHtml(g.title)}</h3><p>${escapeHtml(g.description||'')}</p></div><div class="giveaway-modal-meta"><span>Участников <b>${participants.length}</b></span><span>Призовых мест <b>${g.winner_slots}</b></span></div>${(g.prizes||[]).map(x=>`<div class="giveaway-modal-prize"><img src="${x.image_data}" alt=""><b>${escapeHtml(x.caption||'Приз')}</b></div>`).join('')}<div class="giveaway-wheel-wrap"><div class="public-giveaway-wheel ${finished&&winners.length&&animate?'spinning':''}" id="publicGiveawayWheel" style="background:${wheelBackground}" aria-label="Колесо участников">${winnerCenter}</div>${finished&&winners.length?`<div class="giveaway-wheel-winners">${winners.map(w=>`<div><b>${Number(w.place)||''} место — ${escapeHtml(w.nickname||'Победитель')} · ID #${escapeHtml(w.public_id??'—')}</b></div>`).join('')}</div>`:''}</div><a class="btn btn-primary btn-small" href="/giveaways">Участвовать ↗</a></div>`;
+  const winnerCenter=finished&&winner?`<div class="public-wheel-core winner"><b>${escapeHtml(winner.nickname||'Победитель')}</b><small>ID #${escapeHtml(winner.public_id??winner.user_id??'—')}</small></div>`:'';
+  root.innerHTML=`<div class="giveaway-modal-card"><div class="giveaway-modal-heading"><span class="giveaway-kicker">BLUP DROP</span><h3>${escapeHtml(g.title)}</h3><p>${escapeHtml(g.description||'')}</p></div><div class="giveaway-modal-meta"><span>Участников <b>${participants.length}</b></span><span>Призовых мест <b>${g.winner_slots}</b></span></div>${(g.prizes||[]).map(x=>`<div class="giveaway-modal-prize"><img src="${x.image_data}" alt=""><b>${escapeHtml(x.caption||'Приз')}</b></div>`).join('')}<div class="giveaway-wheel-wrap"><div class="public-giveaway-wheel ${finished&&winners.length&&animate?'spinning':''}" id="publicGiveawayWheel" style="background:${wheelBackground}" aria-label="Колесо из ${participants.length} равных секторов участников">${winnerCenter}</div>${finished&&winners.length?`<div class="giveaway-wheel-winners">${winners.map(w=>`<div><b>${Number(w.place)||''} место — ${escapeHtml(w.nickname||'Победитель')} · ID #${escapeHtml(w.public_id??'—')}</b></div>`).join('')}</div>`:''}</div><a class="btn btn-primary btn-small" href="/giveaways">Участвовать ↗</a></div>`;
  }catch(err){root.textContent=err.message;}
 }
 if ($('#giveawaysNav')) $('#giveawaysNav').addEventListener('click',async e=>{
