@@ -676,7 +676,7 @@ const CASE_WALLETS = BLUP_WALLETS;
 function caseUser(req,res,next){ if(!req.session?.userId) return res.status(401).json({error:'Войди в аккаунт, чтобы пользоваться кейсами'}); next(); }
 function getCaseBalance(userId,cb){ ensureGameBalance(userId,cb); }
 app.get('/api/cases/balance',caseUser,(req,res)=>getCaseBalance(req.session.userId,(e,row)=>e?res.status(500).json({error:'Не удалось загрузить баланс'}):res.set('Cache-Control','no-store').json({balance:Number(row?.balance||0)})));
-app.get('/api/cases/inventory',caseUser,(req,res)=>{db.run("UPDATE case_skin_withdrawals SET status='expired',reviewed_at=CURRENT_TIMESTAMP WHERE user_id=? AND status='pending' AND expires_at IS NOT NULL AND julianday(expires_at)<=julianday('now')",[req.session.userId],e0=>{if(e0)return res.status(500).json({error:'Не удалось проверить таймер заявок'});db.all(`SELECT i.id,i.case_id,i.skin_id,i.skin_name,i.price,i.created_at,w.expires_at AS withdrawal_expires_at,EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') AS withdrawal_pending FROM case_inventory i LEFT JOIN case_skin_withdrawals w ON w.inventory_id=i.id AND w.status='pending' WHERE i.user_id=? ORDER BY i.id DESC LIMIT 50`,[req.session.userId],(e,rows)=>e?res.status(500).json({error:'Не удалось загрузить инвентарь'}):res.json({items:rows||[]}));});});
+app.get('/api/cases/inventory',caseUser,(req,res)=>{db.run("UPDATE case_skin_withdrawals SET status='expired',reviewed_at=CURRENT_TIMESTAMP WHERE user_id=? AND status='pending' AND expires_at IS NOT NULL AND julianday(expires_at)<=julianday('now')",[req.session.userId],e0=>{if(e0)return res.status(500).json({error:'Не удалось проверить таймер заявок'});db.all(`SELECT i.id,i.case_id,i.skin_id,i.skin_name,i.price,i.created_at,w.expires_at AS withdrawal_expires_at,EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') AS withdrawal_pending FROM case_inventory i LEFT JOIN case_skin_withdrawals w ON w.inventory_id=i.id AND w.status='pending' WHERE i.user_id=? ORDER BY i.id DESC LIMIT 50`,[req.session.userId],(e,rows)=>e?res.status(500).json({error:'Не удалось загрузить инвентарь'}):res.json({items:(rows||[]).map(row=>{const skin=CASE_CATALOG?.skins?.[row.skin_id];return {...row,image:skin?.image||null,rarity:skin?.rarity||'common'};})}));});});
 
 app.get('/api/cases/upgrader/catalog',(req,res)=>{
   const skins=Object.values(CASE_CATALOG.skins||{}).filter(s=>Number(s.price)>=0.05&&Number(s.price)<=55).map(s=>({id:s.id,name:s.name,marketHashName:s.marketHashName||s.name,price:Number(s.price),rarity:s.rarity||'common',category:s.category||'skin',wear:s.wear||null,image:s.image||null,statTrak:!!s.statTrak,souvenir:!!s.souvenir}));
@@ -750,7 +750,7 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
   if(ids.length>5||ids.some(n=>!Number.isSafeInteger(n)||n<1)||!Number.isFinite(balanceAmount)||balanceAmount<0||balanceAmount>100000)
     return res.status(400).json({error:'Проверь выбранные скины и сумму баланса'});
   if(!ids.length&&balanceAmount<=0)return res.status(400).json({error:'Выбери скины или добавь баланс'});
-  if(!target||Number(target.price)<0.2||Number(target.price)>50)return res.status(400).json({error:'Целевой скин недоступен: максимум $50'});
+  if(!target||Number(target.price)<0.05||Number(target.price)>55)return res.status(400).json({error:'Целевой скин должен стоить от $0.05 до $55.00'});
   db.serialize(()=>{
     db.run('BEGIN IMMEDIATE',err=>{
       if(err)return res.status(500).json({error:'Не удалось начать апгрейд'});
@@ -768,8 +768,8 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
           const expectedTarget=stake*requestedMultiplier;
           if(Math.abs(Number(target.price)-expectedTarget)>Math.max(0.15,expectedTarget*0.12))return rollback(400,`Для x${requestedMultiplier} выбери предмет около ${expectedTarget.toFixed(2)} USDT`);
           if(Number(target.price)<=stake)return rollback(400,'Выбери скин дороже общей суммы ставки');
-          const chance=Number((stake/Number(target.price)*100).toFixed(4));
-          if(chance<0.01)return rollback(400,'Шанс ниже минимального порога 0.01%');
+          const rawChance=stake/Number(target.price)*100;
+          const chance=Number(Math.min(86,Math.max(1,rawChance)).toFixed(4));
           const roll=crypto.randomInt(0,1000000)/10000,won=roll<chance;
           const removeItems=idx=>{
             if(idx>=ids.length){
@@ -802,6 +802,48 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
     });
   });
 });
+// Контракты: 3–10 предметов, общая стоимость до $15. Результат выбирается сервером.
+app.post('/api/cases/contracts',caseUser,(req,res)=>{
+  const ids=Array.isArray(req.body?.sourceIds)?[...new Set(req.body.sourceIds.map(Number))]:[];
+  if(ids.length<3||ids.length>10||ids.some(id=>!Number.isSafeInteger(id)||id<1))return res.status(400).json({error:'Для контракта выбери от 3 до 10 скинов'});
+  db.serialize(()=>{
+    db.run('BEGIN IMMEDIATE',err=>{
+      if(err)return res.status(500).json({error:'Не удалось начать контракт'});
+      const rollback=(status,msg)=>db.run('ROLLBACK',()=>res.status(status).json({error:msg}));
+      const marks=ids.map(()=>'?').join(',');
+      db.all(`SELECT i.*,EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') AS withdrawal_pending FROM case_inventory i WHERE i.user_id=? AND i.id IN (${marks})`,[req.session.userId,...ids],(e,items)=>{
+        if(e)return rollback(500,'Ошибка базы данных');
+        if(!items||items.length!==ids.length)return rollback(404,'Один из выбранных предметов не найден');
+        if(items.some(x=>x.withdrawal_pending))return rollback(409,'Предмет с активной заявкой на вывод нельзя использовать');
+        const total=Number(items.reduce((sum,x)=>sum+Number(x.price||0),0).toFixed(2));
+        if(total<=0)return rollback(400,'Некорректная стоимость контракта');
+        if(total>15)return rollback(400,'Максимальная сумма контракта — $15.00');
+        const min=total*.5,max=total*1.5;
+        const candidates=Object.values(CASE_CATALOG.skins||{}).filter(x=>Number(x.price)>=Math.max(.05,min)&&Number(x.price)<=Math.min(55,max));
+        if(!candidates.length)return rollback(409,'Нет предметов в диапазоне стоимости контракта. Обнови каталог CS2.');
+        // Равномерно выбираем один из подходящих предметов; исход и списание выполняются в одной транзакции.
+        const result=candidates[crypto.randomInt(candidates.length)];
+        let idx=0;
+        const removeNext=()=>{
+          if(idx>=ids.length){
+            db.run('INSERT INTO case_inventory(user_id,case_id,skin_id,skin_name,price) VALUES(?,?,?,?,?)',[req.session.userId,'contract',result.id,result.name,Number(result.price)],function(insErr){
+              if(insErr)return rollback(500,'Не удалось сохранить результат контракта');
+              const newId=this.lastID;
+              db.run('COMMIT',ce=>ce?res.status(500).json({error:'Не удалось завершить контракт'}):res.json({ok:true,total,result:{id:result.id,name:result.name,price:Number(result.price),image:result.image||null,rarity:result.rarity||'common'},inventoryId:newId,multiplier:Number((Number(result.price)/total).toFixed(3))}));
+            });
+            return;
+          }
+          db.run('DELETE FROM case_inventory WHERE id=? AND user_id=?',[ids[idx++],req.session.userId],function(delErr){
+            if(delErr||this.changes!==1)return rollback(409,'Предмет уже использован или изменился');
+            removeNext();
+          });
+        };
+        removeNext();
+      });
+    });
+  });
+});
+
 app.post('/api/cases/inventory/:id/sell',caseUser,(req,res)=>{
   const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Некорректный предмет'});
   db.get(`SELECT i.*,EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') AS withdrawal_pending FROM case_inventory i WHERE i.id=? AND i.user_id=?`,[id,req.session.userId],(e,item)=>{
@@ -894,6 +936,7 @@ app.delete('/api/admin/cases/skin-withdrawals/:id',adminOnly,(req,res)=>{const i
 app.get('/api/cases/config',(req,res)=>db.get('SELECT value FROM settings WHERE key=?',['usdt_rate'],(e,row)=>e?res.status(500).json({error:'Ошибка курса'}):res.json({rubPerUsd:Number(row?.value)||82.829,rateSource:Number(row?.value)>0?'admin':'market-snapshot'})));
 app.get('/cases/profile', (req,res)=>res.sendFile(path.join(__dirname,'public','cases-profile.html')));
 app.get('/cases/upgrader', (req,res)=>res.sendFile(path.join(__dirname,'public','cases-upgrader.html')));
+app.get('/cases/contracts', (req,res)=>res.sendFile(path.join(__dirname,'public','cases-contracts.html')));
 app.get('/cases/:caseId', (req,res)=>{if(!CASE_CATALOG.cases.some(c=>c.id===String(req.params.caseId)))return res.status(404).send('Кейс не найден');res.sendFile(path.join(__dirname,'public','case-open.html'));});
 app.get('/cases', (req,res)=>res.sendFile(path.join(__dirname,'public','cases.html')));
 app.get('/games', (req,res)=>res.redirect(302,'/cases'));
