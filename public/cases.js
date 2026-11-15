@@ -1,10 +1,9 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
-function cs2TransparentPng(url){const v=String(url||'');if(!v)return '';if(/\.png(?:\?|$)/i.test(v))return v;return v}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let displayCurrency=localStorage.getItem('blupDisplayCurrency')==='RUB'?'RUB':'USDT',rubPerUsd=0;
-const money=n=>{const v=Number(n||0)*(displayCurrency==='RUB'?(rubPerUsd||1):1);return displayCurrency==='RUB'?v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₽':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})};
-async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Ошибка запроса');return d}
+let displayCurrency=localStorage.getItem('blupDisplayCurrency')==='RUB'?'RUB':'USDT',rubPerUsd=82.829;
+const money=n=>{const v=Number(n||0)*(displayCurrency==='RUB'?rubPerUsd:1);return displayCurrency==='RUB'?v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₽':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})};
+async function api(url,opts={}){const r=await fetch(url,{...opts,credentials:'same-origin',headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Ошибка запроса');return d}
 
 let data={cases:[],skins:{}},skinImages={},selectedCase=null,balance=0,loggedIn=false,promoPercent=0,depositRates={USDT:1,TON:0},depositWallets={USDT:{TRC20:'TCphExgGrK3TBWtfeubGQ7QXDCKTuMoTZA',BEP20:'0x88EdAc4B11E87EB124A5270CfD4Dc04dEB843184',ERC20:'0xa6511569eF753c10E4e145E447D619a3186d0509',TON:'UQCgljUWsZtjfBcGLZj72Yqq5pir-auWZtD5soVvWZnEVS7H',SPL:'8ztJwQUPr4iHyRrdaUT77KqDmKxzu6qJi2Emy14bsb5f'},TON:{TON:'UQCgljUWsZtjfBcGLZj72Yqq5pir-auWZtD5soVvWZnEVS7H'}};
 
@@ -117,20 +116,30 @@ function refreshCurrency(){
 }
 
 async function init(){
-  // 1. Каталог кейсов
+  // 1. Каталог кейсов — СНАЧАЛА пробуем API, потом fallback на JSON
   try{
-    data=await api('/api/cases/catalog');
-    if(!data.cases||!data.cases.length)throw Error('cases-data.json: пустой каталог');
+    try{
+      data=await api('/api/cases/catalog');
+    }catch(e){
+      console.warn('API /api/cases/catalog недоступен, fallback на cases-data.json:',e.message);
+      const res=await fetch('/cases-data.json');
+      if(!res.ok)throw Error('cases-data.json: '+res.status);
+      data=await res.json();
+    }
+    if(!data.cases||!data.cases.length)throw Error('Каталог пуст');
     renderCases();
   }catch(e){
     console.error('load cases error:',e);
-    const g=$('#caseGrid');if(g)g.innerHTML='<div class="loading-state">Не удалось загрузить каталог кейсов.<br><small style="color:#8993b2">Проверь, что /cases-data.json существует и валиден.</small></div>';
+    const g=$('#caseGrid');if(g)g.innerHTML='<div class="loading-state">Не удалось загрузить каталог кейсов.<br><small style="color:#8993b2">Проверь /cases-data.json или /api/cases/catalog.</small></div>';
   }
   // 2. Картинки
   loadImages();
   // 3. Конфиг RUB
-  try{const caseCfg=await api('/api/cases/config');rubPerUsd=Number(caseCfg.rubPerUsd)||82.829;
-if(rubPerUsd<10)rubPerUsd=82.829; // защита от мусора
+  try{
+    const caseCfg=await api('/api/cases/config');
+    rubPerUsd=Number(caseCfg.rubPerUsd)||82.829;
+    if(rubPerUsd<10)rubPerUsd=82.829; // защита от мусора
+  }catch{}
   // 4. Курс TON
   try{const cfg=await api('/api/config');const u=Number(cfg.usdtRate)||0,g=Number(cfg.gramRate)||0;depositRates.TON=u>0&&g>0?g/u:0;if(!depositRates.TON){const dm=$('#depositMessage');if(dm)dm.textContent='Курс TON не задан администратором.'}}catch{}
   // 5. Профиль
@@ -140,7 +149,7 @@ if(rubPerUsd<10)rubPerUsd=82.829; // защита от мусора
   await loadInventory();
 }
 
-// ===== Навешивание обработчиков (с проверками) =====
+// ===== Навешивание обработчиков =====
 const dc=$('#displayCurrency');if(dc){dc.value=displayCurrency;dc.onchange=()=>{displayCurrency=dc.value;refreshCurrency()}}
 $$('.filter').forEach(b=>b.onclick=()=>{$$('.filter').forEach(x=>x.classList.toggle('active',x===b));renderCases(b.dataset.filter)});
 const mm=$('#mobileMenu');if(mm)mm.onclick=()=>{const n=document.querySelector('.topbar nav');if(n)n.classList.toggle('open')};
