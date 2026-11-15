@@ -745,7 +745,6 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
   const ids=Array.isArray(req.body?.sourceIds)?[...new Set(req.body.sourceIds.map(Number))]:[];
   const targetId=String(req.body?.targetSkinId||'');
   const balanceAmount=Math.round(Number(req.body?.balanceAmount||0)*100)/100;
-  const requestedMultiplier=Number(req.body?.multiplier||0);
   const target=CASE_CATALOG.skins[targetId];
   if(ids.length>5||ids.some(n=>!Number.isSafeInteger(n)||n<1)||!Number.isFinite(balanceAmount)||balanceAmount<0||balanceAmount>100000)
     return res.status(400).json({error:'Проверь выбранные скины и сумму баланса'});
@@ -764,9 +763,10 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
           if(balanceAmount>currentBalance)return rollback(400,'На балансе недостаточно средств');
           const itemStake=items.reduce((a,x)=>a+Number(x.price||0),0);
           const stake=Number((itemStake+balanceAmount).toFixed(2));
-          if(!Number.isFinite(requestedMultiplier)||requestedMultiplier<1.1||requestedMultiplier>20)return rollback(400,'Выбери множитель от x1.1 до x20');
-          const expectedTarget=stake*requestedMultiplier;
-          if(Math.abs(Number(target.price)-expectedTarget)>Math.max(0.15,expectedTarget*0.12))return rollback(400,`Для x${requestedMultiplier} выбери предмет около ${expectedTarget.toFixed(2)} USDT`);
+          // Множитель вычисляется сервером по фактической сумме выбранных предметов.
+          // Не доверяем устаревшему значению из браузера: каталог и инвентарь могут обновиться независимо.
+          const actualMultiplier=Number((Number(target.price)/stake).toFixed(4));
+          if(!Number.isFinite(actualMultiplier)||actualMultiplier<=1)return rollback(400,'Целевой предмет должен быть дороже ставки');
           if(Number(target.price)<=stake)return rollback(400,'Выбери скин дороже общей суммы ставки');
           const rawChance=stake/Number(target.price)*100;
           const chance=Number(Math.min(86,Math.max(1,rawChance)).toFixed(4));
@@ -853,16 +853,35 @@ app.post('/api/cases/inventory/:id/sell',caseUser,(req,res)=>{
   });
 });
 app.post('/api/cases/inventory/sell-all',caseUser,(req,res)=>{
-  const requested=Array.isArray(req.body?.ids)?[...new Set(req.body.ids.map(Number).filter(x=>Number.isSafeInteger(x)&&x>0))].slice(0,100):[];
-  if(!requested.length)return res.status(400).json({error:'Нет предметов для продажи'});
-  const marks=requested.map(()=>'?').join(',');
-  db.all(`SELECT i.id,i.price FROM case_inventory i WHERE i.user_id=? AND i.id IN (${marks}) AND NOT EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending')`,[req.session.userId,...requested],(e,items)=>{
-    if(e)return res.status(500).json({error:'Ошибка базы данных'});if(items.length!==requested.length)return res.status(409).json({error:'Один или несколько предметов уже недоступны для продажи'});
-    const credit=Number(items.reduce((sum,x)=>sum+Number(x.price||0),0).toFixed(2));
-    db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run(`DELETE FROM case_inventory WHERE user_id=? AND id IN (${marks})`,[req.session.userId,...requested],function(delErr){
-      if(delErr||this.changes!==requested.length){db.run('ROLLBACK');return res.status(409).json({error:'Инвентарь изменился. Обнови страницу'});}
-      db.run('INSERT OR IGNORE INTO game_balance(user_id,balance) VALUES(?,0)',[req.session.userId],e1=>{if(e1){db.run('ROLLBACK');return res.status(500).json({error:'Ошибка баланса'});}db.run('UPDATE game_balance SET balance=balance+? WHERE user_id=?',[credit,req.session.userId],e2=>{if(e2){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось начислить баланс'});}db.run('COMMIT',e3=>{if(e3)return res.status(500).json({error:'Не удалось сохранить продажу'});db.get('SELECT balance FROM game_balance WHERE user_id=?',[req.session.userId],(e4,b)=>res.json({ok:true,sold:requested.length,credited:credit,balance:Number(b?.balance||0)}));});});});
-    });});
+  // Продаём весь доступный инвентарь, а не только первые 50 предметов,
+  // которые отображает страница профиля. Предметы с активным выводом пропускаем.
+  db.serialize(()=>{
+    db.run('BEGIN IMMEDIATE',beginErr=>{
+      if(beginErr)return res.status(500).json({error:'Не удалось начать продажу'});
+      const rollback=(status,message)=>db.run('ROLLBACK',()=>res.status(status).json({error:message}));
+      db.all(`SELECT i.id,i.price FROM case_inventory i WHERE i.user_id=? AND NOT EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') ORDER BY i.id`,[req.session.userId],(e,items)=>{
+        if(e)return rollback(500,'Не удалось прочитать инвентарь');
+        if(!items.length)return rollback(400,'Нет доступных для продажи предметов');
+        const soldCount=items.length;
+        const credit=Number(items.reduce((sum,x)=>sum+Number(x.price||0),0).toFixed(2));
+        db.run(`DELETE FROM case_inventory WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=case_inventory.id AND w.status='pending')`,[req.session.userId],function(delErr){
+          if(delErr||this.changes!==soldCount)return rollback(409,'Инвентарь изменился. Обнови страницу');
+          db.run('INSERT OR IGNORE INTO game_balance(user_id,balance) VALUES(?,0)',[req.session.userId],e1=>{
+            if(e1)return rollback(500,'Ошибка баланса');
+            db.run('UPDATE game_balance SET balance=balance+? WHERE user_id=?',[credit,req.session.userId],e2=>{
+              if(e2)return rollback(500,'Не удалось начислить баланс');
+              db.run('COMMIT',e3=>{
+                if(e3)return res.status(500).json({error:'Не удалось сохранить продажу'});
+                db.get('SELECT balance FROM game_balance WHERE user_id=?',[req.session.userId],(e4,b)=>{
+                  if(e4)return res.status(500).json({error:'Продажа выполнена, но баланс не удалось обновить'});
+                  db.get(`SELECT COUNT(*) AS count FROM case_inventory i WHERE i.user_id=? AND EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending')`,[req.session.userId],(e5,pending)=>res.json({ok:true,sold:soldCount,credited:credit,balance:Number(b?.balance||0),skipped:Number(pending?.count||0)}));
+                });
+              });
+            });
+          });
+        });
+      });
+    });
   });
 });
 
