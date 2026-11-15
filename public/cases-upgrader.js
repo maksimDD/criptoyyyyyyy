@@ -1,18 +1,18 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 
-// ===== SAFE HELPERS — не падают на null =====
 const setText=(s,v)=>{const e=$(s);if(e!=null)e.textContent=v;};
 const setHTML=(s,v)=>{const e=$(s);if(e!=null)e.innerHTML=v;};
 const setVal =(s,v)=>{const e=$(s);if(e!=null)e.value=v;};
 const setProp=(s,p,v)=>{const e=$(s);if(e!=null)e.style.setProperty(p,v);};
 const setW  =(s,v)=>{const e=$(s);if(e!=null)e.style.width=v;};
-const setDis=(s,v)=>{const e=$(s);if(e!=null)e.disabled=v;};
 const on    =(s,ev,fn)=>{const e=$(s);if(e!=null)e.addEventListener(ev,fn);};
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function api(url,opts={}){const r=await fetch(url,{...opts,credentials:'same-origin',headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Ошибка запроса');return d}
 
 let inventory=[],targets=[],selected=new Set(),targetId='',images={},multiplierFilter=5,busy=false,fastUpgrade=false,inventoryError='',statusMessage='',balanceAvailable=0,balanceAmount=0,displayCurrency=localStorage.getItem('blupDisplayCurrency')==='RUB'?'RUB':'USDT',rubPerUsd=82.829;
+
+const CHANCE_HINT='Шанс = ставка ÷ цена цели × 100%. Множитель x5 — цель примерно в 5 раз дороже ставки. Проиграл — предметы списываются. Выиграл — скин падает в инвентарь.';
 
 const usd=n=>{const v=Number(n||0)*(displayCurrency==='RUB'?rubPerUsd:1);return displayCurrency==='RUB'?v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₽':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})};
 const itemStake=()=>inventory.filter(x=>selected.has(Number(x.id))).reduce((a,x)=>a+Number(x.price||0),0);
@@ -42,6 +42,7 @@ function filteredTargets(){
 
 function render(){
   try{
+    // === ФИКС: st считается ДО использования ===
     const st=stake(), t=chosen(), ch=chanceFor(t);
 
     const srcQ=($('#sourceSearch')?.value||'').trim().toLowerCase();
@@ -85,17 +86,13 @@ function render(){
       btn.innerHTML=busy?'<span>◌</span> ПРОВЕРЯЕМ РЕЗУЛЬТАТ':'<span>⌁</span> УЛУЧШИТЬ';
       let hint=$('#upgradeHint');
       if(!hint){hint=document.createElement('div');hint.id='upgradeHint';hint.style.cssText='margin-top:10px;font-size:12px;font-weight:700;letter-spacing:.08em;color:#8b93a7;text-align:center;min-height:16px';btn.insertAdjacentElement('afterend',hint);}
-      hint.textContent=busy?'':(!selected.size&&balanceAmount<=0)?'Выбери 1–5 скинов слева или добавь баланс':!t?'Выбери целевой скин дороже ставки':Number(t.price)<=st?'Цель должна быть дороже ставки':'';
+      hint.textContent = busy ? '' : ((!selected.size&&balanceAmount<=0)||!t||Number(t.price)<=st) ? CHANCE_HINT : '';
     }
 
     setText('#wheelStatus', busy?'АПГРЕЙД В ПРОЦЕССЕ…':statusMessage||((!selected.size&&balanceAmount<=0)?'ДОБАВЬ ПРЕДМЕТЫ ИЛИ БАЛАНС':!t?'ВЫБЕРИ ЦЕЛЕВОЙ СКИН':'ВСЁ ГОТОВО К АПГРЕЙДУ'));
   }catch(err){
     console.error('[upgrader] render() error:',err);
-    // принудительно включаем кнопку даже если render упал
-    try{
-      const btn=$('#upgradeBtn'),st=stake(),t=chosen();
-      if(btn) btn.disabled=busy||(!selected.size&&balanceAmount<=0)||!t||Number(t.price)<=st;
-    }catch(_){}
+    try{const btn=$('#upgradeBtn'),st=stake(),t=chosen();if(btn)btn.disabled=busy||(!selected.size&&balanceAmount<=0)||!t||Number(t.price)<=st;}catch(_){}
   }
 }
 
@@ -115,7 +112,6 @@ async function load(){
   }catch(err){console.error('[upgrader] load() error:',err);render();}
 }
 
-// ===== Обработчики =====
 on('#sourceGrid','click',e=>{const b=e.target.closest('button[data-source]');if(!b||b.disabled||busy)return;const id=Number(b.dataset.source);if(!Number.isSafeInteger(id)||id<1)return;if(selected.has(id))selected.delete(id);else if(selected.size<5)selected.add(id);else return toast('Максимум 5 предметов');statusMessage='';render();});
 on('#targetGrid','click',e=>{const b=e.target.closest('button[data-target]');if(!b||b.disabled||busy)return;targetId=String(b.dataset.target);statusMessage='';render();});
 
@@ -134,7 +130,6 @@ if(brEl)brEl.oninput=e=>{balanceAmount=Math.min(balanceAvailable,Math.max(0,Numb
 const ufEl=$('#upgradeFast');
 if(ufEl)ufEl.onclick=()=>{fastUpgrade=!fastUpgrade;ufEl.classList.toggle('active',fastUpgrade);ufEl.setAttribute('aria-pressed',String(fastUpgrade))};
 
-// ===== ГЛАВНАЯ КНОПКА =====
 on('#upgradeBtn','click',async()=>{
   if(busy)return;
   const target=chosen(),total=stake();
