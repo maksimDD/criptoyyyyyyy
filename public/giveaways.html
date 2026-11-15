@@ -35,7 +35,7 @@ function render(g){
  const root=document.getElementById('giveawayContent');
  if(!g){root.innerHTML='<div class="giveaway-empty"><h1>Сейчас розыгрышей нет</h1><p>Следи за обновлениями BLUP — новые розыгрыши появятся здесь.</p></div>';return;}
  const done=g.status==='finished';
- root.innerHTML=`<div class="giveaway-kicker">BLUP / GIVEAWAY</div><h1>${esc(g.title)}</h1>
+ root.innerHTML=`<div class="giveaway-kicker">РОЗЫГРЫШ</div><h1>${esc(g.title)}</h1>
  <div class="giveaway-description">${esc(g.description||'')}</div>
  <div class="giveaway-prizes"><div class="giveaway-prize"><small>Условие участия</small><b>${Number(g.minimum_sales)>0?'Продажи от $'+Number(g.minimum_sales).toFixed(2):'Бесплатно для всех'}</b></div><div class="giveaway-prize"><small>Количество мест</small><b>${g.winner_slots}</b></div><div class="giveaway-prize"><small>Участники</small><b>${g.entries.length}</b></div></div>
  ${g.prizes.length?`<div class="giveaway-dynamic-prizes">${g.prizes.map(p=>`<div class="giveaway-dynamic-prize"><div class="giveaway-prize-art"><img src="${p.image_data}" alt="${esc(p.caption||'Приз')}"></div><b>${esc(p.caption||'Приз')}</b></div>`).join('')}</div>`:''}

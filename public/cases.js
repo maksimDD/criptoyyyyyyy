@@ -1,4 +1,6 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const appConfirm=message=>new Promise(resolve=>{const root=document.querySelector('#appConfirmBackdrop');if(!root){resolve(window.confirm(message));return;}document.querySelector('#appConfirmText').textContent=message;root.classList.add('open');root.setAttribute('aria-hidden','false');const done=value=>{root.classList.remove('open');root.setAttribute('aria-hidden','true');document.querySelector('#appConfirmCancel').onclick=null;document.querySelector('#appConfirmAccept').onclick=null;resolve(value)};document.querySelector('#appConfirmCancel').onclick=()=>done(false);document.querySelector('#appConfirmAccept').onclick=()=>done(true)});
+
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let displayCurrency=localStorage.getItem('blupDisplayCurrency')==='RUB'?'RUB':'USDT',rubPerUsd=82.829;
@@ -58,7 +60,7 @@ function renderCases(filter='all'){
       grid.innerHTML='<div class="loading-state">Кейсы не найдены. Попробуй другой фильтр.</div>';
       return;
     }
-    grid.innerHTML=list.map((c,i)=>`<article class="case-card" data-case="${esc(c.id)}" style="--case-color:${['#4754aa','#257a93','#7648a8','#985a54','#3d8c78'][i%5]};--case-glow:${['#665cff','#38cce0','#a66cff','#ff9e66'][i%4]}"><div class="case-art"><img src="${esc(caseCover(c))}" alt="${esc(c.name)}" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('cover-fallback')"></div><h3>${esc(c.name)}</h3><div class="case-card-price">${money(c.price)}</div></article>`).join('');
+    grid.innerHTML=list.map((c,i)=>`<article class="case-card" data-case="${esc(c.id)}" style="--card-index:${i};--case-color:${['#4754aa','#257a93','#7648a8','#985a54','#3d8c78'][i%5]};--case-glow:${['#665cff','#38cce0','#a66cff','#ff9e66'][i%4]}"><div class="case-art"><img src="${esc(caseCover(c))}" alt="${esc(c.name)}" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('cover-fallback')"></div><h3>${esc(c.name)}</h3><div class="case-card-price">${money(c.price)}</div></article>`).join('');
     $$('.case-card').forEach(el=>el.onclick=()=>location.href='/cases/'+encodeURIComponent(el.dataset.case));
   }catch(e){console.error('renderCases error:',e);const g=$('#caseGrid');if(g)g.innerHTML='<div class="loading-state">Ошибка отрисовки кейсов. Обнови страницу.</div>'}
 }
@@ -93,8 +95,8 @@ async function loadInventory(){
   }catch(e){const g=$('#inventoryGrid');if(g)g.innerHTML='<div class="empty-inventory">Войди в аккаунт, чтобы увидеть инвентарь.</div>'}
 }
 
-async function sellInventory(id){if(!confirm('Продать предмет за полную отображаемую цену?'))return;try{const d=await api(`/api/cases/inventory/${id}/sell`,{method:'POST'});balance=Number(d.balance||0);const bv=$('#balanceValue');if(bv)bv.textContent=money(balance);toast(`Продано: +${money(d.credited)}`);await loadInventory()}catch(e){toast(e.message)}}
-async function withdrawInventory(id){if(!confirm('Создать заявку на вывод этого скина в Steam?'))return;try{const d=await api(`/api/cases/inventory/${id}/withdraw`,{method:'POST'});toast(d.message||`Заявка №${d.id} создана`);await loadInventory()}catch(e){if(e.message.includes('Trade URL')){toast('Сначала добавь Steam Trade URL в профиле');location.href='/cases/profile'}else toast(e.message)}}
+async function sellInventory(id){if(!await appConfirm('Продать предмет за полную отображаемую цену?'))return;try{const d=await api(`/api/cases/inventory/${id}/sell`,{method:'POST'});balance=Number(d.balance||0);const bv=$('#balanceValue');if(bv)bv.textContent=money(balance);toast(`Продано: +${money(d.credited)}`);await loadInventory()}catch(e){toast(e.message)}}
+async function withdrawInventory(id){if(!await appConfirm('Создать заявку на вывод этого скина в Steam?'))return;try{const d=await api(`/api/cases/inventory/${id}/withdraw`,{method:'POST'});toast(d.message||`Заявка №${d.id} создана`);await loadInventory()}catch(e){if(e.message.includes('Trade URL')){toast('Сначала добавь Steam Trade URL в профиле');location.href='/cases/profile'}else toast(e.message)}}
 
 async function loadImages(){
   try{const payload=await api('/api/cases/skin-images');Object.assign(skinImages,payload.images||{});for(const item of Object.values(data.skins||{}))if(payload.rarities?.[item.name])item.rarity=payload.rarities[item.name]}catch(e){console.warn('Skin image cache unavailable',e)}

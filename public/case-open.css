@@ -3,3 +3,15 @@
 .drop-result img,
 .possible-skin img{display:block;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;object-fit:contain!important;mix-blend-mode:normal;}.showcase-item img{filter:drop-shadow(0 7px 13px #0008)}.roulette-item img{filter:drop-shadow(0 5px 9px #0008)}.drop-result img,.possible-skin img{filter:drop-shadow(0 5px 10px #0008)}.case-card img,.case-item img,.case-cover img,.case-art img,.case-image img,.case-detail-cover img,.case-preview img{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;object-fit:contain!important;mix-blend-mode:normal!important;}
 .case-heading{display:flex;flex-direction:column;align-items:center;gap:3px}.case-subtitle{margin:0;color:#72caff;font-size:12px;font-weight:800}
+
+/* BLUP unified lime / yellow / violet theme */
+:root{--blup-lime:#c8ff72;--blup-yellow:#ffe66d;--blup-violet:#bd79ff;--line:rgba(200,255,114,.18);--cyan:#ffe66d;--green:#c8ff72}
+body{background:radial-gradient(ellipse at 8% 0,rgba(189,121,255,.17),transparent 34%),radial-gradient(ellipse at 92% 12%,rgba(255,230,109,.13),transparent 34%),#111219!important;color:#f7f7ef!important}
+.topbar,.header{background:rgba(17,18,25,.82)!important;border-color:rgba(200,255,114,.17)!important;backdrop-filter:blur(22px)}
+.brand-orb,.brand-mark{background:radial-gradient(circle at 30% 25%,#fff,#e9ffae 20%,#c8ff72 55%,#8dbd36)!important;box-shadow:0 0 24px #c8ff7266!important;color:#171910!important}
+.nav-link:hover,.nav-link.active,.topbar nav a.active,.topbar nav a:hover{background:linear-gradient(110deg,#c8ff72,#ffe66d)!important;color:#171910!important}
+.btn-primary,.btn-submit,.action-btn.deposit-btn,.save-btn{background:linear-gradient(110deg,#c8ff72,#ffe66d 60%,#bd79ff)!important;color:#171910!important;box-shadow:0 9px 28px #c8ff7228!important}
+.card,.panel,.profile-card,.modal,.inventory-card,.skin-card,.upgrade-card,.contract-card{background:linear-gradient(145deg,#25262e,#171820)!important;border-color:rgba(200,255,114,.18)!important}
+.filter,.tab,.target-tab,.auth-tabs button,.list-tab{border-radius:999px!important;border-color:rgba(200,255,114,.2)!important;background:#ffffff08!important;color:#e5e6d9!important}
+.filter.active,.tab.active,.target-tab.active,.auth-tabs button.active,.list-tab.active{background:linear-gradient(110deg,#c8ff72,#ffe66d)!important;color:#171910!important;border-color:transparent!important}
+a{text-decoration:none!important}

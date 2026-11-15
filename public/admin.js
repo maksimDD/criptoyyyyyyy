@@ -477,14 +477,41 @@ async function fileAsDataUrl(file){
  }
  ctx.putImageData(frame,0,0);return canvas.toDataURL('image/png');
 }
+async function spinGiveawayWheel(g,mode){
+ const wheel=$('#giveawayWheel'),status=$('#giveawayWheelStatus');if(!wheel)return;
+ const names=(g.entries||[]).map(u=>u.nickname||('Участник #'+u.public_id));
+ if(!names.length){toast('Нет участников для выбора');return;}
+ const visible=names.slice(0,24);
+ wheel.classList.remove('spinning');wheel.innerHTML=visible.map((name,i)=>`<span style="--i:${i};--count:${visible.length}">${esc(name)}</span>`).join('');
+ status.textContent=`Участников на колесе: ${names.length} · выбираем случайного победителя`;
+ try{
+  const endpoint=mode==='reroll'?`/api/admin/giveaways/${g.id}/reroll`:`/api/admin/giveaways/${g.id}/finish`;
+  const result=await api(endpoint,{method:'POST'});
+  const winner=mode==='reroll'?result.winner:result.winners?.[0];
+  const rawIndex=Math.max(0,names.findIndex((name,i)=>Number(g.entries[i]?.user_id)===Number(winner?.user_id)));
+  const index=rawIndex%visible.length;
+  const stopAngle=360*8-(index+.5)*360/visible.length;
+  wheel.style.setProperty('--stop-angle',`${stopAngle}deg`);
+  void wheel.offsetWidth;wheel.classList.add('spinning');
+  await new Promise(r=>setTimeout(r,3700));
+  wheel.classList.remove('spinning');
+  status.innerHTML=winner?`Победитель: <b>${esc(winner.nickname)}</b> · ID #${esc(winner.public_id)}`:'Победители выбраны';
+  toast(mode==='reroll'?'Победитель перевыбран':'Розыгрыш завершён');
+  await loadAdminGiveaway();
+ }catch(e){wheel.classList.remove('spinning');status.textContent=e.message;toast(e.message);}
+}
 async function loadAdminGiveaway(){
  const d=await api('/api/admin/giveaways'),g=d.giveaway,el=$('#giveawayAdminCurrent');if(!el)return;
  if(!g){el.innerHTML='<p class="admin-footnote">Сейчас активного розыгрыша нет.</p>';return;}
+ const rerolledOut=(g.winners||[]).reduce((sum,w)=>sum+(w.rerolled_out||[]).length,0);
+ const canReroll=g.status==='finished'&&(g.entries||[]).length>(g.winners||[]).length+rerolledOut;
  el.innerHTML=`<div class="admin-card-head"><div><span class="eyebrow">ТЕКУЩИЙ РОЗЫГРЫШ</span><h3>${esc(g.title)}</h3><p class="admin-footnote">${g.status==='active'?'Активен':'Завершён'} · порог $${Number(g.minimum_sales).toFixed(2)} · мест ${g.winner_slots} · участников ${g.entries.length}</p></div></div>
+ <div class="giveaway-wheel-stage"><div class="giveaway-wheel-pointer">▼</div><div class="giveaway-wheel" id="giveawayWheel"><span>Участники появятся здесь</span></div><p id="giveawayWheelStatus" class="giveaway-wheel-status">${g.status==='finished'?'Итоги розыгрыша':'Готово к запуску'}</p></div>
  <div class="table-scroll"><table><thead><tr><th>Участник</th><th>ID сайта</th><th>Дата</th></tr></thead><tbody>${g.entries.map(u=>`<tr><td>${esc(u.nickname)}</td><td>#${esc(u.public_id)}</td><td>${date(u.created_at)}</td></tr>`).join('')||'<tr><td colspan="3">Участников пока нет</td></tr>'}</tbody></table></div>
- ${g.winners?.length?`<h3>Победители</h3>${g.winners.map(w=>`<p>${w.place} место — ${esc(w.nickname)} (#${esc(w.public_id)})</p>`).join('')}`:''}
- <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">${g.status==='active'?`<button class="btn btn-primary btn-small" id="finishGiveaway">Завершить и выбрать победителей</button>`:''}<button class="btn btn-ghost btn-small" id="deleteGiveaway">Удалить розыгрыш</button></div>`;
- $('#finishGiveaway')?.addEventListener('click',async()=>{if(!confirm('Завершить розыгрыш и случайно выбрать победителей?'))return;try{const r=await api(`/api/admin/giveaways/${g.id}/finish`,{method:'POST'});toast(`Итоги подведены. Победителей: ${r.winners.length}`);await loadAdminGiveaway();}catch(e){toast(e.message)}});
+ ${g.winners?.length?`<h3>Победители</h3>${g.winners.map(w=>`<p class="giveaway-winner-line">${w.place} место — ${esc(w.nickname)} (#${esc(w.public_id)}) ${w.reroll?'<small>перевыбран</small>':''}</p>`).join('')}`:''}
+ <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">${g.status==='active'?`<button class="btn btn-primary btn-small" id="finishGiveaway">Запустить колесо и выбрать победителей</button>`:''}${canReroll?`<button class="btn btn-primary btn-small" id="rerollGiveaway">↻ Рерол — выбрать нового</button>`:''}<button class="btn btn-ghost btn-small" id="deleteGiveaway">Удалить розыгрыш</button></div>`;
+ $('#finishGiveaway')?.addEventListener('click',()=>spinGiveawayWheel(g,'finish'));
+ $('#rerollGiveaway')?.addEventListener('click',()=>spinGiveawayWheel(g,'reroll'));
  $('#deleteGiveaway')?.addEventListener('click',async()=>{if(!confirm('Удалить розыгрыш, участников и загруженные фото?'))return;try{await api(`/api/admin/giveaways/${g.id}`,{method:'DELETE'});toast('Розыгрыш удалён');await loadAdminGiveaway();}catch(e){toast(e.message)}});
 }
 $('#giveawayAdminForm')?.addEventListener('submit',async e=>{

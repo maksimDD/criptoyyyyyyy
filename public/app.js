@@ -13,6 +13,14 @@ $$('.nav-link').forEach(a=>a.addEventListener('click',()=>{$$('.nav-link').forEa
 
 if ($('#reviewsNav')) $('#reviewsNav').addEventListener('click',e=>{e.preventDefault();$('#nav').classList.remove('open');openModal('reviewsBackdrop');});
 if ($('#reviewsClose')) $('#reviewsClose').addEventListener('click',()=>closeModal('reviewsBackdrop'));
+if ($('#giveawaysNav')) $('#giveawaysNav').addEventListener('click',async e=>{e.preventDefault();$('#nav')?.classList.remove('open');openModal('giveawaysBackdrop');const root=$('#giveawaysModalContent');root.innerHTML='<p>Загружаем розыгрыш…</p>';try{const d=await api('/api/giveaways/current');const g=d.giveaway;if(!g){root.innerHTML='<div class="giveaway-empty">Сейчас активных розыгрышей нет.</div>';return;}root.innerHTML=`<div class="giveaway-modal-card"><h3>${escapeHtml(g.title)}</h3><p>${escapeHtml(g.description||'')}</p><div class="giveaway-modal-meta"><span>Участников <b>${g.entries.length}</b></span><span>Призовых мест <b>${g.winner_slots}</b></span></div>${(g.prizes||[]).map(x=>`<div class="giveaway-modal-prize"><img src="${x.image_data}" alt=""><b>${escapeHtml(x.caption||'Приз')}</b></div>`).join('')}<a class="btn btn-primary btn-small" href="/giveaways">Открыть розыгрыш ↗</a></div>`;}catch(err){root.textContent=err.message;}});
+if ($('#giveawaysClose')) $('#giveawaysClose').addEventListener('click',()=>closeModal('giveawaysBackdrop'));
+if ($('#ludkaOpen')) $('#ludkaOpen').addEventListener('click',()=>openModal('ludkaBackdrop'));
+$$('[data-modal-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.modalClose)));
+if ($('#rateDrawerOpen')) $('#rateDrawerOpen').addEventListener('click',()=>$('#rateDrawer').classList.toggle('open'));
+if ($('#rateDrawerClose')) $('#rateDrawerClose').addEventListener('click',()=>$('#rateDrawer').classList.remove('open'));
+document.addEventListener('click',e=>{const drawer=$('#rateDrawer');if(drawer?.classList.contains('open')&&!e.target.closest('#rateDrawer')&&!e.target.closest('#rateDrawerOpen'))drawer.classList.remove('open');});
+
 
 const userChip=$('#userChip'), loginBtn=$('#loginBtn');
 async function readApiJson(response, label='API') {

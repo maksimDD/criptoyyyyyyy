@@ -35,3 +35,9 @@
 .profile-skin-actions button+button{border-color:#394c70;background:#1b2941}
 .profile-skin-actions button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:720px){.profile-skin-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Profile and giveaway pages inherit the BLUP aurora system */
+.profile-body{background:radial-gradient(ellipse at 8% 0,rgba(189,121,255,.17),transparent 34%),radial-gradient(ellipse at 92% 12%,rgba(255,230,109,.13),transparent 34%),#111219!important;color:#f7f7ef!important}
+.profile-card,.giveaway-card{background:linear-gradient(145deg,rgba(34,35,43,.96),rgba(19,20,27,.98))!important;border-color:rgba(200,255,114,.2)!important;box-shadow:0 22px 65px #0006!important}
+.profile-eyebrow,.giveaway-kicker{color:#c8ff72!important}.profile-avatar-wrap{border-color:#c8ff7288!important;box-shadow:0 0 28px #c8ff7230!important}.profile-avatar-fallback{background:linear-gradient(135deg,#c8ff72,#ffe66d 60%,#bd79ff)!important;color:#171910!important}
+.pill,.coupon,.profile-item,.profile-skin{border-color:#c8ff7228!important;background:#ffffff06!important}.pill-tg,.coupon b,.profile-skin span{color:#c8ff72!important}.profile-body a{text-decoration:none!important}

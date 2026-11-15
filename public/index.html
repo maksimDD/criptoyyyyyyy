@@ -40,11 +40,12 @@
       <a class="nav-link" href="#faq">FAQ</a>
       <a class="nav-link" href="#contacts">Контакты</a>
       <a class="nav-link" href="#reviews" id="reviewsNav">Отзывы</a>
-      <a class="nav-link" href="/giveaways">Розыгрыши</a>
+      <a class="nav-link" href="#giveaways" id="giveawaysNav">Розыгрыши</a>
       <a class="nav-link" href="/tournament">Турниры</a>
     </nav>
     <div class="header-actions">
       <a class="btn btn-ghost btn-small" id="profileBtn" href="/profile">Профиль</a>
+      <button class="btn btn-ghost btn-small" id="ludkaOpen" type="button">Лудка</button>
       <button class="btn btn-ghost btn-small" id="historyBtn"><span>↗</span> История заявок</button>
       <button class="btn btn-outline btn-small" id="loginBtn">Войти</button>
       <div class="user-chip hidden" id="userChip"><span class="user-dot"></span><b id="userName"></b><button id="logoutBtn" title="Выйти">↗</button></div>
@@ -82,7 +83,7 @@
       <div class="hero-bottom-note"><span class="line"></span> BLUP DIGITAL EXPERIENCE <span class="line"></span></div>
     </section>
 
-    <section class="reserve-strip section-wrap" id="reserveStrip"><div class="reserve-copy"><b class="deal-limit">Сумма максимальной сделки составляет до <strong>$200</strong> <span id="dealRate">| сумма в рублях</span></b></div><div class="rate-pills"><span>USDT <b id="usdtRateDisplay">— ₽</b></span><span>TON <b id="gramRateDisplay">— ₽</b></span></div></section>
+    <section class="reserve-strip section-wrap" id="reserveStrip"><div class="reserve-copy"><b class="deal-limit">Сумма максимальной сделки составляет до <strong>$200 | 15 800 ₽</strong></b></div><button class="rate-drawer-trigger" id="rateDrawerOpen" type="button">Курсы валют <span>↗</span></button></section>
 
     <section class="intro-strip section-wrap">
       <div><span class="strip-kicker">BLUP — ЭТО</span><h2>Технологичный подход<br>к криптооперациям</h2></div>
@@ -179,7 +180,7 @@
     <div class="modal-backdrop" id="authBackdrop" aria-hidden="true">
     <section class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <button class="modal-close" id="authClose" aria-label="Закрыть">×</button>
-      <div class="modal-eyebrow">BLUP / АККАУНТ</div>
+      <div class="modal-eyebrow">АККАУНТ</div>
       <h2 id="authTitle">Вход в аккаунт</h2>
       <p class="modal-desc">Войди по логину и паролю или используй Telegram.</p>
       
@@ -205,10 +206,13 @@
     </section>
   </div>
 
+  <div class="modal-backdrop" id="giveawaysBackdrop" aria-hidden="true"><section class="modal giveaways-modal" role="dialog" aria-modal="true" aria-labelledby="giveawaysTitle"><button class="modal-close" id="giveawaysClose" aria-label="Закрыть">×</button><div class="modal-eyebrow">АКТИВНОСТЬ</div><h2 id="giveawaysTitle">Розыгрыши</h2><p class="modal-desc">Участвуй в активных розыгрышах и следи за результатами.</p><div id="giveawaysModalContent" class="giveaways-modal-content">Загрузка розыгрыша…</div></section></div>
+  <div class="modal-backdrop" id="ludkaBackdrop" aria-hidden="true"><section class="modal teaser-modal" role="dialog" aria-modal="true"><button class="modal-close" data-modal-close="ludkaBackdrop" aria-label="Закрыть">×</button><div class="modal-eyebrow">BLUP / SOON</div><div class="teaser-orb"></div><h2>Лудка</h2><p class="modal-desc">На данный момент Лудка в разработке. Совсем скоро здесь появится кое-что интересное.</p></section></div>
+  <div class="rate-drawer" id="rateDrawer" aria-hidden="true"><div class="rate-drawer-head"><b>Актуальные курсы</b><button id="rateDrawerClose" aria-label="Закрыть">×</button></div><div class="rate-drawer-row"><span>USDT</span><b id="usdtRateDisplay">79 ₽</b></div><div class="rate-drawer-row"><span>TON</span><b id="gramRateDisplay">85 ₽</b></div><small>Курс отображается справочно и может обновляться.</small></div>
   <div class="modal-backdrop" id="reviewsBackdrop" aria-hidden="true">
     <section class="modal reviews-modal" role="dialog" aria-modal="true" aria-labelledby="reviewsTitle">
       <button class="modal-close" id="reviewsClose" aria-label="Закрыть">×</button>
-      <div class="modal-eyebrow">BLUP / CLIENTS</div><h2 id="reviewsTitle">Отзывы клиентов</h2>
+      <div class="modal-eyebrow">ОТЗЫВЫ</div><h2 id="reviewsTitle">Отзывы клиентов</h2>
       <p class="modal-desc">Реальные отзывы наших пользователей после успешных сделок.</p>
       <div id="publicReviews" class="reviews-list"><p>Загрузка отзывов…</p></div>
     </section>
@@ -217,7 +221,7 @@
   <div class="modal-backdrop" id="historyBackdrop" aria-hidden="true">
     <section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
       <button class="modal-close" id="historyClose" aria-label="Закрыть">×</button>
-      <div class="modal-eyebrow">BLUP / АКТИВНОСТЬ</div><h2 id="historyTitle">История заявок</h2><p class="modal-desc">Последние заявки, зарегистрированные в системе.</p>
+      <div class="modal-eyebrow">АКТИВНОСТЬ</div><h2 id="historyTitle">История заявок</h2><p class="modal-desc">Последние заявки, зарегистрированные в системе.</p>
       <div id="historyContent" class="history-content"><div class="empty-state"><span>◷</span><b>Здесь пока пусто</b><small>Когда появятся заявки, они отобразятся в этом разделе.</small></div></div>
     </section>
   </div>
