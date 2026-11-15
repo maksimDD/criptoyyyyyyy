@@ -1,4 +1,4 @@
-BLUP CASE OPEN PAGE / IMAGE REPAIR
+BLUP CASE OPEN PAGE / IMAgE REPAIR
 
 Changes in this update:
 - Rebuilt the case-opening page layout with a cleaner dark-blue visual style, consistent spacing, responsive controls, and a properly collapsed promo-code panel.
