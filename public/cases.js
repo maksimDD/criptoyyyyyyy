@@ -119,9 +119,7 @@ function refreshCurrency(){
 async function init(){
   // 1. Каталог кейсов
   try{
-    const res=await fetch('/cases-data.json');
-    if(!res.ok)throw Error('cases-data.json: '+res.status);
-    data=await res.json();
+    data=await api('/api/cases/catalog');
     if(!data.cases||!data.cases.length)throw Error('cases-data.json: пустой каталог');
     renderCases();
   }catch(e){
