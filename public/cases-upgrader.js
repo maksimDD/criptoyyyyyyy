@@ -12,7 +12,7 @@ async function api(url,opts={}){const r=await fetch(url,{...opts,credentials:'sa
 
 let inventory=[],targets=[],selected=new Set(),targetId='',images={},multiplierFilter=5,busy=false,fastUpgrade=false,inventoryError='',statusMessage='',balanceAvailable=0,balanceAmount=0,displayCurrency=localStorage.getItem('blupDisplayCurrency')==='RUB'?'RUB':'USDT',rubPerUsd=82.829;
 
-const CHANCE_HINT='Шанс = ставка ÷ цена цели × 100%. Множитель x5 — цель примерно в 5 раз дороже ставки. Проиграл — предметы списываются. Выиграл — скин падает в инвентарь.';
+const CHANCE_HINT='';
 
 const usd=n=>{const v=Number(n||0)*(displayCurrency==='RUB'?rubPerUsd:1);return displayCurrency==='RUB'?v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₽':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})};
 const itemStake=()=>inventory.filter(x=>selected.has(Number(x.id))).reduce((a,x)=>a+Number(x.price||0),0);
