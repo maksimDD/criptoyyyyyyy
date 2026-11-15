@@ -129,7 +129,8 @@ async function init(){
   // 2. Картинки
   loadImages();
   // 3. Конфиг RUB
-  try{const caseCfg=await api('/api/cases/config');rubPerUsd=Number(caseCfg.rubPerUsd)||82.829}catch{}
+  try{const caseCfg=await api('/api/cases/config');rubPerUsd=Number(caseCfg.rubPerUsd)||82.829;
+if(rubPerUsd<10)rubPerUsd=82.829; // защита от мусора
   // 4. Курс TON
   try{const cfg=await api('/api/config');const u=Number(cfg.usdtRate)||0,g=Number(cfg.gramRate)||0;depositRates.TON=u>0&&g>0?g/u:0;if(!depositRates.TON){const dm=$('#depositMessage');if(dm)dm.textContent='Курс TON не задан администратором.'}}catch{}
   // 5. Профиль
