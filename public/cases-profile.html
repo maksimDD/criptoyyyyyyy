@@ -5,14 +5,14 @@
 <title>BLUP / CASES — Инвентарь</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/profile.css"><link rel="stylesheet" href="/cases-profile.css?v=20261114-3">
+<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/profile.css"><link rel="stylesheet" href="/cases-profile.css?v=20261115-sell-all-dual-currency">
 </head>
 <body class="profile-body cases-profile-body">
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
 <header class="header cases-profile-header">
   <a class="brand" href="/" aria-label="BLUP — главная"><span class="brand-orb"></span><span>BLUP</span><span class="cases-brand">CASES</span></a>
   <nav class="nav"><a class="nav-link active" href="/cases">Кейсы</a><a class="nav-link" href="/cases/upgrader">Апгрейды</a><a class="nav-link" href="/cases/contracts">Контракты</a></nav>
-  <div class="header-actions"><label class="cp-currency">Валюта <select id="cp-currency"><option value="USDT">USDT</option><option value="RUB">RUB</option></select></label><a class="btn btn-ghost btn-small" href="/cases">← К кейсам</a><button class="btn btn-outline btn-small" id="cp-logout">Выйти</button></div>
+  <div class="header-actions"><span class="cp-currency">ЦЕНЫ: USDT + RUB</span><a class="btn btn-ghost btn-small" href="/cases">← К кейсам</a><button class="btn btn-outline btn-small" id="cp-logout">Выйти</button></div>
 </header>
 <main class="profile-shell cases-profile-shell">
   <div class="profile-error" id="cp-error"></div>
@@ -22,11 +22,11 @@
     </div>
   </section>
   <section class="profile-card"><div class="profile-card-head"><span class="profile-eyebrow">BLUP / CASES INVENTORY</span><h2>Инвентарь скинов</h2><p class="muted">Продавай скины по полной указанной цене или создавай заявку на вывод в Steam.</p></div>
-    <div id="cp-inventory" class="cases-profile-inventory"><p class="muted">Загрузка инвентаря…</p></div>
+    <div id="cp-inventory" class="cases-profile-inventory"><p class="muted">Загрузка инвентаря…</p></div><div class="cp-sell-all"><button id="cp-sell-all" class="btn btn-primary" type="button" style="width:100%;margin-top:16px" disabled>Продать всё</button><p id="cp-sell-all-message" class="muted" aria-live="polite"></p></div>
   </section>
   <section class="profile-card"><div class="profile-card-head"><span class="profile-eyebrow">BLUP / STEAM</span><h2>Steam Trade URL</h2><p class="muted">Добавь личную ссылку обмена Steam, чтобы оформлять заявки на вывод скинов.</p></div>
     <form id="cp-trade-form" class="form-grid" style="margin-top:16px"><label class="full">Ссылка на обмен Steam<input id="cp-trade-url" name="url" type="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=...&token=..." maxlength="300" required></label><button class="btn btn-primary btn-submit full" type="submit">Сохранить Trade URL <span>→</span></button><p id="cp-trade-message" class="form-message full" aria-live="polite"></p><a class="full" href="https://steamcommunity.com/my/tradeoffers/privacy" target="_blank" rel="noopener">Где найти ссылку обмена Steam ↗</a></form>
   </section>
 </main>
-<script src="/cases-profile.js?v=20261114-3"></script>
+<script src="/cases-profile.js?v=20261115-sell-all-dual-currency"></script>
 </body></html>
