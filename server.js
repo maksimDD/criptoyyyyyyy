@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const { execFile } = require('child_process');
 const db = require('./db');
 const { notifyAdmin } = require('./bot');
 const { notifyNewUser } = require('./bot_register');
@@ -678,7 +679,7 @@ app.get('/api/cases/balance',caseUser,(req,res)=>getCaseBalance(req.session.user
 app.get('/api/cases/inventory',caseUser,(req,res)=>{db.run("UPDATE case_skin_withdrawals SET status='expired',reviewed_at=CURRENT_TIMESTAMP WHERE user_id=? AND status='pending' AND expires_at IS NOT NULL AND julianday(expires_at)<=julianday('now')",[req.session.userId],e0=>{if(e0)return res.status(500).json({error:'Не удалось проверить таймер заявок'});db.all(`SELECT i.id,i.case_id,i.skin_id,i.skin_name,i.price,i.created_at,w.expires_at AS withdrawal_expires_at,EXISTS(SELECT 1 FROM case_skin_withdrawals w WHERE w.inventory_id=i.id AND w.status='pending') AS withdrawal_pending FROM case_inventory i LEFT JOIN case_skin_withdrawals w ON w.inventory_id=i.id AND w.status='pending' WHERE i.user_id=? ORDER BY i.id DESC LIMIT 50`,[req.session.userId],(e,rows)=>e?res.status(500).json({error:'Не удалось загрузить инвентарь'}):res.json({items:rows||[]}));});});
 
 app.get('/api/cases/upgrader/catalog',(req,res)=>{
-  const skins=Object.values(CASE_CATALOG.skins||{}).filter(s=>Number(s.price)>=0.2&&Number(s.price)<=50).map(s=>({id:s.id,name:s.name,price:Number(s.price),rarity:s.rarity||'common'}));
+  const skins=Object.values(CASE_CATALOG.skins||{}).filter(s=>Number(s.price)>=0.05&&Number(s.price)<=55).map(s=>({id:s.id,name:s.name,marketHashName:s.marketHashName||s.name,price:Number(s.price),rarity:s.rarity||'common',category:s.category||'skin',wear:s.wear||null,image:s.image||null,statTrak:!!s.statTrak,souvenir:!!s.souvenir}));
   res.set('Cache-Control','no-store').json({skins});
 });
 
@@ -902,4 +903,32 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 // API 404 — только после всех API-маршрутов, в том числе BLUP Cases.
 app.use('/api', (req, res) => res.status(404).json({ error: `API-маршрут не найден: ${req.method} ${req.originalUrl}` }));
 
-db.ready.then(() => app.listen(PORT, () => console.log(`BLUP запущен на порту ${PORT}`))).catch(err => { console.error('Ошибка:', err); process.exit(1); });
+let marketCatalogSyncRunning = false;
+function refreshMarketCatalog() {
+  if (marketCatalogSyncRunning) return;
+  marketCatalogSyncRunning = true;
+  execFile(process.execPath, [path.join(__dirname, 'sync-cs2-catalog.js')], { timeout: 180000, maxBuffer: 2 * 1024 * 1024 }, (error, stdout, stderr) => {
+    marketCatalogSyncRunning = false;
+    if (error) {
+      console.warn('[CS2 catalog] Market refresh skipped; current catalogue retained:', (stderr || error.message).trim().slice(0, 500));
+      return;
+    }
+    try {
+      const catalogPath = require.resolve('./cases-data.json');
+      delete require.cache[catalogPath];
+      CASE_CATALOG = require('./cases-data.json');
+      console.log('[CS2 catalog]', String(stdout || 'Market catalogue refreshed').trim());
+    } catch (e) {
+      console.error('[CS2 catalog] Could not reload refreshed catalogue:', e.message);
+    }
+  });
+}
+
+db.ready.then(() => app.listen(PORT, () => {
+  console.log(`BLUP запущен на порту ${PORT}`);
+  // Serve the bundled catalogue immediately; refresh prices and the marketable item set in the background.
+  const initialSync = setTimeout(refreshMarketCatalog, 5000);
+  if (initialSync.unref) initialSync.unref();
+  const recurringSync = setInterval(refreshMarketCatalog, 12 * 60 * 60 * 1000);
+  if (recurringSync.unref) recurringSync.unref();
+})).catch(err => { console.error('Ошибка:', err); process.exit(1); });
