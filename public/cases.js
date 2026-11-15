@@ -5,6 +5,10 @@ let displayCurrency=localStorage.getItem('blupDisplayCurrency')==='RUB'?'RUB':'U
 const money=n=>{const v=Number(n||0)*(displayCurrency==='RUB'?rubPerUsd:1);return displayCurrency==='RUB'?v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₽':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})};
 async function api(url,opts={}){const r=await fetch(url,{...opts,credentials:'same-origin',headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Ошибка запроса');return d}
 
+// ФУНКЦИЯ ДЛЯ ВОЗВРАТА ПОСЛЕ ВХОДА
+const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+const loginUrl = `/?login=1&returnUrl=${returnUrl}`;
+
 let data={cases:[],skins:{}},skinImages={},selectedCase=null,balance=0,loggedIn=false,promoPercent=0,depositRates={USDT:1,TON:0},depositWallets={USDT:{TRC20:'TCphExgGrK3TBWtfeubGQ7QXDCKTuMoTZA',BEP20:'0x88EdAc4B11E87EB124A5270CfD4Dc04dEB843184',ERC20:'0xa6511569eF753c10E4e145E447D619a3186d0509',TON:'UQCgljUWsZtjfBcGLZj72Yqq5pir-auWZtD5soVvWZnEVS7H',SPL:'8ztJwQUPr4iHyRrdaUT77KqDmKxzu6qJi2Emy14bsb5f'},TON:{TON:'UQCgljUWsZtjfBcGLZj72Yqq5pir-auWZtD5soVvWZnEVS7H'}};
 
 const toast=m=>{const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)};
@@ -116,7 +120,6 @@ function refreshCurrency(){
 }
 
 async function init(){
-  // ФИКС: каталог с API (админка пишет туда же), fallback на JSON
   try{
     try{
       data=await api('/api/cases/catalog');
@@ -148,10 +151,25 @@ async function init(){
 const dc=$('#displayCurrency');if(dc){dc.value=displayCurrency;dc.onchange=()=>{displayCurrency=dc.value;refreshCurrency()}}
 $$('.filter').forEach(b=>b.onclick=()=>{$$('.filter').forEach(x=>x.classList.toggle('active',x===b));renderCases(b.dataset.filter)});
 const mm=$('#mobileMenu');if(mm)mm.onclick=()=>{const n=document.querySelector('.topbar nav');if(n)n.classList.toggle('open')};
-const lb=$('#loginBtn');if(lb)lb.onclick=()=>location.href='/?login=1';
 
-const dOpen=$('#depositOpen');if(dOpen)dOpen.onclick=()=>{if(!loggedIn)return location.href='/?login=1';updateDepositWallet();updateDepositTotals();const dm=$('#depositMessage');if(dm)dm.textContent='';openModal('depositModal')};
-const wOpen=$('#withdrawOpen');if(wOpen)wOpen.onclick=()=>{if(!loggedIn)return location.href='/?login=1';refreshBalance();const wm=$('#withdrawMessage');if(wm)wm.textContent='';openModal('withdrawModal')};
+// ФИКС: кнопка "Войти" теперь с returnUrl — после входа вернёшься на /cases
+const lb=$('#loginBtn');
+if(lb) {
+  // Проверяем, не авторизован ли уже
+  api('/api/me').then(me => {
+    if (me && me.nickname) {
+      lb.textContent = me.nickname;
+      lb.onclick = () => location.href = '/cases/profile';
+    } else {
+      lb.onclick = () => location.href = loginUrl;
+    }
+  }).catch(() => {
+    lb.onclick = () => location.href = loginUrl;
+  });
+}
+
+const dOpen=$('#depositOpen');if(dOpen)dOpen.onclick=()=>{if(!loggedIn)return location.href=loginUrl;updateDepositWallet();updateDepositTotals();const dm=$('#depositMessage');if(dm)dm.textContent='';openModal('depositModal')};
+const wOpen=$('#withdrawOpen');if(wOpen)wOpen.onclick=()=>{if(!loggedIn)return location.href=loginUrl;refreshBalance();const wm=$('#withdrawMessage');if(wm)wm.textContent='';openModal('withdrawModal')};
 
 function updateDepositWallet(){
   const coin=$('#depositCoin'),net=$('#depositNetwork');if(!coin||!net)return;
@@ -200,7 +218,7 @@ const cw=$('#createWithdraw');if(cw)cw.onclick=async()=>{
 };
 
 const occ=$('#openCaseConfirm');if(occ)occ.onclick=async()=>{
-  if(!loggedIn)return location.href='/?login=1';if(!selectedCase)return;
+  if(!loggedIn)return location.href=loginUrl;if(!selectedCase)return;
   if(balance<selectedCase.price){const cm=$('#caseMessage');if(cm)cm.textContent='Недостаточно средств. Пополни баланс.';return}
   const btn=occ;btn.disabled=true;btn.textContent='Открываем…';const cm=$('#caseMessage');if(cm)cm.textContent='Определяем результат…';
   try{
