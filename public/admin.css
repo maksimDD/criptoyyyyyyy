@@ -18,7 +18,7 @@
 @media(max-width:850px){.admin-shell{width:calc(100% - 36px);padding-top:28px}.admin-grid{grid-template-columns:1fr}.admin-heading{align-items:flex-start;flex-direction:column}.admin-stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.admin-top{padding-inline:16px;height:68px;gap:12px}.admin-top-label{font-size:7px}.admin-top-actions .btn{padding:9px 10px;font-size:9px}.admin-shell{width:calc(100% - 28px)}.admin-card{padding:17px}.admin-card-head{align-items:flex-start}.admin-card-head h2{font-size:16px}.admin-stats article{padding:15px}.admin-stats b{font-size:27px}.settings-form{grid-template-columns:1fr}.settings-form .full{grid-column:auto}.maintenance-card{align-items:flex-start;flex-direction:column}}
 
-/* ===== BLUP custom select ===== */
+/* ===== BLUP custom select ==== */
 .blup-select { position: relative; width: 100%; }
 .blup-select-trigger { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 12px; background: #08131e; border: 1px solid rgba(130,185,205,.2); border-radius: 10px; color: #e7f6f7; font: inherit; font-size: 12px; cursor: pointer; transition: border-color .18s ease, box-shadow .18s ease; text-align: left; min-height: 46px; }
 .blup-select-trigger:hover { border-color: rgba(101,230,220,.4); }
