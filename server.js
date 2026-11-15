@@ -745,7 +745,7 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
   const ids=Array.isArray(req.body?.sourceIds)?[...new Set(req.body.sourceIds.map(Number))]:[];
   const targetId=String(req.body?.targetSkinId||'');
   const balanceAmount=Math.round(Number(req.body?.balanceAmount||0)*100)/100;
-  const target=CASE_CATALOG.skins[targetId];
+  const target=CASE_CATALOG.skins?.[targetId] || Object.values(CASE_CATALOG.skins||{}).find(s=>String(s.id)===targetId || String(s.marketHashName||'')===targetId);
   if(ids.length>5||ids.some(n=>!Number.isSafeInteger(n)||n<1)||!Number.isFinite(balanceAmount)||balanceAmount<0||balanceAmount>100000)
     return res.status(400).json({error:'Проверь выбранные скины и сумму баланса'});
   if(!ids.length&&balanceAmount<=0)return res.status(400).json({error:'Выбери скины или добавь баланс'});
@@ -766,7 +766,7 @@ app.post('/api/cases/upgrader',caseUser,(req,res)=>{
           if(!Number.isFinite(stake)||stake<=0)return rollback(400,'Сумма ставки должна быть больше нуля');
           const actualMultiplier=Number(target.price)/stake;
           if(actualMultiplier<1.1||actualMultiplier>20)return rollback(400,'Целевой скин должен быть дороже ставки от x1.1 до x20');
-          const rawChance=stake/Number(target.price)*100;
+          const rawChance=(stake*0.90)/Number(target.price)*100;
           const chance=Number(Math.min(86,Math.max(1,rawChance)).toFixed(4));
           const roll=crypto.randomInt(0,1000000)/10000,won=roll<chance;
           const removeItems=idx=>{
