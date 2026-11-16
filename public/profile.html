@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/profile.css">
-<link rel="stylesheet" href="/theme-redesign.css?v=20261116"></head>
+</head>
 <body class="profile-body">
 <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
 <header class="header">
@@ -136,5 +136,5 @@
 <!-- Скрипт Telegram для работы привязки -->
 <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
 <script src="/profile.js?v=20261115-sell-all-fix"></script>
-<script>(function(){if(document.querySelector('.blup-rate-tab'))return;const tab=document.createElement('button');tab.className='blup-rate-tab';tab.type='button';tab.textContent='КУРСЫ';const panel=document.createElement('aside');panel.className='blup-rate-panel';panel.innerHTML='<button class="blup-rate-close" type="button">×</button><h3>Курсы BLUP</h3><div class="blup-rate-row"><span>USDT / RUB</span><b data-rate="usdt">Загрузка…</b></div><div class="blup-rate-row"><span>GRAM / RUB</span><b data-rate="gram">Загрузка…</b></div><small>Курсы, установленные администратором</small>';document.body.append(tab,panel);const toggle=()=>panel.classList.toggle('open');tab.addEventListener('click',toggle);panel.querySelector('button').addEventListener('click',toggle);fetch('/api/rates').then(r=>r.json()).then(d=>{panel.querySelector('[data-rate="usdt"]').textContent=d.usdt?Number(d.usdt).toLocaleString('ru-RU')+' ₽':'Не задан';panel.querySelector('[data-rate="gram"]').textContent=d.gram?Number(d.gram).toLocaleString('ru-RU')+' ₽':'Не задан';}).catch(()=>{panel.querySelectorAll('[data-rate]').forEach(x=>x.textContent='Недоступен')});})();</script></body>
+</body>
 </html>

@@ -480,11 +480,10 @@ async function fileAsDataUrl(file){
 async function loadAdminGiveaway(){
  const d=await api('/api/admin/giveaways'),g=d.giveaway,el=$('#giveawayAdminCurrent');if(!el)return;
  if(!g){el.innerHTML='<p class="admin-footnote">Сейчас активного розыгрыша нет.</p>';return;}
- el.innerHTML=`<div class="admin-card-head"><div><span class="eyebrow">ТЕКУЩИЙ РОЗЫГРЫШ</span><h3>${esc(g.title)}</h3><p class="admin-footnote">${g.status==='active'?'Активен':'Завершён'} · ${g.draw_at?'итоги '+date(g.draw_at):'без расписания'} · порог $${Number(g.minimum_sales).toFixed(2)} · мест ${g.winner_slots} · участников ${g.entries.length}</p></div></div>
+ el.innerHTML=`<div class="admin-card-head"><div><span class="eyebrow">ТЕКУЩИЙ РОЗЫГРЫШ</span><h3>${esc(g.title)}</h3><p class="admin-footnote">${g.status==='active'?'Активен':'Завершён'} · порог $${Number(g.minimum_sales).toFixed(2)} · мест ${g.winner_slots} · участников ${g.entries.length}</p></div></div>
  <div class="table-scroll"><table><thead><tr><th>Участник</th><th>ID сайта</th><th>Дата</th></tr></thead><tbody>${g.entries.map(u=>`<tr><td>${esc(u.nickname)}</td><td>#${esc(u.public_id)}</td><td>${date(u.created_at)}</td></tr>`).join('')||'<tr><td colspan="3">Участников пока нет</td></tr>'}</tbody></table></div>
- ${g.winners?.length?`<h3>Победители</h3>${g.winners.map(w=>`<p>${w.place} место — ${esc(w.nickname)} (#${esc(w.public_id)})</p>`).join('')}<button class="btn btn-outline btn-small" id="rerollGiveaway">Перевыбрать победителей</button>`:''}
+ ${g.winners?.length?`<h3>Победители</h3>${g.winners.map(w=>`<p>${w.place} место — ${esc(w.nickname)} (#${esc(w.public_id)})</p>`).join('')}`:''}
  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">${g.status==='active'?`<button class="btn btn-primary btn-small" id="finishGiveaway">Завершить и выбрать победителей</button>`:''}<button class="btn btn-ghost btn-small" id="deleteGiveaway">Удалить розыгрыш</button></div>`;
- $('#rerollGiveaway')?.addEventListener('click',async()=>{if(!confirm('Случайно выбрать новых победителей из всех участников?'))return;try{const r=await api(`/api/admin/giveaways/${g.id}/reroll`,{method:'POST'});toast(`Победители обновлены: ${r.winners.length}`);await loadAdminGiveaway();}catch(e){toast(e.message)}});
  $('#finishGiveaway')?.addEventListener('click',async()=>{if(!confirm('Завершить розыгрыш и случайно выбрать победителей?'))return;try{const r=await api(`/api/admin/giveaways/${g.id}/finish`,{method:'POST'});toast(`Итоги подведены. Победителей: ${r.winners.length}`);await loadAdminGiveaway();}catch(e){toast(e.message)}});
  $('#deleteGiveaway')?.addEventListener('click',async()=>{if(!confirm('Удалить розыгрыш, участников и загруженные фото?'))return;try{await api(`/api/admin/giveaways/${g.id}`,{method:'DELETE'});toast('Розыгрыш удалён');await loadAdminGiveaway();}catch(e){toast(e.message)}});
 }
@@ -495,7 +494,7 @@ $('#giveawayAdminForm')?.addEventListener('submit',async e=>{
   for(const file of files){if(file.type!=='image/png'||file.size>2*1024*1024)throw new Error('Каждый файл должен быть PNG до 2 МБ');}
   const prizes=await Promise.all(files.map(async(file,i)=>({image:await fileAsDataUrl(file),caption:$('#giveawayImageCaptions [data-giveaway-caption="'+i+'"]')?.value||file.name.replace(/\.png$/i,'')})));
   const fd=new FormData(f);
-  await api('/api/admin/giveaways',{method:'POST',body:JSON.stringify({title:fd.get('title'),description:fd.get('description'),minimumSales:Number(fd.get('minimumSales')),slots:Number(fd.get('slots')),drawAt:fd.get('drawAt')?new Date(fd.get('drawAt')).toISOString():'',prizes})});
+  await api('/api/admin/giveaways',{method:'POST',body:JSON.stringify({title:fd.get('title'),description:fd.get('description'),minimumSales:Number(fd.get('minimumSales')),slots:Number(fd.get('slots')),prizes})});
   f.reset();$('#giveawayImageCaptions').innerHTML='';$('#giveawayFilesHint').textContent='Можно загрузить до пяти изображений.';msg.textContent='Розыгрыш запущен';toast('Розыгрыш запущен');await loadAdminGiveaway();
  }catch(err){msg.textContent=err.message;}
 });
