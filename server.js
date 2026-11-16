@@ -652,29 +652,6 @@ app.post('/api/admin/giveaways/:id/finish',adminOnly,(req,res)=>{
     });
   });
 });
-app.post('/api/admin/giveaways/:id/reroll',adminOnly,(req,res)=>{
-  const id=Number(req.params.id);
-  db.get('SELECT * FROM giveaways WHERE id=?',[id],(e,g)=>{
-    if(e)return res.status(500).json({error:'Ошибка базы данных'});
-    if(!g||g.status!=='finished')return res.status(409).json({error:'Сначала заверши розыгрыш'});
-    db.all(`SELECT e.user_id,u.nickname,u.public_id FROM giveaway_entries e JOIN users u ON u.id=e.user_id WHERE e.giveaway_id=?`,[id],(ee,rows)=>{
-      if(ee)return res.status(500).json({error:'Не удалось получить участников'});
-      let winners=[];try{winners=JSON.parse(g.winners_json||'[]')}catch{}
-      const current=winners[winners.length-1];
-      if(!current)return res.status(409).json({error:'Нет победителя для перевыбора'});
-      const excluded=new Set([...winners.map(w=>Number(w.user_id)),...(current.rerolled_out||[]).map(Number)]);
-      const pool=(rows||[]).filter(u=>!excluded.has(Number(u.user_id)));
-      if(!pool.length)return res.status(409).json({error:'Больше нет участников для перевыбора'});
-      const winner=pool[crypto.randomInt(pool.length)];
-      const next=winners.slice();
-      next[next.length-1]={...winner,place:Number(current.place||winners.length),reroll:true,rerolled_out:[...(current.rerolled_out||[]),Number(current.user_id)]};
-      db.run('UPDATE giveaways SET winners_json=? WHERE id=?',[JSON.stringify(next),id],function(ue){
-        if(ue)return res.status(500).json({error:'Не удалось сохранить нового победителя'});
-        res.json({ok:true,winner,winners:next,remaining:pool.length-1});
-      });
-    });
-  });
-});
 app.delete('/api/admin/giveaways/:id',adminOnly,(req,res)=>{
   const id=Number(req.params.id);
   db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run('DELETE FROM giveaway_entries WHERE giveaway_id=?',[id]);db.run('DELETE FROM giveaway_prizes WHERE giveaway_id=?',[id]);db.run('DELETE FROM giveaways WHERE id=?',[id],function(e){if(e){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось удалить'});}const deleted=this.changes;db.run('COMMIT',()=>res.json({ok:true,deleted}));});});
