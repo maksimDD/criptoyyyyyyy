@@ -609,9 +609,6 @@ app.post('/api/admin/giveaways',adminOnly,(req,res)=>{
   const title=String(req.body?.title||'').trim().slice(0,100);
   const description=String(req.body?.description||'').trim().slice(0,1500);
   const minimumSales=Number(req.body?.minimumSales||0), slots=Number(req.body?.slots||1), prizes=Array.isArray(req.body?.prizes)?req.body.prizes:[];
-  const drawAtRaw=String(req.body?.drawAt||'').trim();
-  const drawAt=drawAtRaw?new Date(drawAtRaw):null;
-  if(drawAtRaw&&(!drawAt||!Number.isFinite(drawAt.getTime())||drawAt.getTime()<=Date.now()))return res.status(400).json({error:'Время итогов должно быть в будущем'});
   if(!title)return res.status(400).json({error:'Укажи название розыгрыша'});
   if(!Number.isFinite(minimumSales)||minimumSales<0||minimumSales>1000000)return res.status(400).json({error:'Некорректная сумма продаж'});
   if(!Number.isInteger(slots)||slots<1||slots>5)return res.status(400).json({error:'Количество мест — от 1 до 5'});
@@ -625,7 +622,7 @@ app.post('/api/admin/giveaways',adminOnly,(req,res)=>{
     db.run('DELETE FROM giveaway_entries');
     db.run('DELETE FROM giveaway_prizes');
     db.run('DELETE FROM giveaways');
-    db.run('INSERT INTO giveaways(title,description,minimum_sales,winner_slots,status,draw_at) VALUES(?,?,?,?,?,?)',[title,description,minimumSales,slots,'active',drawAt?drawAt.toISOString():null],function(e){
+    db.run('INSERT INTO giveaways(title,description,minimum_sales,winner_slots,status) VALUES(?,?,?,?,?)',[title,description,minimumSales,slots,'active'],function(e){
       if(e){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось создать розыгрыш'});}
       const id=this.lastID;
       let failed=false, pending=prizes.length;
@@ -655,22 +652,6 @@ app.post('/api/admin/giveaways/:id/finish',adminOnly,(req,res)=>{
     });
   });
 });
-app.post('/api/admin/giveaways/:id/reroll',adminOnly,(req,res)=>{
-  const id=Number(req.params.id);
-  db.get("SELECT * FROM giveaways WHERE id=? AND status='finished'",[id],(e,g)=>{
-    if(e)return res.status(500).json({error:'Ошибка базы данных'});
-    if(!g)return res.status(404).json({error:'Завершённый розыгрыш не найден'});
-    db.all(`SELECT e.user_id,u.nickname,u.public_id FROM giveaway_entries e JOIN users u ON u.id=e.user_id WHERE e.giveaway_id=?`,[id],(ee,rows)=>{
-      if(ee)return res.status(500).json({error:'Не удалось получить участников'});
-      const pool=(rows||[]).slice();
-      for(let i=pool.length-1;i>0;i--){const j=crypto.randomInt(i+1);[pool[i],pool[j]]=[pool[j],pool[i]];}
-      const winners=pool.slice(0,Math.min(Number(g.winner_slots),pool.length)).map((u,i)=>({...u,place:i+1}));
-      db.run('UPDATE giveaways SET winners_json=? WHERE id=?',[JSON.stringify(winners),id],err=>err?res.status(500).json({error:'Не удалось сохранить победителей'}):res.json({ok:true,winners}));
-    });
-  });
-});
-app.get('/api/rates',(req,res)=>db.all("SELECT key,value FROM settings WHERE key IN ('usdt_rate','gram_rate')",[],(e,rows)=>{if(e)return res.status(500).json({error:'Ошибка курсов'});const v=Object.fromEntries((rows||[]).map(x=>[x.key,Number(x.value)||0]));res.json({usdt:v.usdt_rate||0,gram:v.gram_rate||0});}));
-
 app.delete('/api/admin/giveaways/:id',adminOnly,(req,res)=>{
   const id=Number(req.params.id);
   db.serialize(()=>{db.run('BEGIN IMMEDIATE');db.run('DELETE FROM giveaway_entries WHERE giveaway_id=?',[id]);db.run('DELETE FROM giveaway_prizes WHERE giveaway_id=?',[id]);db.run('DELETE FROM giveaways WHERE id=?',[id],function(e){if(e){db.run('ROLLBACK');return res.status(500).json({error:'Не удалось удалить'});}const deleted=this.changes;db.run('COMMIT',()=>res.json({ok:true,deleted}));});});
@@ -1032,27 +1013,8 @@ function refreshMarketCatalog() {
   });
 }
 
-function runScheduledGiveaways(){
-  db.all("SELECT id FROM giveaways WHERE status='active' AND draw_at IS NOT NULL AND draw_at<>'' AND datetime(draw_at)<=datetime('now')",[],(e,rows)=>{
-    if(e||!rows?.length)return;
-    rows.forEach(({id})=>{
-      db.get("SELECT * FROM giveaways WHERE id=? AND status='active'",[id],(ge,g)=>{
-        if(ge||!g)return;
-        db.all(`SELECT e.user_id,u.nickname,u.public_id FROM giveaway_entries e JOIN users u ON u.id=e.user_id WHERE e.giveaway_id=?`,[id],(ee,users)=>{
-          if(ee)return;
-          const pool=(users||[]).slice();for(let i=pool.length-1;i>0;i--){const j=crypto.randomInt(i+1);[pool[i],pool[j]]=[pool[j],pool[i]];}
-          const winners=pool.slice(0,Math.min(Number(g.winner_slots),pool.length)).map((u,i)=>({...u,place:i+1}));
-          db.run("UPDATE giveaways SET status='finished',winners_json=?,ended_at=CURRENT_TIMESTAMP WHERE id=? AND status='active'",[JSON.stringify(winners),id]);
-        });
-      });
-    });
-  });
-}
-
 db.ready.then(() => app.listen(PORT, () => {
   console.log(`BLUP запущен на порту ${PORT}`);
-  runScheduledGiveaways();
-  const giveawayTimer=setInterval(runScheduledGiveaways,15000); if(giveawayTimer.unref)giveawayTimer.unref();
   // Serve the bundled catalogue immediately; refresh prices and the marketable item set in the background.
   const initialSync = setTimeout(refreshMarketCatalog, 5000);
   if (initialSync.unref) initialSync.unref();

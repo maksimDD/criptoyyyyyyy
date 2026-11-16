@@ -114,8 +114,6 @@ db.ready = (async () => {
       UNIQUE(giveaway_id,user_id)
     )`);
     await run('CREATE INDEX IF NOT EXISTS idx_giveaway_entries_giveaway ON giveaway_entries(giveaway_id)');
-    const giveawayCols = new Set((await all('PRAGMA table_info(giveaways)')).map(x=>x.name));
-    if (!giveawayCols.has('draw_at')) await run('ALTER TABLE giveaways ADD COLUMN draw_at TEXT');
 
     // Реферальная система
     await run(`CREATE TABLE IF NOT EXISTS user_referrals (user_id INTEGER PRIMARY KEY, referrer_id INTEGER, ref_code TEXT UNIQUE, balance REAL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`);
