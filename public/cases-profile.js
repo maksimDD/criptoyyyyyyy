@@ -1,6 +1,4 @@
 const $=s=>document.querySelector(s);
-const profileConfirm=message=>new Promise(resolve=>{let root=document.querySelector('#profileConfirmBackdrop');if(!root){root=document.createElement('div');root.id='profileConfirmBackdrop';root.className='modal-backdrop';root.innerHTML='<section class="modal confirm-modal"><div class="eyebrow">ПОДТВЕРЖДЕНИЕ</div><h2>Подтвердить действие?</h2><p class="modal-sub"></p><div class="modal-actions"><button class="action-btn secondary" data-no>Отмена</button><button class="action-btn deposit-btn" data-yes>Продолжить</button></div></section>';document.body.append(root)}root.querySelector('.modal-sub').textContent=message;root.classList.add('open');const finish=v=>{root.classList.remove('open');root.querySelector('[data-no]').onclick=null;root.querySelector('[data-yes]').onclick=null;resolve(v)};root.querySelector('[data-no]').onclick=()=>finish(false);root.querySelector('[data-yes]').onclick=()=>finish(true)});
-
 const setText=(s,v)=>{const e=$(s);if(e)e.textContent=v;};
 const setHTML=(s,v)=>{const e=$(s);if(e)e.innerHTML=v;};
 const setVal =(s,v)=>{const e=$(s);if(e)e.value=v;};
@@ -60,7 +58,7 @@ function updateSellAllButton(){
 }
 
 async function sellOne(id){
-  if(!await profileConfirm('Продать предмет за полную отображаемую цену?'))return;
+  if(!confirm('Продать предмет за полную отображаемую цену?'))return;
   try{
     const d=await api(`/api/cases/inventory/${id}/sell`,{method:'POST'});
     toast(`Продано: +${money(d.credited)}`);
@@ -71,7 +69,7 @@ async function sellOne(id){
 async function sellAll(){
   const sellable=inventory.filter(x=>!x.withdrawal_pending);
   if(!sellable.length){toast('Нет предметов для продажи');return}
-  if(!await profileConfirm(`Продать все ${sellable.length} предметов?`))return;
+  if(!confirm(`Продать все ${sellable.length} предметов?`))return;
   const btn=$('#cp-sellall-btn');if(btn)btn.disabled=true;
   let sold=0,total=0,errors=0;
   for(const item of sellable){
@@ -85,7 +83,7 @@ async function sellAll(){
 }
 
 async function withdrawOne(id){
-  if(!await profileConfirm('Создать заявку на вывод этого скина в Steam?'))return;
+  if(!confirm('Создать заявку на вывод этого скина в Steam?'))return;
   try{
     const d=await api(`/api/cases/inventory/${id}/withdraw`,{method:'POST'});
     toast(d.message||`Заявка №${d.id} создана`);

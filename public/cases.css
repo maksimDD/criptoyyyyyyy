@@ -39,23 +39,3 @@
 @keyframes caseCardGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.12)}}
 .cases-home-page .case-card:hover .case-art img{animation:caseCardGlow 1.2s ease-in-out infinite}
 @media(prefers-reduced-motion:reduce){.cases-home-page *{animation:none!important;transition:none!important}}
-
-/* BLUP CASES: same aurora design language */
-:root{--lime:#c8ff72;--yellow:#ffe66d;--violet:#bd79ff;--line:rgba(200,255,114,.18);--green:#c8ff72;--cyan:#ffe66d}
-body{background:radial-gradient(ellipse at 8% 0,rgba(189,121,255,.18),transparent 34%),radial-gradient(ellipse at 92% 10%,rgba(255,230,109,.14),transparent 34%),#111219!important}
-.topbar{background:rgba(17,18,25,.82)!important;border-color:var(--line)!important;backdrop-filter:blur(22px)}
-.brand-mark{border-radius:50%!important;background:radial-gradient(circle at 30% 25%,#fff,#e9ffae 20%,#c8ff72 55%,#8dbd36)!important;color:#1a1c13!important;box-shadow:0 0 24px #c8ff7266!important}
-.topbar nav a.active,.topbar nav a:hover{background:linear-gradient(110deg,#c8ff72,#ffe66d)!important;color:#171910!important}
-.action-btn.deposit-btn,.action-btn.primary{background:linear-gradient(110deg,#c8ff72,#ffe66d 60%,#bd79ff)!important;color:#171910!important}
-.hero,.case-card,.inventory-card,.modal,.section-panel{border-color:var(--line)!important}
-.case-card{background:linear-gradient(145deg,#24252d,#171820)!important;transition:transform .3s,border-color .3s,box-shadow .3s!important}
-.case-card:hover{transform:translateY(-7px)!important;border-color:#c8ff7288!important;box-shadow:0 20px 42px #0007,0 0 28px #c8ff7218!important}
-.case-card-price,.totals .total-final b,.wallet-box small{color:var(--lime)!important}
-.hero-visual{background:radial-gradient(ellipse at 50% 55%,#c8ff7219,transparent 64%)}
-.hero-agent{animation:agentMotion 5.5s ease-in-out infinite!important;filter:drop-shadow(0 20px 34px #000b) drop-shadow(0 0 24px #c8ff7222)!important}
-@keyframes agentMotion{0%,100%{transform:translate3d(0,0,0) rotate(-1deg)}25%{transform:translate3d(7px,-11px,0) rotate(1deg)}50%{transform:translate3d(0,-4px,0) rotate(0)}75%{transform:translate3d(-7px,-13px,0) rotate(-1deg)}}
-.hero-ring{border-color:#c8ff7230!important;box-shadow:0 0 28px #c8ff7218!important;animation:caseRing 12s linear infinite!important}.ring-two{animation-direction:reverse!important}@keyframes caseRing{to{transform:rotate(360deg)}}
-a{text-decoration:none!important}
-.filter,.auth-tabs,.list-tab,.target-tab,.tab{border-radius:999px!important;border:1px solid rgba(200,255,114,.2)!important;background:rgba(255,255,255,.045)!important;color:#d6d8c9!important;transition:.22s!important}
-.filter.active,.auth-tabs .active,.list-tab.active,.target-tab.active,.tab.active{background:linear-gradient(110deg,#c8ff72,#ffe66d)!important;color:#171910!important;border-color:transparent!important;box-shadow:0 8px 24px #c8ff7228!important}
-.skin-card,.inventory-card{background:linear-gradient(145deg,#25262e,#171820)!important;border-color:rgba(200,255,114,.17)!important}

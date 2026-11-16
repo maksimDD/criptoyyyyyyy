@@ -51,7 +51,7 @@ let currentProfile = null;
     const tgStatus = $('#p-tg-status');
     if (tgStatus) {
       tgStatus.textContent = validTgUsername ? '@' + p.telegram_username : 'не привязан';
-      tgStatus.style.color = validTgUsername ? '#caff70' : '#aeb39e';
+      tgStatus.style.color = validTgUsername ? '#5ce3a4' : '#8fa8b4';
     }
 
     $('#p-created').textContent = fmtDate(p.created_at);

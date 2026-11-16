@@ -25,7 +25,6 @@ $('#adminLogout').addEventListener('click',async()=>{
 });
 
 $('#refreshAdmin').addEventListener('click',load);
-$('#clearVisits')?.addEventListener('click',async()=>{if(!confirm('Удалить всю историю входов?'))return;try{const d=await api('/api/admin/visits',{method:'DELETE'});toast(`История очищена · удалено ${d.deleted||0}`);load();}catch(e){toast(e.message);}});
 
 $('#clearSales').addEventListener('click',async()=>{
  if(!confirm('Удалить все выполненные и отклонённые продажи? Продажи «Ожидает» и «В работе» останутся.'))return;
@@ -84,7 +83,7 @@ async function load(){
     `).join(''):'<tr><td colspan="6" class="empty-cell">Продаж пока нет</td></tr>';
 
     const visitsHead = $('#visitsTable').closest('.admin-card-head');
-    if (visitsHead && !visitsHead.querySelector('#clearVisits')) {
+    if (visitsHead && !visitsHead.querySelector('.clear-visits-btn')) {
       const btn = document.createElement('button');
       btn.className = 'btn btn-outline btn-small clear-visits-btn';
       btn.textContent = 'Очистить историю';
@@ -220,8 +219,6 @@ function makeCollapsible(selector, label) {
 makeCollapsible('section:has(#usersTable)', 'Аккаунты и доступ');
 makeCollapsible('section:has(#salesTable)', 'Поток заявок');
 makeCollapsible('section:has(#visitsTable)', 'История входов');
-// Все основные разделы панели можно сворачивать, включая промокоды и розыгрыши.
-document.querySelectorAll('#adminDashboard .admin-card').forEach((card,i)=>{const h=card.querySelector('.admin-card-head');if(h&&!h.querySelector('.collapse-section-btn')){const btn=document.createElement('button');btn.type='button';btn.className='btn btn-ghost btn-small collapse-section-btn';btn.textContent='Свернуть';btn.setAttribute('aria-expanded','true');btn.addEventListener('click',()=>{const c=card.classList.toggle('section-collapsed');btn.textContent=c?'Развернуть':'Свернуть';btn.setAttribute('aria-expanded',String(!c));});h.appendChild(btn);}});
 
 check();
 
@@ -480,29 +477,14 @@ async function fileAsDataUrl(file){
  }
  ctx.putImageData(frame,0,0);return canvas.toDataURL('image/png');
 }
-async function spinGiveawayWheel(g,mode){
- const names=(g.entries||[]).map(u=>u.nickname||('Участник #'+u.public_id));
- if(!names.length){toast('Нет участников для выбора');return;}
- try{
-  const endpoint=mode==='reroll'?`/api/admin/giveaways/${g.id}/reroll`:`/api/admin/giveaways/${g.id}/finish`;
-  const result=await api(endpoint,{method:'POST'});
-  const winner=mode==='reroll'?result.winner:result.winners?.[0];
-  toast(winner?`${mode==='reroll'?'Новый победитель':'Победитель'}: ${winner.nickname}`:'Розыгрыш завершён');
-  await loadAdminGiveaway();
- }catch(e){toast(e.message);}
-}
 async function loadAdminGiveaway(){
  const d=await api('/api/admin/giveaways'),g=d.giveaway,el=$('#giveawayAdminCurrent');if(!el)return;
  if(!g){el.innerHTML='<p class="admin-footnote">Сейчас активного розыгрыша нет.</p>';return;}
- const rerolledOut=(g.winners||[]).reduce((sum,w)=>sum+(w.rerolled_out||[]).length,0);
- const canReroll=g.status==='finished'&&(g.entries||[]).length>(g.winners||[]).length+rerolledOut;
  el.innerHTML=`<div class="admin-card-head"><div><span class="eyebrow">ТЕКУЩИЙ РОЗЫГРЫШ</span><h3>${esc(g.title)}</h3><p class="admin-footnote">${g.status==='active'?'Активен':'Завершён'} · порог $${Number(g.minimum_sales).toFixed(2)} · мест ${g.winner_slots} · участников ${g.entries.length}</p></div></div>
- <div class="giveaway-wheel-stage admin-giveaway-summary"><b>${g.status==='finished'?'Розыгрыш завершён':'Ожидает завершения'}</b><p class="admin-footnote">Колесо и анимация выбора отображаются посетителям в модальном окне «Розыгрыши» на сайте.</p></div>
  <div class="table-scroll"><table><thead><tr><th>Участник</th><th>ID сайта</th><th>Дата</th></tr></thead><tbody>${g.entries.map(u=>`<tr><td>${esc(u.nickname)}</td><td>#${esc(u.public_id)}</td><td>${date(u.created_at)}</td></tr>`).join('')||'<tr><td colspan="3">Участников пока нет</td></tr>'}</tbody></table></div>
- ${g.winners?.length?`<h3>Победители</h3>${g.winners.map(w=>`<p class="giveaway-winner-line">${w.place} место — ${esc(w.nickname)} (#${esc(w.public_id)}) ${w.reroll?'<small>перевыбран</small>':''}</p>`).join('')}`:''}
- <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">${g.status==='active'?`<button class="btn btn-primary btn-small" id="finishGiveaway">Выбрать победителей</button>`:''}${canReroll?`<button class="btn btn-primary btn-small" id="rerollGiveaway">↻ Рерол — выбрать нового</button>`:''}<button class="btn btn-ghost btn-small" id="deleteGiveaway">Удалить розыгрыш</button></div>`;
- $('#finishGiveaway')?.addEventListener('click',()=>spinGiveawayWheel(g,'finish'));
- $('#rerollGiveaway')?.addEventListener('click',()=>spinGiveawayWheel(g,'reroll'));
+ ${g.winners?.length?`<h3>Победители</h3>${g.winners.map(w=>`<p>${w.place} место — ${esc(w.nickname)} (#${esc(w.public_id)})</p>`).join('')}`:''}
+ <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">${g.status==='active'?`<button class="btn btn-primary btn-small" id="finishGiveaway">Завершить и выбрать победителей</button>`:''}<button class="btn btn-ghost btn-small" id="deleteGiveaway">Удалить розыгрыш</button></div>`;
+ $('#finishGiveaway')?.addEventListener('click',async()=>{if(!confirm('Завершить розыгрыш и случайно выбрать победителей?'))return;try{const r=await api(`/api/admin/giveaways/${g.id}/finish`,{method:'POST'});toast(`Итоги подведены. Победителей: ${r.winners.length}`);await loadAdminGiveaway();}catch(e){toast(e.message)}});
  $('#deleteGiveaway')?.addEventListener('click',async()=>{if(!confirm('Удалить розыгрыш, участников и загруженные фото?'))return;try{await api(`/api/admin/giveaways/${g.id}`,{method:'DELETE'});toast('Розыгрыш удалён');await loadAdminGiveaway();}catch(e){toast(e.message)}});
 }
 $('#giveawayAdminForm')?.addEventListener('submit',async e=>{
