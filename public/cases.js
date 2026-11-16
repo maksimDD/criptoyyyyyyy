@@ -170,6 +170,18 @@ if(lb) {
   });
 }
 
+
+// Deposit method switch: crypto remains the existing verified on-chain flow; SBP is handled by the manager.
+document.querySelectorAll('[data-deposit-method]').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    const method=tab.dataset.depositMethod;
+    document.querySelectorAll('[data-deposit-method]').forEach(x=>x.classList.toggle('active',x===tab));
+    const crypto=$('#cryptoDepositPanel'),sbp=$('#sbpDepositPanel');
+    if(crypto)crypto.hidden=method!=='crypto';
+    if(sbp)sbp.hidden=method!=='sbp';
+  });
+});
+
 const dOpen=$('#depositOpen');if(dOpen)dOpen.onclick=()=>{if(!loggedIn)return location.href=loginUrl;updateDepositWallet();updateDepositTotals();const dm=$('#depositMessage');if(dm)dm.textContent='';openModal('depositModal')};
 const wOpen=$('#withdrawOpen');if(wOpen)wOpen.onclick=()=>{if(!loggedIn)return location.href=loginUrl;refreshBalance();const wm=$('#withdrawMessage');if(wm)wm.textContent='';openModal('withdrawModal')};
 
