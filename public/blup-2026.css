@@ -57,3 +57,56 @@ hr,.divider{border-color:var(--blup-line)!important}
 .blup-hero-cutout{display:block;width:min(112%,760px);height:auto;object-fit:contain;filter:drop-shadow(0 20px 45px rgba(255,63,164,.12));}
 @media(max-width:900px){.header{backdrop-filter:blur(16px)!important}.case-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}.hero .hero-art.blup-hero-art{min-height:0}}
 @media(max-width:620px){.case-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.case-card{min-height:225px!important;padding:11px!important}.case-art{height:145px!important}.section-head h2{font-size:27px!important}.brand,.brand span{font-size:22px!important}.hero-copy h1{font-size:clamp(36px,10vw,48px)!important}.hero .hero-art.blup-hero-art{margin-top:18px}.blup-hero-cutout{width:112%}}
+
+
+/* BLUP GTA VI refresh — final shared layer; supersedes legacy page palettes */
+:root{--blup-bg:#09090d;--blup-surface:#121218;--blup-surface-2:#19171f;--blup-surface-3:#211c27;--blup-pink:#ff3b9d;--blup-pink-2:#ff72b8;--blup-cyan:#42d9e9;--blup-violet:#a56bff;--blup-orange:#ff9b55;--blup-text:#fff8f8;--blup-muted:#b3a9b1;--blup-line:rgba(255,255,255,.105);--bg:var(--blup-bg);--panel:var(--blup-surface);--panel2:var(--blup-surface-2);--cyan:var(--blup-cyan);--violet:var(--blup-violet);--line:var(--blup-line);--text:var(--blup-text);--muted:var(--blup-muted);color-scheme:dark}
+html,body{background-color:var(--blup-bg)!important;color:var(--blup-text)!important}
+body{background-image:radial-gradient(ellipse at 82% 0%,rgba(255,59,157,.10),transparent 34%),radial-gradient(ellipse at 5% 42%,rgba(165,107,255,.07),transparent 30%)!important}
+.header,.topbar,.navbar,.admin-top,.site-header,.t-head{background:rgba(9,9,13,.94)!important;border-color:var(--blup-line)!important}
+.brand-orb,.brand-mark,.admin-login-mark{background:radial-gradient(circle at 30% 25%,#ffd7ec 0,#ff8cc8 22%,#ff3b9d 58%,#9d236d 100%)!important;box-shadow:0 0 20px #ff3b9d55!important;color:#fff!important}
+.brand-orb:after{border-color:#ff72b888!important}
+.nav-link.active,.nav-link:hover,.topbar nav a.active,.topbar nav a:hover,.admin-nav a.active,.admin-nav a:hover,.t-tab.active,.t-top-tab.active{background:rgba(255,59,157,.15)!important;color:#ff80bd!important;border-color:#ff3b9d55!important;box-shadow:none!important}
+.btn-primary,.btn-submit,.action-btn.deposit-btn,.save-btn,.open-button,.upgrade-main-btn,.t-submit,.ct-actions button,button.primary,.primary-btn,.admin-button-primary{background:linear-gradient(110deg,#ff3b9d,#e92d80)!important;color:#fff!important;box-shadow:0 8px 24px #ff3b9d22!important}
+a:hover{color:#ff80bd}
+input,select,textarea,.form-control,.t-form input{background:#0e0d13!important;color:#fff!important;border-color:#39303b!important}
+input:focus,select:focus,textarea:focus{border-color:#ff3b9d!important;box-shadow:0 0 0 2px #ff3b9d20!important}
+.card,.feature-card,.review-card,.case-card,.giveaway-card,.profile-card,.stat-card,.admin-card,.admin-stats>div,.case-panel,.case-table-wrap,.t-panel,.t-hero,.ct-panel,.upgrade-card,.wallet-box,.balance-chip,.history-card,.modal,.modal-panel,.payment-modal,.maintenance-panel,.admin-login,.admin-section,.settings-card,.table-wrap{background:linear-gradient(145deg,#15131a,#101015)!important;border:1px solid var(--blup-line)!important;box-shadow:none!important}
+.case-card:hover,.feature-card:hover,.card:hover{border-color:#ff3b9d66!important;box-shadow:0 14px 36px #0007!important}
+.eyebrow,.admin-top-label,.modal-eyebrow,.case-label,.t-kicker{color:#ff72b8!important}
+.case-card .case-price,.price,.case-price,table th{color:#42d9e9!important}
+.t-hero,.t-panel{background:linear-gradient(145deg,#18121a,#101015)!important;border-color:#44303f!important}
+.t-kicker,.t-hero .t-kicker{color:#ff72b8!important}.t-tab,.t-back,.t-submit{border-color:#44303f!important;background:#1a151d!important;color:#fff!important}
+.t-tab.active,.t-submit{background:#ff3b9d!important;color:#fff!important}
+.admin-card-head,.admin-heading,.section-head{border-color:var(--blup-line)!important}
+.case-art,.case-image,.case-cover{object-fit:contain!important;background:transparent!important}
+.ambient,.bg-glow{display:none!important}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* floating rate trigger + compact modal */
+.blup-rate-trigger{position:fixed;right:22px;top:92px;z-index:60;border:1px solid #ff3b9d66;background:#171019;color:#fff;border-radius:999px;padding:11px 16px;display:flex;align-items:center;gap:9px;font-weight:900;cursor:pointer;box-shadow:0 8px 28px #0008}
+.blup-rate-trigger:before{content:"";width:8px;height:8px;border-radius:50%;background:#ff58ad;box-shadow:0 0 12px #ff58ad}
+.blup-rate-panel{position:fixed;right:22px;top:146px;z-index:61;width:min(310px,calc(100vw - 32px));padding:19px;border:1px solid #ff3b9d55;border-radius:18px;background:#141118;box-shadow:0 24px 70px #000b;display:none}
+.blup-rate-panel.open{display:block;animation:blupPop .18s ease-out}
+.blup-rate-panel h3{margin:0 0 14px;font-size:15px}.blup-rate-row{display:flex;justify-content:space-between;padding:11px 0;border-top:1px solid #ffffff12;color:#bdb2bc;font-size:13px}.blup-rate-row b{color:#fff}
+@keyframes blupPop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+/* GTA character artwork on case landing */
+.cases-home-page .hero-agent{content:url('/assets/cases/gta-01.jpg');width:min(100%,390px)!important;height:auto!important;max-height:470px;object-fit:contain!important;border-radius:18px;filter:drop-shadow(0 18px 35px #ff3b9d22);animation:blupCharacterFloat 4.2s ease-in-out infinite}
+@keyframes blupCharacterFloat{0%,100%{transform:translateY(0) rotate(-.5deg)}50%{transform:translateY(-13px) rotate(.5deg)}}
+.cases-home-page .hero-visual{overflow:visible!important}
+.cases-home-page .hero-ring{border-color:#ff3b9d44!important}
+.case-card img{object-fit:contain!important}
+@media(max-width:700px){.blup-rate-trigger{top:auto;bottom:18px;right:14px}.blup-rate-panel{top:auto;bottom:76px;right:14px}}
+
+.blup-giveaway-modal{width:min(760px,calc(100vw - 28px))!important;max-height:min(88vh,900px)!important;overflow:auto!important}
+.blup-wheel-wrap{margin:26px auto 4px;text-align:center;position:relative;padding-top:18px}
+.blup-wheel-wrap h3{font-size:16px;margin-bottom:18px}
+.blup-wheel{position:relative;width:min(270px,70vw);aspect-ratio:1;border-radius:50%;margin:0 auto 12px;border:8px solid #281b27;background:conic-gradient(from 0deg,#ff3b9d 0 15deg,#231b27 15deg 30deg,#a56bff 30deg 45deg,#211923 45deg 60deg,#ff72b8 60deg 75deg,#211923 75deg 90deg,#42d9e9 90deg 105deg,#211923 105deg 120deg,#ff3b9d 120deg 135deg,#211923 135deg 150deg,#a56bff 150deg 165deg,#211923 165deg 180deg,#ff72b8 180deg 195deg,#211923 195deg 210deg,#42d9e9 210deg 225deg,#211923 225deg 240deg,#ff3b9d 240deg 255deg,#211923 255deg 270deg,#a56bff 270deg 285deg,#211923 285deg 300deg,#ff72b8 300deg 315deg,#211923 315deg 330deg,#42d9e9 330deg 345deg,#211923 345deg 360deg);box-shadow:0 0 0 2px #ff3b9d55,0 12px 36px #0009;display:grid;place-items:center}
+.blup-wheel span{display:grid;place-items:center;width:74px;height:74px;border-radius:50%;background:#111016;border:3px solid #ff72b8;color:#fff;font-weight:1000;letter-spacing:2px;box-shadow:0 0 20px #ff3b9d55}
+.blup-wheel i{position:absolute;left:50%;top:50%;width:50%;height:2px;transform-origin:left center;transform:rotate(calc(var(--i)*1turn/var(--n)));background:#ffffff24}
+.blup-wheel-pointer{position:absolute;z-index:2;left:50%;top:36px;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:28px solid #fff;filter:drop-shadow(0 3px 4px #000)}
+.blup-wheel-note{font-size:12px;color:#b3a9b1}
+.giveaway-prizes{gap:10px}.giveaway-prize{background:#17131a!important;border-color:#ffffff16!important}
+
+.admin-collapse{margin-left:auto;flex:0 0 auto;border:1px solid #ff3b9d55;background:#21151e;color:#ff9acb;border-radius:9px;padding:8px 12px;font-size:11px;font-weight:900;cursor:pointer}
+.admin-card-head{display:flex;align-items:center;gap:12px}.admin-card.is-collapsed{padding-bottom:18px!important}
+.admin-card [hidden]{display:none!important}.admin-history-actions{display:flex;justify-content:flex-end;margin:0 0 12px}

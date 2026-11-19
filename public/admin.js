@@ -498,3 +498,14 @@ $('#giveawayAdminForm')?.addEventListener('submit',async e=>{
   f.reset();$('#giveawayImageCaptions').innerHTML='';$('#giveawayFilesHint').textContent='Можно загрузить до пяти изображений.';msg.textContent='Розыгрыш запущен';toast('Розыгрыш запущен');await loadAdminGiveaway();
  }catch(err){msg.textContent=err.message;}
 });
+
+
+// Admin UX: collapsible cards and secure history cleanup through the existing admin API.
+(()=>{
+ document.querySelectorAll('#adminDashboard > .admin-card').forEach((card,index)=>{
+   const head=card.querySelector('.admin-card-head');if(!head||head.querySelector('.admin-collapse'))return;
+   const body=[...card.children].filter(el=>el!==head);const btn=document.createElement('button');btn.type='button';btn.className='admin-collapse';btn.textContent='Свернуть';btn.setAttribute('aria-expanded','true');head.appendChild(btn);
+   btn.addEventListener('click',()=>{const collapsed=btn.getAttribute('aria-expanded')==='true';btn.setAttribute('aria-expanded',String(!collapsed));btn.textContent=collapsed?'Развернуть':'Свернуть';body.forEach(el=>el.hidden=collapsed);card.classList.toggle('is-collapsed',collapsed);});
+ });
+ const clear=document.getElementById('clearVisits');clear?.addEventListener('click',async()=>{if(!confirm('Полностью очистить историю входов? Это действие нельзя отменить.'))return;try{const r=await fetch('/api/admin/visits',{method:'DELETE'});const d=await r.json();if(!r.ok)throw Error(d.error||'Не удалось очистить историю');const tbody=document.getElementById('visitsTable');if(tbody)tbody.innerHTML='<tr><td colspan="4">История очищена</td></tr>';if(typeof toast==='function')toast(`Удалено записей: ${d.deleted||0}`);}catch(e){alert(e.message);}});
+})();
