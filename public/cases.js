@@ -23,9 +23,10 @@ function skin(id){return data.skins[id]||{name:id,price:0,rarity:'common'}}
 function rarityMeta(r){return ({common:['Армейское','rarity-common'],mil_spec:['Армейское','rarity-common'],industrial:['Промышленное','rarity-industrial'],consumer:['Потребительское','rarity-consumer'],rare:['Запрещённое','rarity-rare'],restricted:['Запрещённое','rarity-rare'],classified:['Засекреченное','rarity-classified'],epic:['Засекреченное','rarity-classified'],covert:['Тайное','rarity-covert'],legendary:['Тайное','rarity-covert'],contraband:['Контрабандное','rarity-legendary'],extraordinary:['Экстраординарное','rarity-legendary']})[String(r||'common').toLowerCase().replace(/[ -]/g,'_')]||['Армейское','rarity-common']}
 
 function caseCover(c){
-  const n=String(c.id||'').match(/(\d+)$/);
+  if(c && c.image) return String(c.image);
+  const n=String(c?.id||'').match(/(\d+)$/);
   if(n)return `/assets/cases/case-${n[1].padStart(2,'0')}.png`;
-  return String(c.image||'/assets/cases/placeholder.png');
+  return '/assets/cases/placeholder.png';
 }
 
 window.blupSkinImageFail=function(img){
