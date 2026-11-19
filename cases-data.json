@@ -245,10 +245,10 @@
   "cases": [
     {
       "id": "case_01",
-      "name": "Vice City — Первый заказ",
+      "name": "Ледяной импульс",
       "tier": "Базовый",
       "price": 1.37,
-      "image": "/assets/cases/gta-01.jpg",
+      "image": "/assets/cases/case-01.png",
       "items": [
         "ak_elite",
         "usp_cyrex",
@@ -294,10 +294,10 @@
     },
     {
       "id": "case_02",
-      "name": "Ocean Drive — Ночная смена",
+      "name": "Зелёный сигнал",
       "tier": "Базовый",
       "price": 2.19,
-      "image": "/assets/cases/gta-02.jpg",
+      "image": "/assets/cases/case-02.png",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -345,10 +345,10 @@
     },
     {
       "id": "case_03",
-      "name": "Sunset — Жаркий район",
+      "name": "Глитч",
       "tier": "Базовый",
       "price": 3.01,
-      "image": "/assets/cases/gta-03.jpg",
+      "image": "/assets/cases/case-03.png",
       "items": [
         "ak_elite",
         "deagle_bronze",
@@ -398,10 +398,10 @@
     },
     {
       "id": "case_04",
-      "name": "Neon District — Погоня",
+      "name": "Пламенный",
       "tier": "Базовый",
       "price": 3.82,
-      "image": "/assets/cases/gta-04.jpg",
+      "image": "/assets/cases/case-04.png",
       "items": [
         "ak_elite",
         "usp_cyrex",
@@ -453,10 +453,10 @@
     },
     {
       "id": "case_05",
-      "name": "Last Call — Последний раунд",
+      "name": "Полярная ночь",
       "tier": "Базовый",
       "price": 4.64,
-      "image": "/assets/cases/gta-05.jpg",
+      "image": "/assets/cases/case-05.png",
       "items": [
         "ak_midnight",
         "awp_duality",
