@@ -248,7 +248,7 @@
       "name": "Vice City — Первый заказ",
       "tier": "Базовый",
       "price": 1.37,
-      "image": "/assets/cases/gta-01.svg",
+      "image": "/assets/cases/gta-01.jpg",
       "items": [
         "ak_elite",
         "usp_cyrex",
@@ -297,7 +297,7 @@
       "name": "Ocean Drive — Ночная смена",
       "tier": "Базовый",
       "price": 2.19,
-      "image": "/assets/cases/gta-02.svg",
+      "image": "/assets/cases/gta-02.jpg",
       "items": [
         "ak_elite",
         "ak_midnight",
@@ -348,7 +348,7 @@
       "name": "Sunset — Жаркий район",
       "tier": "Базовый",
       "price": 3.01,
-      "image": "/assets/cases/gta-03.svg",
+      "image": "/assets/cases/gta-03.jpg",
       "items": [
         "ak_elite",
         "deagle_bronze",
@@ -401,7 +401,7 @@
       "name": "Neon District — Погоня",
       "tier": "Базовый",
       "price": 3.82,
-      "image": "/assets/cases/gta-04.svg",
+      "image": "/assets/cases/gta-04.jpg",
       "items": [
         "ak_elite",
         "usp_cyrex",
@@ -456,7 +456,7 @@
       "name": "Last Call — Последний раунд",
       "tier": "Базовый",
       "price": 4.64,
-      "image": "/assets/cases/gta-05.svg",
+      "image": "/assets/cases/gta-05.jpg",
       "items": [
         "ak_midnight",
         "awp_duality",
