@@ -3,10 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-<title>BLUP — Vice City Case Club</title> 
+<title>BLUP — Продажа криптовалюты</title> 
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%2300D4FF'/%3E%3Cstop offset='1' stop-color='%237B2CFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='48' fill='url(%23g)'/%3E%3C/svg%3E"> <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="./styles.css"> 
-
-<link rel="stylesheet" href="/blup-2026.css?v=20261120-2">
 </head> 
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -42,7 +40,7 @@
       <a class="nav-link" href="#faq">FAQ</a>
       <a class="nav-link" href="#contacts">Контакты</a>
       <a class="nav-link" href="#reviews" id="reviewsNav">Отзывы</a>
-      <a class="nav-link" href="#giveaways" id="giveawaysNav">Розыгрыши</a>
+      <a class="nav-link" href="/giveaways">Розыгрыши</a>
       <a class="nav-link" href="/tournament">Турниры</a>
     </nav>
     <div class="header-actions">
@@ -51,7 +49,7 @@
       <button class="btn btn-outline btn-small" id="loginBtn">Войти</button>
       <div class="user-chip hidden" id="userChip"><span class="user-dot"></span><b id="userName"></b><button id="logoutBtn" title="Выйти">↗</button></div>
     </div>
-  </header><button class="blup-rate-trigger" id="blupRateTrigger" type="button" aria-expanded="false">Курс валют</button><aside class="blup-rate-panel" id="blupRatePanel" aria-label="Курс валют"><h3>Текущий курс</h3><div class="blup-rate-row"><span>USDT</span><b id="usdtRateDisplay">Загрузка…</b></div><div class="blup-rate-row"><span>TON</span><b id="gramRateDisplay">Загрузка…</b></div><small style="color:#948995">Курс обновляется из настроек BLUP</small></aside>
+  </header>
 
   <main>
     <section class="hero section-wrap" id="home">
@@ -68,9 +66,23 @@
           <div><span class="trust-icon">⌁</span><span><b>Поддержка</b><small>Помощь по вопросам</small></span></div>
         </div>
       </div>
-      <div class="hero-art blup-hero-art" aria-hidden="true"><img class="blup-hero-cutout" src="/assets/blup-vice-city-cutout.png" alt="BLUP Vice City" fetchpriority="high"></div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="coin coin-btc"><span>₿</span></div>
+        <div class="coin coin-eth"><span>◆</span></div>
+        <div class="coin coin-usdt"><span>₮</span></div>
+        <div class="glass-card">
+          <div class="card-top"><span class="brand-orb"></span><span>BLUP WALLET</span><i>•••</i></div>
+          <div class="card-mark">B</div><div class="card-name">BLUP</div>
+          <div class="card-bottom"><span>CRYPTO EXCHANGE</span><span>01 / 01</span></div>
+        </div>
+        <div class="spark spark-one"></div><div class="spark spark-two"></div><div class="spark spark-three"></div>
+        <div class="float-label"><span class="float-check">✓</span><span><b>Твоя заявка</b><small>В несколько простых шагов</small></span></div>
+      </div>
       <div class="hero-bottom-note"><span class="line"></span> BLUP DIGITAL EXPERIENCE <span class="line"></span></div>
     </section>
+
+    <section class="reserve-strip section-wrap" id="reserveStrip"><div class="reserve-copy"><b class="deal-limit">Сумма максимальной сделки составляет до <strong>$200</strong> <span id="dealRate">| сумма в рублях</span></b></div><div class="rate-pills"><span>USDT <b id="usdtRateDisplay">— ₽</b></span><span>TON <b id="gramRateDisplay">— ₽</b></span></div></section>
 
     <section class="intro-strip section-wrap">
       <div><span class="strip-kicker">BLUP — ЭТО</span><h2>Технологичный подход<br>к криптооперациям</h2></div>
@@ -262,7 +274,6 @@
     </section>
   </div>
   
-  <div class="modal-backdrop" id="giveawaysBackdrop" aria-hidden="true"><section class="modal history-modal blup-giveaway-modal" role="dialog" aria-modal="true" aria-labelledby="blupGiveawayTitle"><button class="modal-close" id="giveawaysClose" type="button">×</button><div class="modal-eyebrow">BLUP / GIVEAWAY</div><div id="blupGiveawayContent"><p>Загружаем розыгрыш…</p></div><div class="blup-wheel-wrap"><h3>Колесо участников</h3><div class="blup-wheel-pointer"></div><div class="blup-wheel" id="blupGiveawayWheel"><span>BLUP</span></div><p class="blup-wheel-note" id="blupWheelNote">Участники отображаются анонимно</p></div></section></div>
   <div class="toast" id="toast"></div>
   <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
   <script src="/app.js?v=20261104-tgjson"></script>
