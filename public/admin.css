@@ -42,13 +42,3 @@
 .settings-form label .blup-select { margin-top: 8px; }
 
 .section-collapsed > :not(.admin-card-head){display:none!important}.collapse-section-btn{white-space:nowrap}.promo-code-open{border:0;background:transparent;color:#9bd8ff;font:inherit;font-weight:800;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px}.promo-code-open:hover{color:#fff}
-
-.admin-global-controls{display:flex;justify-content:flex-end;gap:8px;margin:14px 0 18px}
-.admin-card-head{flex-wrap:wrap}
-.panel-collapse-btn{margin-left:auto}
-.admin-card.is-collapsed>:not(.admin-card-head){display:none!important}
-.admin-card.is-collapsed{min-height:0}
-@media(max-width:700px){.admin-global-controls{justify-content:flex-start;flex-wrap:wrap}.admin-card-head .panel-collapse-btn{margin-left:0}}
-
-.admin-card:not(:has(>.admin-card-head)).section-collapsed>:not(.collapse-section-btn){display:none!important}
-.admin-card:not(:has(>.admin-card-head))>.collapse-section-btn{margin:0 0 10px auto;display:block}

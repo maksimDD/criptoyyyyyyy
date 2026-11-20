@@ -66,21 +66,23 @@
           <div><span class="trust-icon">⌁</span><span><b>Поддержка</b><small>Помощь по вопросам</small></span></div>
         </div>
       </div>
-      <div class="hero-art hero-art-photo" aria-label="BLUP Vice City artwork">
-        <img class="hero-photo-animated" src="/assets/blup-vice-city.png" alt="BLUP — Vice City artwork">
-      </div>
-      <div class="hero-rate-widget" id="heroRateWidget">
-        <button class="hero-rate-trigger" id="heroRateToggle" type="button" aria-expanded="false" aria-controls="heroRatePanel">
-          <span class="hero-rate-icon">↗</span><span><b>Курс валют</b><small>USDT · TON</small></span><span class="hero-rate-chevron">⌄</span>
-        </button>
-        <div class="hero-rate-panel" id="heroRatePanel" hidden>
-          <div><span>USDT / RUB</span><b id="heroUsdtRate">— ₽</b></div>
-          <div><span>TON / RUB</span><b id="heroTonRate">— ₽</b></div>
-          <small>Курсы обновляются вместе с настройками сервиса</small>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="coin coin-btc"><span>₿</span></div>
+        <div class="coin coin-eth"><span>◆</span></div>
+        <div class="coin coin-usdt"><span>₮</span></div>
+        <div class="glass-card">
+          <div class="card-top"><span class="brand-orb"></span><span>BLUP WALLET</span><i>•••</i></div>
+          <div class="card-mark">B</div><div class="card-name">BLUP</div>
+          <div class="card-bottom"><span>CRYPTO EXCHANGE</span><span>01 / 01</span></div>
         </div>
+        <div class="spark spark-one"></div><div class="spark spark-two"></div><div class="spark spark-three"></div>
+        <div class="float-label"><span class="float-check">✓</span><span><b>Твоя заявка</b><small>В несколько простых шагов</small></span></div>
       </div>
       <div class="hero-bottom-note"><span class="line"></span> BLUP DIGITAL EXPERIENCE <span class="line"></span></div>
     </section>
+
+    <section class="reserve-strip section-wrap" id="reserveStrip"><div class="reserve-copy"><b class="deal-limit">Сумма максимальной сделки составляет до <strong>$200</strong> <span id="dealRate">| сумма в рублях</span></b></div><div class="rate-pills"><span>USDT <b id="usdtRateDisplay">— ₽</b></span><span>TON <b id="gramRateDisplay">— ₽</b></span></div></section>
 
     <section class="intro-strip section-wrap">
       <div><span class="strip-kicker">BLUP — ЭТО</span><h2>Технологичный подход<br>к криптооперациям</h2></div>
@@ -147,8 +149,13 @@
 
   </main>
 
+  <aside class="sales-total-widget" aria-label="Общая сумма продаж по отзывам">
+    <span class="sales-total-icon" aria-hidden="true">↗</span>
+    <span class="sales-total-copy"><b>Сумма продаж</b><strong id="salesTotalValue">Загрузка…</strong><small>По всем отзывам</small></span>
+  </aside>
+
   <footer class="footer section-wrap">
-    <a class="brand footer-brand-text" href="#home"><span>BLUP</span></a>
+    <a class="brand" href="#home"><span class="brand-orb"></span><span>BLUP</span></a>
     <span class="footer-copy">© <span id="year"></span> BLUP. Информация о сервисе.</span>
     <div class="footer-links"><a href="#faq">FAQ</a><a href="#contacts">Контакты</a><a href="#" id="footerTerms">Условия использования</a><a href="#" id="footerPrivacy">Политика конфиденциальности</a></div>
   </footer>
@@ -274,6 +281,6 @@
   
   <div class="toast" id="toast"></div>
   <script async src="https://telegram.org/js/telegram-widget.js?22"></script>
-  <script src="/brand-controls-v6.js"></script><script src="/app.js?v=20261104-tgjson"></script>
+  <script src="/app.js?v=20261104-tgjson"></script>
 </body>
 </html>

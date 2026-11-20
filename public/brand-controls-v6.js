@@ -10,9 +10,9 @@
     const menu=document.createElement('div');menu.className='blup-select-menu';menu.setAttribute('role','listbox');
     select.parentNode.insertBefore(wrap,select);wrap.append(trigger,menu);wrap.append(select);select.classList.add('blup-select-native');select.dataset.blupEnhanced='1';
     const rebuild=()=>{
-      value.innerHTML='';const selected=select.selectedOptions[0];if(selected?.dataset.icon){const img=document.createElement('img');img.src=selected.dataset.icon;img.alt='';img.className='blup-bank-logo';img.onerror=()=>{if(selected.dataset.fallback){img.onerror=null;img.src=selected.dataset.fallback;}else img.remove();};value.append(img);}const selectedText=document.createElement('span');selectedText.textContent=selected?.textContent?.trim()||'Выбрать';value.append(selectedText);menu.innerHTML='';
+      value.textContent=select.selectedOptions[0]?.textContent?.trim()||'Выбрать';menu.innerHTML='';
       [...select.options].forEach((opt,index)=>{
-        const item=document.createElement('button');item.type='button';item.className='blup-select-option'+(opt.selected?' is-selected':'');item.setAttribute('role','option');item.setAttribute('aria-selected',opt.selected?'true':'false');item.disabled=opt.disabled;if(opt.dataset.icon){const img=document.createElement('img');img.src=opt.dataset.icon;img.alt='';img.className='blup-bank-logo';img.onerror=()=>{if(opt.dataset.fallback){img.onerror=null;img.src=opt.dataset.fallback;}else img.remove();};item.append(img);}const text=document.createElement('span');text.textContent=opt.textContent.trim();item.append(text);
+        const item=document.createElement('button');item.type='button';item.className='blup-select-option'+(opt.selected?' is-selected':'');item.setAttribute('role','option');item.setAttribute('aria-selected',opt.selected?'true':'false');item.disabled=opt.disabled;item.textContent=opt.textContent.trim();
         item.addEventListener('click',()=>{if(opt.disabled)return;select.selectedIndex=index;select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));rebuild();wrap.classList.remove('is-open');trigger.setAttribute('aria-expanded','false');trigger.focus()});menu.append(item);
       });
       trigger.disabled=select.disabled;wrap.classList.toggle('is-disabled',select.disabled);
