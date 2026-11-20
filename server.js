@@ -497,14 +497,10 @@ app.get('/api/admin/referrals', adminOnly, (req, res) => {
 
 app.get('/api/reviews', (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC LIMIT 50', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
 app.get('/api/reviews/total', (req,res) => {
-  db.all('SELECT COALESCE(sale_amount,0) AS sale_amount FROM reviews', [], (err, rows) => {
+  db.get(`SELECT COALESCE(SUM(CASE WHEN sale_amount > 0 THEN sale_amount ELSE 0 END),0) AS total, COUNT(*) AS count FROM reviews`, [], (err, row) => {
     if (err) return res.status(500).json({error:'Ошибка подсчёта продаж'});
-    const total = (rows || []).reduce((sum, row) => {
-      const amount = Number(row.sale_amount);
-      return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
-    }, 0);
-    res.set('Cache-Control', 'no-store');
-    res.json({total, count:(rows || []).length});
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.json({total:Number(row?.total||0),count:Number(row?.count||0)});
   });
 });
 app.get('/api/admin/reviews', adminOnly, (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
