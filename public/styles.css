@@ -52,3 +52,38 @@
 #salesTotalWidget small{display:block;margin-top:3px;color:#8ca7b8;font-size:9px}
 @media(max-width:640px){.bank-choice-grid{grid-template-columns:1fr}.bank-choice-card{min-height:50px}#salesTotalWidget{left:10px;bottom:10px;width:205px;padding:10px 12px}#salesTotalValue{font-size:18px}.hero-art-photo{min-height:270px}.hero-photo-animated{width:112%}}
 @media(prefers-reduced-motion:reduce){.hero-photo-animated{animation:none!important}}
+
+
+/* BLUP fix: bank recipient options are a readable vertical list on every screen. */
+.bank-choice-grid{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) !important;
+  gap:8px !important;
+  width:100%;
+}
+.bank-choice-card{
+  width:100%;
+  min-width:0;
+  min-height:54px;
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:flex-start;
+  gap:12px;
+  padding:10px 14px;
+}
+.bank-choice-card span{
+  min-width:0;
+  flex:1 1 auto;
+  white-space:normal;
+  word-break:normal;
+  overflow-wrap:break-word;
+  line-height:1.35;
+}
+.bank-choice-card img{
+  width:34px;
+  height:34px;
+  flex:0 0 34px;
+  object-fit:contain;
+}
+.bank-choice-card i{flex:0 0 auto}

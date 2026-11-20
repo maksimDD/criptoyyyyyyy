@@ -86,7 +86,7 @@ let operationType='sell';
 const operationFields=$('#operationFields');
 function labelInput(label,name,placeholder,type='text',full=false,required=true){return `<label class="${full?'full':''}">${label}<input name="${name}" type="${type}" placeholder="${placeholder}" ${required?'required':''} ${type==='number'?'min="0.01" step="0.01"':''}></label>`;}
 function labelSelect(label,name,options,full=false){return `<label class="${full?'full':''}">${label}<select name="${name}" required>${options.map((x,i)=>`<option value="${escapeHtml(x.value)}" ${x.icon?`data-icon="${escapeHtml(x.icon)}" data-fallback="${escapeHtml(x.fallback||'')}"`:''} ${i===0?'selected':''}>${escapeHtml(x.label)}</option>`).join('')}</select></label>`;}
-function bankOptions(){const defaults=["Сбербанк","ВТБ","Газпромбанк","Альфа-Банк","Россельхозбанк","Т-Банк","Московский кредитный банк","Райффайзенбанк","ОТП Банк","Дом.РФ","Совкомбанк","МТС Банк","Ozon Банк","Яндекс Банк"];const source=window.blupBanks?.length?window.blupBanks:defaults;const banks=[...new Set(source.flatMap(x=>String(x||'').split(/\\n|\r?\n/).map(v=>v.trim()).filter(Boolean)))];return (banks.length?banks:defaults).map(b=>({value:b,label:b,icon:bankLogo(b),fallback:bankLocalLogo(b)}));}
+function bankOptions(){const defaults=["Сбербанк","ВТБ","Газпромбанк","Альфа-Банк","Россельхозбанк","Т-Банк","Московский кредитный банк","Райффайзенбанк","ОТП Банк","Дом.РФ","Совкомбанк","МТС Банк","Ozon Банк","Яндекс Банк"];const source=window.blupBanks?.length?window.blupBanks:defaults;const splitBankText=value=>String(value||'').replaceAll('\\n','\n').split(/[\n;|\\]+/).map(v=>v.trim()).filter(Boolean);const banks=[...new Set(source.flatMap(splitBankText))];return (banks.length?banks:defaults).map(b=>({value:b,label:b,icon:bankLogo(b),fallback:bankLocalLogo(b)}));}
 function bankLogo(name){const n=name.toLowerCase();let domain='';if(n.includes('сбер'))domain='sberbank.ru';else if(n.includes('втб'))domain='vtb.ru';else if(n.includes('газпром'))domain='gazprombank.ru';else if(n.includes('альфа'))domain='alfabank.ru';else if(n.includes('россель'))domain='rshb.ru';else if(n.includes('т-')||n.includes('тинь'))domain='tbank.ru';else if(n.includes('московский'))domain='mkb.ru';else if(n.includes('райфф'))domain='raiffeisen.ru';else if(n.includes('отп'))domain='otpbank.ru';else if(n.includes('дом.рф'))domain='domrfbank.ru';else if(n.includes('совком'))domain='sovcombank.ru';else if(n.includes('мтс'))domain='mtsbank.ru';else if(n.includes('озон'))domain='ozon.ru';else if(n.includes('яндекс'))domain='bank.yandex.ru';return domain?`https://www.google.com/s2/favicons?domain=${domain}&sz=64`:'';}
 function bankLocalLogo(name){const n=name.toLowerCase();if(n.includes('сбер'))return '/assets/banks/sberbank.svg';if(n.includes('втб'))return '/assets/banks/vtb.svg';if(n.includes('газпром'))return '/assets/banks/gazprombank.svg';if(n.includes('альфа'))return '/assets/banks/alfabank.svg';if(n.includes('россель'))return '/assets/banks/rshb.svg';if(n.includes('т-')||n.includes('тинь'))return '/assets/banks/tbank.svg';if(n.includes('московский'))return '/assets/banks/mkb.svg';if(n.includes('райфф'))return '/assets/banks/raiffeisen.svg';if(n.includes('отп'))return '/assets/banks/otp.svg';if(n.includes('дом.рф'))return '/assets/banks/domrf.svg';if(n.includes('совком'))return '/assets/banks/sovcombank.svg';if(n.includes('мтс'))return '/assets/banks/mtsbank.svg';if(n.includes('озон'))return '/assets/banks/ozon.svg';if(n.includes('яндекс'))return '/assets/banks/yandex.svg';return '';}
 function walletFor(coin,network){return window.blupWallets?.[coin]?.[network]||'';}
@@ -304,15 +304,34 @@ if (authForm) {
 })();
 
 
-// Общая сумма продаж из всех записей отзывов (не ограничена последними 50 отзывами).
+// Общая сумма продаж по всем отзывам. При временной ошибке endpoint пробуем резервный список.
 (async function setupSalesTotal(){
  const widget=document.getElementById('salesTotalWidget');
  const value=document.getElementById('salesTotalValue');
  if(!widget||!value)return;
  const fmt=n=>Number(n||0).toLocaleString('ru-RU',{maximumFractionDigits:2});
+ const getJson=async url=>{const r=await fetch(url,{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();};
  async function load(){
-  try{const response=await fetch('/api/reviews/total',{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);const data=await response.json();value.textContent=fmt(data.total)+' ₽';}
-  catch{value.textContent='— ₽';}
+  value.textContent='Загрузка…';
+  try{
+   const data=await getJson('/api/reviews/total');
+   const total=Number(data.total);
+   if(!Number.isFinite(total))throw new Error('Некорректная сумма');
+   value.textContent=fmt(total)+' ₽';
+   widget.title=`Всего продаж по ${Number(data.count||0)} отзывам`;
+   return;
+  }catch(primaryError){
+   try{
+    const rows=await getJson('/api/reviews');
+    if(!Array.isArray(rows))throw new Error('Некорректный список отзывов');
+    const total=rows.reduce((sum,row)=>sum+Math.max(0,Number(row.sale_amount)||0),0);
+    value.textContent=fmt(total)+' ₽';
+    widget.title='Резервный подсчёт по загруженным отзывам; для полной суммы проверьте API /api/reviews/total';
+   }catch(fallbackError){
+    value.textContent='Недоступно';
+    widget.title='Не удалось загрузить сумму продаж. Проверьте соединение с сервером.';
+   }
+  }
  }
  await load();setInterval(load,30000);
 })();
