@@ -87,3 +87,19 @@
   object-fit:contain;
 }
 .bank-choice-card i{flex:0 0 auto}
+
+/* BLUP bank picker: compact trigger with an expandable selection panel. */
+.bank-dropdown{position:relative;width:100%}
+.bank-dropdown-trigger{width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 13px;border:1px solid rgba(115,169,198,.3);border-radius:12px;background:rgba(9,21,35,.94);color:#edf7ff;text-align:left;cursor:pointer}
+.bank-dropdown-current{display:flex;align-items:center;gap:11px;min-width:0}
+.bank-dropdown-current img,.bank-dropdown-option img{width:30px;height:30px;flex:0 0 30px;object-fit:contain;border-radius:8px;background:#fff;padding:3px}
+.bank-dropdown-current b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-dropdown-arrow{width:8px;height:8px;flex:0 0 8px;border-right:2px solid #65dcd2;border-bottom:2px solid #65dcd2;transform:rotate(45deg) translateY(-2px);transition:transform .18s}
+.bank-dropdown.is-open .bank-dropdown-arrow{transform:rotate(225deg) translate(-2px,-1px)}
+.bank-dropdown-menu{display:none;position:absolute;left:0;right:0;top:calc(100% + 7px);z-index:55;max-height:270px;overflow:auto;padding:6px;border:1px solid rgba(115,169,198,.3);border-radius:13px;background:#091522;box-shadow:0 18px 42px #000b}
+.bank-dropdown.is-open .bank-dropdown-menu{display:block}
+.bank-dropdown-option{width:100%;display:flex;align-items:center;gap:11px;padding:8px 10px;border:0;border-radius:9px;background:transparent;color:#edf7ff;text-align:left;cursor:pointer}
+.bank-dropdown-option:hover,.bank-dropdown-option.is-selected{background:rgba(36,201,236,.13)}
+.bank-dropdown-option span{flex:1;font-size:13px;font-weight:700}
+.bank-dropdown-option i{visibility:hidden;color:#58e5bd;font-style:normal;font-weight:900}
+.bank-dropdown-option.is-selected i{visibility:visible}
