@@ -86,7 +86,7 @@ app.use('/api', (req, res, next) => {
 });
 
 app.get('/api/status', (req, res) => getSetting('stopped', '0', (e, stopped) => res.json({ stopped: stopped === '1' && req.session.isAdmin !== true })));
-app.get('/api/config', (req, res) => { db.all('SELECT key,value FROM settings WHERE key IN (\'usdt_rate\',\'gram_rate\',\'reserve_total\',\'reserve_available\',\'banks\')', [], (err, rows) => { if (err) return res.status(500).json({ error: 'Ошибка' }); const s = Object.fromEntries(rows.map(x => [x.key, x.value])); let banks = []; try { banks = JSON.parse(s.banks || '[]'); } catch {} res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks, wallets: BLUP_WALLETS }); }); });
+app.get('/api/config', (req, res) => { db.all('SELECT key,value FROM settings WHERE key IN (\'usdt_rate\',\'gram_rate\',\'reserve_total\',\'reserve_available\',\'banks\')', [], (err, rows) => { if (err) return res.status(500).json({ error: 'Ошибка' }); const s = Object.fromEntries(rows.map(x => [x.key, x.value])); let banks = []; try { banks = JSON.parse(s.banks || '[]'); } catch {} banks = [...new Set((Array.isArray(banks) ? banks : []).flatMap(x => String(x || '').split(/\\n|\r?\n/).map(v => v.trim()).filter(Boolean)))]; res.json({ usdtRate: Number(s.usdt_rate || 0), gramRate: Number(s.gram_rate || 0), reserveTotal: Number(s.reserve_total || 0), reserveAvailable: Number(s.reserve_available || 0), banks, wallets: BLUP_WALLETS }); }); });
 app.get('/api/auth/telegram/config', (req, res) => { const token = process.env.TELEGRAM_LOGIN_BOT_TOKEN || process.env.REGISTER_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN; if (!token) return res.status(503).json({ error: 'Telegram Login не настроен: задайте TELEGRAM_LOGIN_BOT_TOKEN' }); const botId = token.split(':')[0]; if (!/^\d+$/.test(botId || '')) return res.status(503).json({ error: 'Некорректный токен Telegram Login' }); res.json({ botId, botUsername: (process.env.TELEGRAM_LOGIN_BOT_USERNAME || '').replace(/^@/, '') }); });
 
 app.post('/api/register', (req, res) => {
@@ -394,6 +394,16 @@ app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
 });
 app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => { db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => res.json({ ok: true })); });
 app.delete('/api/admin/visits', adminOnly, (req, res) => { db.run('DELETE FROM visits', function(err) { res.json({ ok: true, deleted: this.changes }); }); });
+app.delete('/api/admin/access-log', adminOnly, (req, res) => {
+  db.run('DELETE FROM visits', function(err) {
+    if (err) return res.status(500).json({ error: 'Не удалось очистить журнал входов' });
+    const deletedVisits = this.changes || 0;
+    db.run('UPDATE users SET last_ip=NULL, last_seen=NULL', function(updateErr) {
+      if (updateErr) return res.status(500).json({ error: 'Журнал очищен частично' });
+      res.json({ ok: true, deleted: deletedVisits, resetAccounts: this.changes || 0 });
+    });
+  });
+});
 app.delete('/api/admin/sales', adminOnly, (req, res) => { db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) { res.json({ ok: true, deleted: this.changes }); }); });
 app.delete('/api/admin/sales/:id', adminOnly, (req,res) => db.run("DELETE FROM sales WHERE id=? AND operation_type='sell' AND status='rejected'", [Number(req.params.id)], function(err){ if(err)return res.status(500).json({error:'Ошибка'}); if(!this.changes)return res.status(409).json({error:'Удалять можно только отменённые заявки'}); res.json({ok:true}); }));
 
@@ -486,7 +496,7 @@ app.get('/api/admin/referrals', adminOnly, (req, res) => {
 });
 
 app.get('/api/reviews', (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC LIMIT 50', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
-app.get('/api/reviews/summary', (req,res) => db.get('SELECT COALESCE(SUM(sale_amount),0) AS total, COUNT(*) AS count FROM reviews', [], (e,row) => e ? res.status(500).json({error:'Ошибка подсчёта продаж'}) : res.json({total:Number(row?.total||0),count:Number(row?.count||0)})));
+app.get('/api/reviews/total', (req,res) => db.get('SELECT COALESCE(SUM(sale_amount),0) AS total, COUNT(*) AS count FROM reviews', [], (e,row) => e ? res.status(500).json({error:'Ошибка подсчёта продаж'}) : res.json({total:Number(row?.total||0),count:Number(row?.count||0)})));
 app.get('/api/admin/reviews', adminOnly, (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
 app.post('/api/admin/reviews', adminOnly, (req,res) => {
   const uid=String(req.body?.userId||'').trim().slice(0,40);
