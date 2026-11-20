@@ -394,6 +394,16 @@ app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
 });
 app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => { db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => res.json({ ok: true })); });
 app.delete('/api/admin/visits', adminOnly, (req, res) => { db.run('DELETE FROM visits', function(err) { res.json({ ok: true, deleted: this.changes }); }); });
+app.delete('/api/admin/access-log', adminOnly, (req, res) => {
+  db.run('DELETE FROM visits', function(err) {
+    if (err) return res.status(500).json({ error: 'Не удалось очистить журнал входов' });
+    const deletedVisits = this.changes || 0;
+    db.run('UPDATE users SET last_ip=NULL, last_seen=NULL', function(updateErr) {
+      if (updateErr) return res.status(500).json({ error: 'Журнал очищен частично' });
+      res.json({ ok: true, deleted: deletedVisits, resetAccounts: this.changes || 0 });
+    });
+  });
+});
 app.delete('/api/admin/sales', adminOnly, (req, res) => { db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) { res.json({ ok: true, deleted: this.changes }); }); });
 app.delete('/api/admin/sales/:id', adminOnly, (req,res) => db.run("DELETE FROM sales WHERE id=? AND operation_type='sell' AND status='rejected'", [Number(req.params.id)], function(err){ if(err)return res.status(500).json({error:'Ошибка'}); if(!this.changes)return res.status(409).json({error:'Удалять можно только отменённые заявки'}); res.json({ok:true}); }));
 
