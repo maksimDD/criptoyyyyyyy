@@ -54,6 +54,9 @@ async function refreshConfig(){
     if(usdtRateDisplay)usdtRateDisplay.textContent=c.usdtRate>0?`${money(c.usdtRate)} ₽`:'не задан';
     if(gramRateDisplay)gramRateDisplay.textContent=c.gramRate>0?`${money(c.gramRate)} ₽`:'не задан';
     window.blupBanks=c.banks||[];window.blupWallets=c.wallets||{};window.blupRates={USDT:c.usdtRate,GRAM:c.gramRate};
+    const heroUsdt=$('#heroUsdtRate'),heroTon=$('#heroTonRate');
+    if(heroUsdt)heroUsdt.textContent=c.usdtRate>0?`${money(c.usdtRate)} ₽`:'не задан';
+    if(heroTon)heroTon.textContent=c.gramRate>0?`${money(c.gramRate)} ₽`:'не задан';
   }catch{}
 }
 refreshUser();refreshConfig();
@@ -70,30 +73,10 @@ refreshMaintenance();
 setInterval(refreshMaintenance,10000);
 setInterval(refreshUser,15000);
 
-// Интерактивная 3D-карта BLUP.
-(function enableCardDrag(){
- const card=document.querySelector('.glass-card');
- if(!card)return;
- let active=false,startX=0,startY=0,rotX=13,rotY=-28,baseX=0,baseY=0;
- card.style.touchAction='none';
- card.setAttribute('role','img');
- card.setAttribute('aria-label','Интерактивная 3D-карта BLUP.');
- card.addEventListener('pointerdown',e=>{
-   active=true;startX=e.clientX;startY=e.clientY;baseX=rotY;baseY=rotX;
-   card.classList.add('is-dragging');card.style.animation='none';
-   card.style.cursor='grabbing';card.setPointerCapture?.(e.pointerId);e.preventDefault();
- });
- card.addEventListener('pointermove',e=>{if(!active)return;
-   rotY=baseX+(e.clientX-startX)*.72;rotX=Math.max(-65,Math.min(65,baseY-(e.clientY-startY)*.62));
-   card.style.transform=`rotateY(${rotY}deg) rotateX(${rotX}deg) rotateZ(-3deg) translateZ(28px)`;
- });
- const release=()=>{if(!active)return;active=false;card.style.cursor='grab';card.classList.remove('is-dragging');
-   // После ручного вращения возвращаем плавное автономное движение.
-   window.setTimeout(()=>{if(!active){card.style.removeProperty('animation');card.style.removeProperty('transform');}},1800);
- };
- card.addEventListener('pointerup',release);card.addEventListener('pointercancel',release);
- card.addEventListener('lostpointercapture',release);
- card.style.cursor='grab';
+// Используем фото Vice City вместо интерактивной 3D-карты.
+(function animateHeroArtwork(){
+ const art=document.querySelector('.hero-photo-animated');
+ if(art)art.style.willChange='transform,filter';
 })();
 
 // ==========================================
@@ -102,9 +85,10 @@ setInterval(refreshUser,15000);
 let operationType='sell';
 const operationFields=$('#operationFields');
 function labelInput(label,name,placeholder,type='text',full=false,required=true){return `<label class="${full?'full':''}">${label}<input name="${name}" type="${type}" placeholder="${placeholder}" ${required?'required':''} ${type==='number'?'min="0.01" step="0.01"':''}></label>`;}
-function labelSelect(label,name,options,full=false){return `<label class="${full?'full':''}">${label}<select name="${name}" required>${options.map((x,i)=>`<option value="${escapeHtml(x.value)}" ${i===0?'selected':''}>${escapeHtml(x.label)}</option>`).join('')}</select></label>`;}
-function bankOptions(){const banks=window.blupBanks?.length?window.blupBanks:['Сбербанк','Т-Банк','ВТБ','Альфа-Банк','Газпромбанк'];return banks.map(b=>({value:b,label:`${bankIcon(b)}  ${b}`}));}
-function bankIcon(name){const n=name.toLowerCase();if(n.includes('сбер'))return '🟢';if(n.includes('т-')||n.includes('тинь'))return '🟡';if(n.includes('втб'))return '🔵';if(n.includes('альфа'))return '🔴';if(n.includes('газпром'))return '💠';if(n.includes('озон'))return '🟣';return '🏦';}
+function labelSelect(label,name,options,full=false){return `<label class="${full?'full':''}">${label}<select name="${name}" required>${options.map((x,i)=>`<option value="${escapeHtml(x.value)}" ${x.icon?`data-icon="${escapeHtml(x.icon)}" data-fallback="${escapeHtml(x.fallback||'')}"`:''} ${i===0?'selected':''}>${escapeHtml(x.label)}</option>`).join('')}</select></label>`;}
+function bankOptions(){const banks=window.blupBanks?.length?window.blupBanks:["Сбербанк","ВТБ","Газпромбанк","Альфа-Банк","Россельхозбанк","Т-Банк","Московский кредитный банк","Райффайзенбанк","ОТП Банк","Дом.РФ","Совкомбанк","МТС Банк","Ozon Банк","Яндекс Банк"];return banks.map(b=>({value:b,label:b,icon:bankLogo(b),fallback:bankLocalLogo(b)}));}
+function bankLogo(name){const n=name.toLowerCase();let domain='';if(n.includes('сбер'))domain='sberbank.ru';else if(n.includes('втб'))domain='vtb.ru';else if(n.includes('газпром'))domain='gazprombank.ru';else if(n.includes('альфа'))domain='alfabank.ru';else if(n.includes('россель'))domain='rshb.ru';else if(n.includes('т-')||n.includes('тинь'))domain='tbank.ru';else if(n.includes('московский'))domain='mkb.ru';else if(n.includes('райфф'))domain='raiffeisen.ru';else if(n.includes('отп'))domain='otpbank.ru';else if(n.includes('дом.рф'))domain='domrfbank.ru';else if(n.includes('совком'))domain='sovcombank.ru';else if(n.includes('мтс'))domain='mtsbank.ru';else if(n.includes('озон'))domain='ozon.ru';else if(n.includes('яндекс'))domain='bank.yandex.ru';return domain?`https://www.google.com/s2/favicons?domain=${domain}&sz=64`:'';}
+function bankLocalLogo(name){const n=name.toLowerCase();if(n.includes('сбер'))return '/assets/banks/sberbank.svg';if(n.includes('втб'))return '/assets/banks/vtb.svg';if(n.includes('газпром'))return '/assets/banks/gazprombank.svg';if(n.includes('альфа'))return '/assets/banks/alfabank.svg';if(n.includes('россель'))return '/assets/banks/rshb.svg';if(n.includes('т-')||n.includes('тинь'))return '/assets/banks/tbank.svg';if(n.includes('московский'))return '/assets/banks/mkb.svg';if(n.includes('райфф'))return '/assets/banks/raiffeisen.svg';if(n.includes('отп'))return '/assets/banks/otp.svg';if(n.includes('дом.рф'))return '/assets/banks/domrf.svg';if(n.includes('совком'))return '/assets/banks/sovcombank.svg';if(n.includes('мтс'))return '/assets/banks/mtsbank.svg';if(n.includes('озон'))return '/assets/banks/ozon.svg';if(n.includes('яндекс'))return '/assets/banks/yandex.svg';return '';}
 function walletFor(coin,network){return window.blupWallets?.[coin]?.[network]||'';}
 function walletPanel(coin,network){const address=walletFor(coin,network);return `<div class="wallet-panel full"><span>КОШЕЛЁК BLUP · ${escapeHtml(network)}</span><b>${escapeHtml(address||'Адрес не найден')}</b><button type="button" class="copy-wallet" data-copy-wallet="${escapeHtml(address)}">Копировать адрес</button></div>`;}
 
@@ -308,4 +292,14 @@ if (authForm) {
   });
 }
 
-(async function(){const root=document.getElementById('publicReviews');if(!root)return;try{const r=await fetch('/api/reviews');const rows=await r.json();const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));root.innerHTML=rows.map(x=>`<article class="review-card"><div class="review-card-top"><b>${safe(x.username)}</b><span class="review-stars">${'★'.repeat(x.stars)}${'☆'.repeat(5-x.stars)}</span></div><div class="review-sale">Продал на ${Number(x.sale_amount).toLocaleString('ru-RU')} ₽</div><p>${safe(x.review_text)}</p><small>${new Date(x.created_at).toLocaleDateString('ru-RU')}</small></article>`).join('')||'<p class="reviews-empty">Пока отзывов нет.</p>';}catch{root.innerHTML='<p>Не удалось загрузить отзывы.</p>';}})();;
+(async function(){const root=document.getElementById('publicReviews');if(!root)return;try{const r=await fetch('/api/reviews');const rows=await r.json();const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));root.innerHTML=rows.map(x=>`<article class="review-card"><div class="review-card-top"><b>${safe(x.username)}</b><span class="review-stars">${'★'.repeat(x.stars)}${'☆'.repeat(5-x.stars)}</span></div><div class="review-sale">Продал на ${Number(x.sale_amount).toLocaleString('ru-RU')} ₽</div><p>${safe(x.review_text)}</p><small>${new Date(x.created_at).toLocaleDateString('ru-RU')}</small></article>`).join('')||'<p class="reviews-empty">Пока отзывов нет.</p>';}catch{root.innerHTML='<p>Не удалось загрузить отзывы.</p>';}})();;// Выдвижная панель курсов USDT и TON.
+(function setupHeroRates(){
+ const toggle=$('#heroRateToggle'),panel=$('#heroRatePanel');
+ if(!toggle||!panel)return;
+ const close=()=>{panel.hidden=true;toggle.setAttribute('aria-expanded','false');};
+ toggle.addEventListener('click',()=>{const open=panel.hidden;panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));});
+ document.addEventListener('click',e=>{if(!e.target.closest('#heroRateWidget'))close();});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+})();
+
+
