@@ -48,13 +48,7 @@ async function load(){
     f.gramRate.value=s.gram_rate||0;
     f.reserveTotal.value=s.reserve_total||0;
     f.reserveAvailable.value=s.reserve_available||0;
-    try{
-      const saved=JSON.parse(s.banks||'[]');
-      const cleaned=(Array.isArray(saved)?saved:[saved]).flatMap(x=>String(x??'').replace(/\\[tnr]/g,'\n').replace(/[\t;,|]/g,'\n').split(/\r?\n/)).map(x=>x.trim()).filter(Boolean);
-      const preferred=['Сбербанк','ВТБ','Газпромбанк','Альфа-Банк','Россельхозбанк','Т-Банк','Московский кредитный банк','Райффайзенбанк','ОТП Банк','Дом.РФ','Совкомбанк','МТС Банк','Ozon Банк','Яндекс Банк'];
-      const normalized=preferred.filter(name=>cleaned.some(x=>x.toLowerCase().replace(/ё/g,'е').includes(name.toLowerCase().replace(/ё/g,'е'))));
-      f.banks.value=(normalized.length?normalized:preferred).join('\n');
-    }catch{f.banks.value='Сбербанк\nВТБ\nГазпромбанк\nАльфа-Банк\nРоссельхозбанк\nТ-Банк\nМосковский кредитный банк\nРайффайзенбанк\nОТП Банк\nДом.РФ\nСовкомбанк\nМТС Банк\nOzon Банк\nЯндекс Банк'}
+    try{const saved=JSON.parse(s.banks||'[]');f.banks.value=([...new Set([...["Сбербанк", "ВТБ", "Газпромбанк", "Альфа-Банк", "Россельхозбанк", "Т-Банк", "Московский кредитный банк", "Райффайзенбанк", "ОТП Банк", "Дом.РФ", "Совкомбанк", "МТС Банк", "Ozon Банк", "Яндекс Банк"],...saved])]).join('\n')}catch{f.banks.value="Сбербанк\nВТБ\nГазпромбанк\nАльфа-Банк\nРоссельхозбанк\nТ-Банк\nМосковский кредитный банк\nРайффайзенбанк\nОТП Банк\nДом.РФ\nСовкомбанк\nМТС Банк\nOzon Банк\nЯндекс Банк"}
     
     const maintenance=$('#maintenanceToggle');
     if(maintenance)maintenance.checked=s.stopped==='1';
@@ -72,7 +66,6 @@ async function load(){
         <td><span class="status-pill ${u.is_banned?'banned':''}">${u.is_banned?'Заблокирован':'Активен'}</span></td>
         <td style="display:flex;gap:4px;">
           <button class="table-action ${u.is_banned?'':'danger'}" data-user="${u.id}" data-banned="${u.is_banned?0:1}">${u.is_banned?'Разблок.':'Блок'}</button>
-          <button class="table-action danger" data-del-user="${u.id}" title="Удалить" style="background:#731f31;">✕</button>
         </td>
       </tr>
     `).join(''):'<tr><td colspan="5" class="empty-cell">Пользователей пока нет</td></tr>';
@@ -184,16 +177,6 @@ document.addEventListener('click',async e=>{
     }catch(err){toast(err.message);}
   }
 
-  const delBtn = e.target.closest('[data-del-user]');
-  if (delBtn) {
-    if (!confirm('Удалить этот аккаунт навсегда? Все его заявки останутся в базе, но доступ будет потерян.')) return;
-    try {
-      await api(`/api/admin/users/${delBtn.dataset.delUser}`, { method: 'DELETE' });
-      toast('Аккаунт удален');
-      load();
-    } catch (err) { toast(err.message); }
-  }
-
   const b=e.target.closest('[data-unban]');
   if(b){
     try{
@@ -225,6 +208,30 @@ function makeCollapsible(selector, label) {
 makeCollapsible('section:has(#usersTable)', 'Аккаунты и доступ');
 makeCollapsible('section:has(#salesTable)', 'Поток заявок');
 makeCollapsible('section:has(#visitsTable)', 'История входов');
+document.querySelectorAll('#adminDashboard .admin-card').forEach((card,i)=>{
+ const head=card.querySelector(':scope > .admin-card-head');
+ if(head&&head.querySelector('.collapse-section-btn'))return;
+ const btn=document.createElement('button');btn.type='button';btn.className='btn btn-ghost btn-small collapse-section-btn';btn.textContent='Свернуть';btn.setAttribute('aria-expanded','true');
+ btn.addEventListener('click',()=>{const c=card.classList.toggle('section-collapsed');btn.textContent=c?'Развернуть':'Свернуть';btn.setAttribute('aria-expanded',String(!c));});
+ if(head)head.appendChild(btn);else card.insertBefore(btn,card.firstChild);
+});
+
+// Глобальное управление сворачиванием всех панелей админки.
+function toggleAllAdminPanels(collapsed){
+ document.querySelectorAll('#adminDashboard .admin-card').forEach(card=>{
+   const head=card.querySelector('.admin-card-head');
+   card.classList.toggle('section-collapsed',collapsed);
+   const btn=card.querySelector('.collapse-section-btn,.panel-collapse-btn');
+   if(btn){btn.textContent=collapsed?'Развернуть':'Свернуть';btn.setAttribute('aria-expanded',String(!collapsed));}
+ });
+}
+$('#adminCollapseAll')?.addEventListener('click',()=>toggleAllAdminPanels(true));
+$('#adminExpandAll')?.addEventListener('click',()=>toggleAllAdminPanels(false));
+$('#clearAccessData')?.addEventListener('click',async()=>{
+ if(!confirm('Очистить журнал входов и последние IP/активность? Аккаунты, пароли и заявки останутся без изменений.'))return;
+ try{const d=await api('/api/admin/access-log',{method:'DELETE'});toast(`Очищено записей доступа: ${d.deleted||0}`);load();}
+ catch(e){toast(e.message);}
+});
 
 check();
 
