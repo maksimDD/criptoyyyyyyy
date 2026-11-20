@@ -394,16 +394,6 @@ app.post('/api/admin/ip-ban', adminOnly, (req, res) => {
 });
 app.delete('/api/admin/ip-ban/:ip', adminOnly, (req, res) => { db.run('DELETE FROM ip_bans WHERE ip=?', [req.params.ip], err => res.json({ ok: true })); });
 app.delete('/api/admin/visits', adminOnly, (req, res) => { db.run('DELETE FROM visits', function(err) { res.json({ ok: true, deleted: this.changes }); }); });
-app.delete('/api/admin/access-log', adminOnly, (req, res) => {
-  db.run('DELETE FROM visits', function(err) {
-    if (err) return res.status(500).json({ error: 'Не удалось очистить журнал входов' });
-    const deletedVisits = this.changes || 0;
-    db.run('UPDATE users SET last_ip=NULL, last_seen=NULL', function(updateErr) {
-      if (updateErr) return res.status(500).json({ error: 'Журнал очищен частично' });
-      res.json({ ok: true, deleted: deletedVisits, resetAccounts: this.changes || 0 });
-    });
-  });
-});
 app.delete('/api/admin/sales', adminOnly, (req, res) => { db.run("DELETE FROM sales WHERE operation_type='sell' AND status IN ('completed','rejected')", function(err) { res.json({ ok: true, deleted: this.changes }); }); });
 app.delete('/api/admin/sales/:id', adminOnly, (req,res) => db.run("DELETE FROM sales WHERE id=? AND operation_type='sell' AND status='rejected'", [Number(req.params.id)], function(err){ if(err)return res.status(500).json({error:'Ошибка'}); if(!this.changes)return res.status(409).json({error:'Удалять можно только отменённые заявки'}); res.json({ok:true}); }));
 
@@ -496,6 +486,7 @@ app.get('/api/admin/referrals', adminOnly, (req, res) => {
 });
 
 app.get('/api/reviews', (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC LIMIT 50', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
+app.get('/api/reviews/summary', (req,res) => db.get('SELECT COALESCE(SUM(sale_amount),0) AS total, COUNT(*) AS count FROM reviews', [], (e,row) => e ? res.status(500).json({error:'Ошибка подсчёта продаж'}) : res.json({total:Number(row?.total||0),count:Number(row?.count||0)})));
 app.get('/api/admin/reviews', adminOnly, (req,res) => db.all('SELECT * FROM reviews ORDER BY id DESC', [], (e,rows) => e ? res.status(500).json({error:'Ошибка загрузки отзывов'}) : res.json(rows || [])));
 app.post('/api/admin/reviews', adminOnly, (req,res) => {
   const uid=String(req.body?.userId||'').trim().slice(0,40);
